@@ -905,7 +905,9 @@ Module docstring: `share_factor/company_share/fundamental/company_share_fundamen
 | `CompanyShareFundamentalLeverageFactor` | debt_to_equity, net_debt_to_ebitda |
 | `CompanyShareFundamentalGrowthFactor` | `<metric>_growth` (1 period), `_growth_yoy` (1q: 4 quarters), `_growth_ttm` (1q flows) for revenue, gross_profit, ebit, ebitda, operating_income, net_income, eps (diluted), free_cash_flow, operating_cash_flow, total_assets, total_equity, total_debt |
 | `CompanyShareFundamentalValuationFactor` | earnings_yield, fcf_yield (with the daily close) |
+| `CompanyShareFundamentalStatementItemFactor` | statement totals from their components (`IDENTITIES`): free_cash_flow (OCF + capex), net_debt, gross_profit, cost_and_expenses, cash_and_short_term_investments, goodwill_and_intangible_assets, net_change_in_cash - the provider's own total stays a separate raw series |
 
   No value on a missing input or a non-positive denominator / growth base. Statement dependencies read
-  `STATEMENT_SOURCES` (`fmp`) only. ORM identities `company_share_fundamental_<kind>_factor`; library
+  `STATEMENT_SOURCES` (`fmp`) only. Dependencies are `DependencySpec`s (fiscal-period windows), not stored
+  `FactorDependency` rows (those are calendar lags read from stored values only). ORM identities `company_share_fundamental_<kind>_factor`; library
   `company_share_fundamental_library` (keys `<subgroup>.<name>.<frequency>`). Tests: `tests/fmp/`.

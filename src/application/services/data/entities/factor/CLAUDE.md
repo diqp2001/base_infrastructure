@@ -50,6 +50,16 @@ def calculate_dependencies(self) -> List[str]:
    no declared dependencies is reached.
 4. **Store result** — `dependency_values[dep_name] = resolved_value`
 
+### Raw values from data providers (IBKR, FMP, ...)
+
+A raw value that is not stored is asked from the factory's repository families in order (`local`, then the
+providers): `factory.provider_family_enabled(family, factor.source)` says whether to ask a family and
+`factory.factor_value_provider(family)` returns its `FactorValueProviderPort`
+(`fetch_factor_value(factor_entity, entity, time_date)`). The service never names a provider; which series a
+provider serves is its own rule (IBKR: bars; FMP: `fmp` fundamental series, off until
+`create_fmp_repositories()`). Point-in-time series (`Factor.point_in_time_policy`, the financial statements) are read
+as of the decision time: the latest value stamped at or before it (stamp = publication), within max_age.
+
 ### Branch B — no `calculate_dependencies` (Source 1)
 
 Used when a factor's value is derived from **related entity data** (positions,

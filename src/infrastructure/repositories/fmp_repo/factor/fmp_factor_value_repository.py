@@ -7,7 +7,7 @@ series (group 'fundamental', subgroup = statement, frequency 1q | 1y, source 'fm
 values stamped at the filing's publication (StatementRecord.available_at), stored through the local
 FactorValueRepository (add_bulk: a value already stored is kept, never overwritten).
 
-FactorValueResolutionService calls _fetch_factor_value_from_fmp for a raw 'fmp' series with no value known at the
+FactorValueResolutionService calls fetch_factor_value (FactorValueProviderPort) for a raw 'fmp' series with no value known at the
 decision time (family 'fmp', see RepositoryFactory.create_fmp_repositories): the statement's whole history at that
 frequency is loaded once per (share, statement, frequency) and session, then the value is read as of the decision
 time (Factor.point_in_time_policy) - a statement published after the decision time is never returned.
@@ -20,6 +20,7 @@ from datetime import date, datetime
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from src.domain.entities.factor.factor_value import FactorValue
+from src.domain.ports.factor.factor_value_provider_port import FactorValueProviderPort
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_factor import (
     CompanyShareFactor,
 )
@@ -36,9 +37,10 @@ logger = logging.getLogger(__name__)
 
 SOURCE = "fmp"
 FREQUENCY_LABEL = {QUARTERLY: "quarterly", ANNUAL: "annual"}
+SHARE_COUNT_FIELDS = frozenset({"weightedAverageShsOut", "weightedAverageShsOutDil"})   # not amounts
 
 
-class FMPFactorValueRepository(BaseFMPRepository):
+class FMPFactorValueRepository(BaseFMPRepository, FactorValueProviderPort):
     """Stores FMP financial statements as raw fundamental factor values and serves them as of a decision time."""
 
     def __init__(self, fmp_client, factory=None, limit: Optional[int] = None):
@@ -47,6 +49,7 @@ class FMPFactorValueRepository(BaseFMPRepository):
                            for s, cls in STATEMENT_REPOSITORIES.items()}
         self._loaded: Dict[Tuple[int, str, str], int] = {}     # (entity id, statement, frequency) -> values stored
         self._factors: Dict[Tuple[str, str, str], CompanyShareFactor] = {}
+        self._currencies: Dict[str, Optional[int]] = {}
 
     # -- raw series --
     def raw_factor(self, statement: str, frequency: str, name: str) -> Optional[CompanyShareFactor]:
@@ -63,19 +66,37 @@ class FMPFactorValueRepository(BaseFMPRepository):
             self._factors[key] = factor
         return self._factors[key]
 
+    def currency_id(self, iso_code: Optional[str]) -> Optional[int]:
+        """The stored Currency of a reported currency code, or None (logged once: not created here - a currency
+        needs its country)."""
+        if not iso_code:
+            return None
+        if iso_code not in self._currencies:
+            repo = self.factory.get_local_repository("Currency")
+            currency = repo.get_by_iso_code(iso_code) if repo is not None and hasattr(repo, "get_by_iso_code") else None
+            self._currencies[iso_code] = getattr(currency, "id", None)
+            if currency is None:
+                logger.warning(f"FMP: reported currency {iso_code} is not a stored Currency - its values keep the "
+                               f"share's currency id; the 'reportedCurrency' series has the reported one")
+        return self._currencies[iso_code]
+
     def factor_values(self, entity, records: Iterable[StatementRecord]) -> List[FactorValue]:
-        """One value per (record, field), stamped at the record's publication; missing fields are not stored."""
+        """One value per (record, field), stamped at the record's publication; missing fields are not stored.
+        Amounts carry the reported currency (FactorValue.currency_id); share counts and the filing's data do not."""
         entity_type = type(entity).__name__.removesuffix("Model")
         rows = []
         for record in records:
-            items = [(n, v) for n, v in record.metadata().items() if v is not None]
-            items += [(n, repr(float(v))) for n, v in record.values.items() if v is not None]
-            for name, value in items:
+            currency_id = self.currency_id(record.reported_currency)
+            items = [(n, v, None) for n, v in record.metadata().items() if v is not None]
+            items += [(n, repr(float(v)), None if n in SHARE_COUNT_FIELDS else currency_id)
+                      for n, v in record.values.items() if v is not None]
+            for name, value, value_currency in items:
                 factor = self.raw_factor(record.statement, record.frequency, name)
                 if factor is None:
                     continue
                 rows.append(FactorValue(id=None, factor_id=factor.id, entity=None, entity_id=entity.id,
-                                        entity_type=entity_type, date=record.available_at, value=value))
+                                        entity_type=entity_type, date=record.available_at, value=value,
+                                        currency_id=value_currency))
         return rows
 
     def store(self, entity, records: Iterable[StatementRecord]) -> int:
@@ -109,9 +130,11 @@ class FMPFactorValueRepository(BaseFMPRepository):
                 for s in (statements or self.statements) for f in frequencies}
 
     # -- the resolution service's provider hook --
-    def _fetch_factor_value_from_fmp(self, factor_entity, entity=None, time_date=None, **kwargs) -> Optional[FactorValue]:
-        """The value of a raw FMP series known at time_date, loading the statement first when needed."""
-        if entity is None or getattr(factor_entity, "group", None) != GROUP:
+    def fetch_factor_value(self, factor_entity, entity, time_date, **kwargs) -> Optional[FactorValue]:
+        """FactorValueProviderPort: the value of a raw FMP series known at time_date, loading the statement first
+        when needed. Serves source 'fmp' fundamental series only (None for any other series)."""
+        if (entity is None or getattr(factor_entity, "source", None) != SOURCE
+                or getattr(factor_entity, "group", None) != GROUP):
             return None
         statement, frequency = getattr(factor_entity, "subgroup", None), getattr(factor_entity, "frequency", None)
         if statement not in self.statements or frequency not in PERIOD_REQUESTS:

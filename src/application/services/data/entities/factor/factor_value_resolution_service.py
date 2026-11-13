@@ -414,6 +414,20 @@ class FactorValueResolutionService:
         self._bar_offset_cache[factor_id] = offset
         return offset
 
+    def _provider(self, family: str):
+        """The data provider of a repository family (FactorValueProviderPort), or None for 'local' / unknown."""
+        if family == 'local' or not self.factory or not hasattr(self.factory, 'factor_value_provider'):
+            return None
+        return self.factory.factor_value_provider(family)
+
+    def _family_enabled(self, family: str, is_available: bool, factor_source: Optional[str]) -> bool:
+        """Whether a repository family may be asked for a missing raw value (the factory's rule for providers)."""
+        if family == 'local':
+            return bool(is_available)
+        if self.factory is not None and hasattr(self.factory, 'provider_family_enabled'):
+            return bool(self.factory.provider_family_enabled(family, factor_source))
+        return bool(is_available)
+
     def _get_point_in_time_policy(self, factor_id: int) -> Optional[dict]:
         """Point-in-time policy of a raw series (see Factor.point_in_time_policy), None for the other factors."""
         if factor_id in self._point_in_time_cache:
@@ -800,15 +814,10 @@ class FactorValueResolutionService:
                 )
                 return None
 
-            elif repository_type == "ibkr":
-                # IBKR repo strategy: Try to fetch from IBKR, then flag error if not found
-                self.logger.info(f"Attempting to fetch missing dependency factor {factor_id} from IBKR")
-
-                # Get the IBKR repository
-                ibkr_repo = getattr(self.factory, 'factor_value_ibkr_repo', None)
-                if not ibkr_repo:
-                    self.logger.error("IBKR repository not available for dependency resolution")
-                    return None
+            elif self._provider(repository_type) is not None:
+                # a provider family (e.g. "ibkr"): fetch from it, then flag an error if not found
+                self.logger.info(f"Attempting to fetch missing dependency factor {factor_id} from {repository_type}")
+                provider = self._provider(repository_type)
 
                 # Get the factor entity
                 factor_repo = getattr(self.factory, 'factor_local_repo', None)
@@ -821,21 +830,13 @@ class FactorValueResolutionService:
                     self.logger.error(f"Factor entity {factor_id} not found")
                     return None
 
-                # Try to fetch from IBKR using the IBKR-specific method
-                if hasattr(ibkr_repo, '_fetch_factor_value_from_ibkr'):
-                    fetched_value = ibkr_repo._fetch_factor_value_from_ibkr(
-                        factor_entity=factor_entity,
-                        entity=entity,
-                        time_date=date_str,
-                        entity_symbol=getattr(entity, 'symbol', '')
-                    )
+                fetched_value = provider.fetch_factor_value(factor_entity=factor_entity, entity=entity,
+                                                            time_date=date_str)
+                if fetched_value:
+                    self.logger.info(f"Successfully fetched dependency factor {factor_id} from {repository_type}")
+                    return fetched_value
 
-                    if fetched_value:
-                        self.logger.info(f"Successfully fetched dependency factor {factor_id} from IBKR")
-                        return fetched_value
-
-                # If IBKR fetch failed, flag error
-                self.logger.error(f"IBKR repository could not fetch dependency factor {factor_id}")
+                self.logger.error(f"{repository_type} repository could not fetch dependency factor {factor_id}")
                 return None
 
             else:
@@ -1578,10 +1579,7 @@ class FactorValueResolutionService:
             factor_source = getattr(factor_entity, 'source', None)
 
             for family, is_available in available_families.items():
-                # Always attempt ibkr when the factor's own source is 'ibkr',
-                # even if _available_repository_families marks it as unavailable.
-                force = (family == 'ibkr' and factor_source == 'ibkr')
-                if not is_available and not force:
+                if not self._family_enabled(family, is_available, factor_source):
                     continue
 
                 if family == 'local':
@@ -1595,30 +1593,17 @@ class FactorValueResolutionService:
                         if result.value is not None and result.value != 'None':
                             return result
 
-                elif family == 'ibkr':
-                    factor_value_ibkr_repo = self.factory._create_or_get_ibkr_repo('factor_value_ibkr_repo')
-                    if factor_value_ibkr_repo and hasattr(factor_value_ibkr_repo, '_fetch_factor_value_from_ibkr') and entity is not None:
-                        fetched_value = factor_value_ibkr_repo._fetch_factor_value_from_ibkr(
-                            factor_entity=factor_entity,
-                            entity=entity,
-                            time_date=target_date,
-                            entity_symbol=getattr(entity, 'symbol', ''),
-                            **kwargs
-                        )
-                        if fetched_value:
-                            return fetched_value
-
-                elif family == 'fmp':
-                    # Financial Modeling Prep: company financial statements (source 'fmp' series only)
-                    fmp_repo = getattr(self.factory, 'factor_value_fmp_repo', None)
-                    if fmp_repo is not None and factor_source == 'fmp' and entity is not None:
-                        fetched_value = fmp_repo._fetch_factor_value_from_fmp(
-                            factor_entity=factor_entity, entity=entity, time_date=target_date)
-                        if fetched_value:
-                            return fetched_value
-
                 else:
-                    self.logger.warning(f"Unknown repository family '{family}' — skipping")
+                    # a data provider (IBKR, FMP, ...) through FactorValueProviderPort: which series it serves is
+                    # the provider's own rule (infrastructure), never decided here
+                    provider = self._provider(family)
+                    if provider is None:
+                        self.logger.warning(f"Unknown repository family '{family}' — skipping")
+                    elif entity is not None:
+                        fetched_value = provider.fetch_factor_value(
+                            factor_entity=factor_entity, entity=entity, time_date=target_date, **kwargs)
+                        if fetched_value:
+                            return fetched_value
 
             self.logger.error(
                 f"No repository family could resolve factor {factor_entity.name} "

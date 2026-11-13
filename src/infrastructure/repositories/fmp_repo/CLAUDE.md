@@ -3,6 +3,13 @@
 The counterpart of `ibkr_repo` for FMP: FMP is requested and normalized here, values are stored through the local
 repositories, and `FactorValueResolutionService` reaches FMP as a repository family (`'fmp'`), like `'ibkr'`.
 
+## One provider port for every data source
+`FactorValueProviderPort.fetch_factor_value(factor_entity, entity, time_date)` (`src/domain/ports/factor/`) is
+implemented by `IBKRFactorValueRepository` and `FMPFactorValueRepository`. The resolver asks
+`RepositoryFactory.factor_value_provider(family)` for a family's provider and `provider_family_enabled(family, source)`
+whether to ask it - it names no provider itself. A provider decides which series it serves (FMP: source `fmp`,
+group `fundamental`). A new data source = a provider repository + those two factory methods, no resolver change.
+
 ```
 fmp_repo/
 ├── fmp_client.py                     FMPClient: /stable GET, key, pacing, errors (FMPAuthenticationError 401/403,
@@ -14,8 +21,8 @@ fmp_repo/
 │                                     StatementRecord (the filing's data + the fields as floats)
 ├── factor/
 │   └── fmp_factor_value_repository.py
-│                                     FMPFactorValueRepository: records -> raw fundamental factor values; the
-│                                     resolution service's hook _fetch_factor_value_from_fmp
+│                                     FMPFactorValueRepository (FactorValueProviderPort): records -> raw
+│                                     fundamental factor values, fetch_factor_value for the resolver
 └── fmp_repository.py                 legacy quote / profile translator (not used by the factor pipeline)
 ```
 
@@ -38,7 +45,15 @@ Raw series: `CompanyShareFactor`, group `fundamental`, subgroup `income_statemen
 frequency `1q | 1y`, source `fmp`, name = the FMP field. Each value is stamped at the filing's acceptance time
 (`acceptedDate`; else the day after `filingDate`), never at the period's end. The filing's data are stored on every
 statement at the same stamp: `date` (period end), `filingDate`, `acceptedDate`, `fiscalYear`, `period`,
-`reportedCurrency`, `cik` (data type string / integer). `add_bulk`: a stored value is never overwritten.
+`reportedCurrency`, `cik` (data type string / integer). Amounts carry the reported currency
+(`FactorValue.currency_id` from `Currency.get_by_iso_code`; a code with no stored Currency keeps the share's currency id,
+logged - the `reportedCurrency` series has the truth). `add_bulk`: a stored value is never overwritten.
+
+## Legacy FMP code (not part of the factor pipeline)
+`src/application/services/api_service/fmp_service/` (`FinancialModelingPrepApiService`: v3 endpoints, HTTP and parsing
+in the application layer; `FmpEquityDataService`) and `fmp_repo/fmp_repository.py` (`FmpRepository`: quotes ->
+share factors) are used by `src/main.py` only. Their scripts (`tests/test_fmp_*.py`) were removed on 2026-05-01. Not
+consolidated with FMPClient yet (owner's decision).
 
 ## Tests
 `tests/fmp/` (fake FMP session, in-memory SQLite): client, statements, factor formulas, end to end.

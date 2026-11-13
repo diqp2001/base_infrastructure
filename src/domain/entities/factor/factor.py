@@ -187,6 +187,7 @@ class Factor(ABC):
         "leverage":            {"label": "Leverage",            "typical_group": "fundamental"},
         "growth":              {"label": "Growth",              "typical_group": "fundamental"},
         "valuation":           {"label": "Valuation",           "typical_group": "fundamental"},
+        "statement_item":      {"label": "Statement item (calculated)", "typical_group": "fundamental"},
         # technical / ML scores
         "signal":         {"label": "Signal",          "typical_group": "technical"},
         "indicator":      {"label": "Indicator",       "typical_group": "technical"},

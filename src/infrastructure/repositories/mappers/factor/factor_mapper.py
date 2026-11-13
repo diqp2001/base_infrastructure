@@ -28,6 +28,7 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.fundamental.company_share_fundamental_leverage_factor import CompanyShareFundamentalLeverageFactor as CompanyShareFundamentalLeverageFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.fundamental.company_share_fundamental_growth_factor import CompanyShareFundamentalGrowthFactor as CompanyShareFundamentalGrowthFactorEntity
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.fundamental.company_share_fundamental_valuation_factor import CompanyShareFundamentalValuationFactor as CompanyShareFundamentalValuationFactorEntity
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.fundamental.company_share_fundamental_statement_item_factor import CompanyShareFundamentalStatementItemFactor as CompanyShareFundamentalStatementItemFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_reverse_premium_factor import ETFShareOptionReversePremiumFactor as ETFShareOptionReversePremiumFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_implied_correlation_factor import ETFShareOptionImpliedCorrelationFactor as ETFShareOptionImpliedCorrelationFactorEntity
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_scenario_payoff_factor import ETFShareOptionScenarioPayoffFactor as ETFShareOptionScenarioPayoffFactorEntity
@@ -326,6 +327,7 @@ DISCRIMINATOR_CLASS_MAP: dict = {
     'company_share_fundamental_leverage_factor': CompanyShareFundamentalLeverageFactorEntity,
     'company_share_fundamental_growth_factor': CompanyShareFundamentalGrowthFactorEntity,
     'company_share_fundamental_valuation_factor': CompanyShareFundamentalValuationFactorEntity,
+    'company_share_fundamental_statement_item_factor': CompanyShareFundamentalStatementItemFactorEntity,
     'etf_share_option_reverse_premium_factor': ETFShareOptionReversePremiumFactorEntity,
     'etf_share_option_implied_correlation_factor': ETFShareOptionImpliedCorrelationFactorEntity,
     'etf_share_option_scenario_payoff_factor': ETFShareOptionScenarioPayoffFactorEntity,
@@ -615,6 +617,8 @@ class FactorMapper:
             return CompanyShareFundamentalGrowthFactorEntity(**base_args)
         elif factor_type == 'company_share_fundamental_valuation_factor':
             return CompanyShareFundamentalValuationFactorEntity(**base_args)
+        elif factor_type == 'company_share_fundamental_statement_item_factor':
+            return CompanyShareFundamentalStatementItemFactorEntity(**base_args)
         elif factor_type == 'etf_share_option_reverse_premium_factor':
             return ETFShareOptionReversePremiumFactorEntity(**base_args)
         elif factor_type == 'etf_share_option_implied_correlation_factor':

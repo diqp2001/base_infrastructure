@@ -26,6 +26,7 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.fundamental.company_share_fundamental_leverage_factor_repository import CompanyShareFundamentalLeverageFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.fundamental.company_share_fundamental_growth_factor_repository import CompanyShareFundamentalGrowthFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.fundamental.company_share_fundamental_valuation_factor_repository import CompanyShareFundamentalValuationFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.share.company_share.fundamental.company_share_fundamental_statement_item_factor_repository import CompanyShareFundamentalStatementItemFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_reverse_premium_factor_repository import ETFShareOptionReversePremiumFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_implied_correlation_factor_repository import ETFShareOptionImpliedCorrelationFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_scenario_payoff_factor_repository import ETFShareOptionScenarioPayoffFactorRepository
@@ -596,6 +597,7 @@ class RepositoryFactory:
                 'CompanyShareFundamentalLeverageFactor': CompanyShareFundamentalLeverageFactorRepository(self.session, factory=self),
                 'CompanyShareFundamentalGrowthFactor': CompanyShareFundamentalGrowthFactorRepository(self.session, factory=self),
                 'CompanyShareFundamentalValuationFactor': CompanyShareFundamentalValuationFactorRepository(self.session, factory=self),
+                'CompanyShareFundamentalStatementItemFactor': CompanyShareFundamentalStatementItemFactorRepository(self.session, factory=self),
                 'ETFShareOptionReversePremiumFactor': ETFShareOptionReversePremiumFactorRepository(self.session, factory=self),
                 'ETFShareOptionImpliedCorrelationFactor': ETFShareOptionImpliedCorrelationFactorRepository(self.session, factory=self),
                 'ETFShareOptionScenarioPayoffFactor': ETFShareOptionScenarioPayoffFactorRepository(self.session, factory=self),
@@ -1124,6 +1126,23 @@ class RepositoryFactory:
                 for repo in factor_values.statements.values()}}
         self._available_repository_families['fmp'] = True
         return self._fmp_repositories
+
+    # -- data providers (FactorValueProviderPort), by repository family --
+    def factor_value_provider(self, family: str):
+        """The factor value repository of a data provider family ('ibkr', 'fmp'), or None (unknown, not enabled)."""
+        if family == 'ibkr':
+            return self._create_or_get_ibkr_repo('factor_value_ibkr_repo')
+        if family == 'fmp':
+            return self.factor_value_fmp_repo
+        return None
+
+    def provider_family_enabled(self, family: str, factor_source: Optional[str] = None) -> bool:
+        """Whether the resolution service may ask a provider family for a missing raw value. A family is asked once
+        available; IBKR is also asked for a series whose source is IBKR (its client is created on demand). FMP only
+        once enabled (create_fmp_repositories): its requests count against the subscription."""
+        if self._available_repository_families.get(family, False):
+            return True
+        return family == 'ibkr' and factor_source == 'ibkr'
 
     def get_fmp_repository(self, key: str):
         """An FMP repository ('FactorValue', 'IncomeStatement', 'BalanceSheet', 'CashFlowStatement') once
@@ -2051,6 +2070,11 @@ class RepositoryFactory:
     def company_share_fundamental_growth_factor_local_repo(self):
         """Get company_share_fundamental_growth_factor repository for dependency injection."""
         return self.get_local_repository('CompanyShareFundamentalGrowthFactor')
+
+    @property
+    def company_share_fundamental_statement_item_factor_local_repo(self):
+        """Get company_share_fundamental_statement_item_factor repository for dependency injection."""
+        return self.get_local_repository('CompanyShareFundamentalStatementItemFactor')
 
     @property
     def company_share_fundamental_valuation_factor_local_repo(self):

@@ -23,6 +23,7 @@ from src.infrastructure.repositories.mappers.factor.factor_mapper import ENTITY_
 from src.application.services.data.entities.factor.factor_value_resolution_service import FactorValueResolutionService
 from src.infrastructure.repositories.ibkr_repo.factor.ibkr_instrument_factor_repository import IBKRInstrumentFactorRepository
 from src.domain.ports.factor.factor_value_port import FactorValuePort
+from src.domain.ports.factor.factor_value_provider_port import FactorValueProviderPort
 from src.infrastructure.repositories.ibkr_repo.base_ibkr_factor_repository import BaseIBKRFactorRepository
 from src.domain.entities.factor.factor_value import FactorValue
 from src.domain.entities.factor.factor import Factor
@@ -35,7 +36,7 @@ if TYPE_CHECKING:
     from ibapi.contract import Contract, ContractDetails
 
 
-class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
+class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort, FactorValueProviderPort):
     """
     IBKR implementation of FactorValuePort.
     
@@ -365,6 +366,12 @@ class IBKRFactorValueRepository(BaseIBKRFactorRepository, FactorValuePort):
             print(f"Error in _create_or_get for factor {factor_entity.name if factor_entity else 'unknown'}: {e}")
             return None
     
+    def fetch_factor_value(self, factor_entity, entity, time_date, **kwargs) -> Optional[FactorValue]:
+        """FactorValueProviderPort: the value of a raw series at time_date, fetched from IBKR when not stored."""
+        kwargs.setdefault('entity_symbol', getattr(entity, 'symbol', ''))
+        return self._fetch_factor_value_from_ibkr(factor_entity=factor_entity, entity=entity, time_date=time_date,
+                                                  **kwargs)
+
     def _fetch_factor_value_from_ibkr(
         self,
         factor_entity,

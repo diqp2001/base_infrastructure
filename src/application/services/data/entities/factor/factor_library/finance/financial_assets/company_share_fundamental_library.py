@@ -3,8 +3,8 @@ Company financial statement factors of a CompanyShare (group 'fundamental'), see
     raw FMP fields     CompanyShareFactor, subgroup income_statement | balance_sheet | cash_flow, source 'fmp',
                        name = the FMP field (and the filing's data: date, filingDate, acceptedDate, fiscalYear, period,
                        reportedCurrency, cik)
-    calculated         CompanyShareFundamental{Profitability, Leverage, Growth, Valuation}Factor (name = the measure,
-                       '_ttm' for trailing twelve months on quarterly statements)
+    calculated         CompanyShareFundamental{Profitability, Leverage, Growth, Valuation, StatementItem}Factor
+                       (name = the measure, '_ttm' for trailing twelve months on quarterly statements)
 each at the quarterly ('1q') and the annual ('1y') frequency. Keys: '<subgroup>.<name>.<frequency>'.
 """
 
@@ -25,13 +25,17 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.fundamental.company_share_fundamental_profitability_factor import (
     CompanyShareFundamentalProfitabilityFactor,
 )
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.fundamental.company_share_fundamental_statement_item_factor import (
+    CompanyShareFundamentalStatementItemFactor,
+)
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.fundamental.company_share_fundamental_valuation_factor import (
     CompanyShareFundamentalValuationFactor,
 )
 
 FREQUENCIES = (QUARTERLY, ANNUAL)
 CALCULATED_FACTORS = (CompanyShareFundamentalProfitabilityFactor, CompanyShareFundamentalLeverageFactor,
-                      CompanyShareFundamentalGrowthFactor, CompanyShareFundamentalValuationFactor)
+                      CompanyShareFundamentalGrowthFactor, CompanyShareFundamentalValuationFactor,
+                      CompanyShareFundamentalStatementItemFactor)
 _LABEL = {QUARTERLY: "quarterly", ANNUAL: "annual"}
 
 COMPANY_SHARE_FUNDAMENTAL_LIBRARY: Dict[str, Dict] = {}

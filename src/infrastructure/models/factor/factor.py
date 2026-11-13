@@ -83,6 +83,11 @@ class CompanyShareFundamentalGrowthFactorModel(FactorModel):
         "polymorphic_identity": "company_share_fundamental_growth_factor"
     }
 
+class CompanyShareFundamentalStatementItemFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_fundamental_statement_item_factor"
+    }
+
 class CompanyShareFundamentalValuationFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_fundamental_valuation_factor"
