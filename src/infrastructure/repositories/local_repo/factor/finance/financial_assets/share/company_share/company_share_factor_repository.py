@@ -58,6 +58,9 @@ class CompanyShareFactorRepository(BaseFactorRepository, CompanyShareFactorPort)
     
     def _create_or_get(self, entity_cls, primary_key: str, **kwargs):
         try:
+            # a source asked explicitly is part of the series' identity (the same statement field from FMP and from
+            # Eulerpool are two series); without one, any source matches as before
+            explicit_source = kwargs.get('source')
             # BI-036: a raw IBKR bar field names its series — subgroup = whatToShow; without one, the series
             # read first for that field (price fields MIDPOINT, volume TRADES). Legacy 'ohlc' is no longer a default.
             from src.domain.entities.factor.source_policy import (
@@ -76,7 +79,8 @@ class CompanyShareFactorRepository(BaseFactorRepository, CompanyShareFactorPort)
                                        group=group,
                                        subgroup=subgroup,
                                        frequency=frequency,
-                                       factor_type=kwargs.get('factor_type', 'company_share_factor'))
+                                       factor_type=kwargs.get('factor_type', 'company_share_factor'),
+                                       source=kwargs.get('source') if explicit_source else None)
             if existing:
                 return self._to_entity(existing)
             domain_factor = self.get_factor_entity()(name=primary_key,

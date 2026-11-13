@@ -1205,7 +1205,7 @@ class FactorValueResolutionService:
                 # source because the DB column is NOT NULL.
                 resolved_source = (
                     _resolve(spec.source, 'source')
-                    or (spec.source_in[0] if spec.source_in else None)
+                    or self._preferred_source(spec)
                     or getattr(parent_factor, 'source', None)
                 )
                 # If source_not_in excludes the resolved source (e.g. parent has
@@ -1313,7 +1313,8 @@ class FactorValueResolutionService:
             # book, not a mark: both only read when named by the spec
             matching_factors = [f for f in matching_factors
                                 if getattr(f, 'subgroup', None) not in NON_PRICE_WHAT_TO_SHOW | QUOTE_SIDE_WHAT_TO_SHOW]
-        groups = self._series_in_reading_order(matching_factors)
+        matching_factors = matching_factors + self._missing_sources(spec, dep_repo, matching_factors, parent_factor)
+        groups = self._series_in_reading_order(matching_factors, spec)
         tried = set()
         for series in groups:
             subgroup = getattr(series[0], 'subgroup', None) if series else None
@@ -1367,9 +1368,57 @@ class FactorValueResolutionService:
                 created.append(factor)
         return created
 
-    def _series_in_reading_order(self, factors: List[Any]) -> List[List[Any]]:
+    def _preferred_source(self, spec) -> Optional[str]:
+        """The first source of spec.source_in whose provider family is enabled (else the first one): the provider a
+        missing raw series is created for."""
+        sources = list(getattr(spec, 'source_in', None) or [])
+        if not sources:
+            return None
+        return next((s for s in sources if self._family_enabled(s, False, s)), sources[0])
+
+    def _missing_sources(self, spec, dep_repo, factors, parent_factor) -> List[Any]:
+        """A spec reading several providers (source_in, e.g. the statement series of FMP and Eulerpool): the series of
+        each ENABLED provider that has none yet (same name / group / subgroup / frequency as an existing candidate),
+        so the read-time choice (_series_by_source) can ask it."""
+        sources = list(getattr(spec, 'source_in', None) or [])
+        if len(sources) < 2 or not factors or not hasattr(dep_repo, '_create_or_get'):
+            return []
+        model, existing = factors[0], {getattr(f, 'source', None) for f in factors}
+        created = []
+        for source in sources:
+            if source in existing or not self._family_enabled(source, False, source):
+                continue
+            try:
+                factor = dep_repo._create_or_get(spec.factor_type, model.name, group=model.group,
+                                                 subgroup=model.subgroup, frequency=model.frequency,
+                                                 data_type=model.data_type, source=source)
+            except Exception as e:
+                self.logger.error(f"could not create the {source} series of {model.name}: {e}")
+                continue
+            if factor is not None and spec.matches_factor(parent_factor, factor):
+                created.append(factor)
+        return created
+
+    @staticmethod
+    def _series_by_source(factors: List[Any], spec) -> Optional[List[List[Any]]]:
+        """A spec reading several providers: one group per provider, in spec.source_in order (the provider
+        preference) - a dependency's values come from ONE provider, the first that yields them. None otherwise."""
+        sources = list(getattr(spec, 'source_in', None) or []) if spec is not None else []
+        if len(sources) < 2:
+            return None
+        by_source: Dict[Any, List[Any]] = {}
+        for f in factors:
+            by_source.setdefault(getattr(f, 'source', None), []).append(f)
+        order = [s for s in sources if s in by_source] + [s for s in by_source if s not in sources]
+        return [by_source[s] for s in order]
+
+    def _series_in_reading_order(self, factors: List[Any], spec=None) -> List[List[Any]]:
         """Raw IBKR candidates grouped by series: whatToShow subgroups in the source policy's reading order, other
-        whatToShow series after them, legacy definitions (subgroup not a whatToShow) last. Anything else: one group."""
+        whatToShow series after them, legacy definitions (subgroup not a whatToShow) last. A spec reading several
+        providers: one group per provider (_series_by_source). Anything else: one group."""
+        by_source = self._series_by_source(factors, spec)
+        if by_source is not None:
+            return by_source
         from src.domain.entities.factor.source_policy import is_raw_bar_field, is_what_to_show, reading_order
         raw = [f for f in factors if getattr(f, 'source', None) != 'calculated' and is_raw_bar_field(getattr(f, 'name', None))]
         if not raw or len(raw) != len(factors):

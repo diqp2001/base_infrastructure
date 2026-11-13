@@ -1,11 +1,12 @@
 """
 Company financial statement factors of a CompanyShare (group 'fundamental'), see company_share_fundamental_factor:
-    raw FMP fields     CompanyShareFactor, subgroup income_statement | balance_sheet | cash_flow, source 'fmp',
-                       name = the FMP field (and the filing's data: date, filingDate, acceptedDate, fiscalYear, period,
-                       reportedCurrency, cik)
+    raw fields         CompanyShareFactor, subgroup income_statement | balance_sheet | cash_flow, one series per
+                       provider (STATEMENT_SOURCES: source 'fmp', 'eulerpool'), name = the canonical field (and the
+                       filing's data: date, filingDate, acceptedDate, fiscalYear, period, reportedCurrency, cik)
     calculated         CompanyShareFundamental{Profitability, Leverage, Growth, Valuation, StatementItem}Factor
                        (name = the measure, '_ttm' for trailing twelve months on quarterly statements)
-each at the quarterly ('1q') and the annual ('1y') frequency. Keys: '<subgroup>.<name>.<frequency>'.
+each at the quarterly ('1q') and the annual ('1y') frequency. Keys: '<subgroup>.<name>.<frequency>' (FMP raw series and
+calculated factors), '<source>.<subgroup>.<name>.<frequency>' for the other providers' raw series.
 """
 
 from typing import Dict
@@ -14,7 +15,7 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
     CompanyShareFactor,
 )
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.fundamental.company_share_fundamental_factor import (
-    ANNUAL, GROUP, METADATA_FIELDS, QUARTERLY, STATEMENT_FIELDS,
+    ANNUAL, GROUP, METADATA_FIELDS, QUARTERLY, STATEMENT_FIELDS, STATEMENT_SOURCES,
 )
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.fundamental.company_share_fundamental_growth_factor import (
     CompanyShareFundamentalGrowthFactor,
@@ -37,19 +38,22 @@ CALCULATED_FACTORS = (CompanyShareFundamentalProfitabilityFactor, CompanyShareFu
                       CompanyShareFundamentalGrowthFactor, CompanyShareFundamentalValuationFactor,
                       CompanyShareFundamentalStatementItemFactor)
 _LABEL = {QUARTERLY: "quarterly", ANNUAL: "annual"}
+_PROVIDER = {"fmp": "FMP", "eulerpool": "Eulerpool"}
 
 COMPANY_SHARE_FUNDAMENTAL_LIBRARY: Dict[str, Dict] = {}
 
-for _statement, _fields in STATEMENT_FIELDS.items():
-    for _field in tuple(_fields) + tuple(METADATA_FIELDS):
-        for _frequency in FREQUENCIES:
-            COMPANY_SHARE_FUNDAMENTAL_LIBRARY[f"{_statement}.{_field}.{_frequency}"] = {
-                "class": CompanyShareFactor, "name": _field, "group": GROUP, "subgroup": _statement,
-                "frequency": _frequency, "data_type": METADATA_FIELDS.get(_field, "numeric"), "source": "fmp",
-                "description": f"FMP {_statement.replace('_', ' ')} ({_LABEL[_frequency]}): {_field}, stored at the "
-                               f"filing's publication",
-                "dependencies": {}, "parameters": {"statement": _statement, "field": _field},
-            }
+for _source in STATEMENT_SOURCES:
+    for _statement, _fields in STATEMENT_FIELDS.items():
+        for _field in tuple(_fields) + tuple(METADATA_FIELDS):
+            for _frequency in FREQUENCIES:
+                _key = f"{_statement}.{_field}.{_frequency}"
+                COMPANY_SHARE_FUNDAMENTAL_LIBRARY[_key if _source == "fmp" else f"{_source}.{_key}"] = {
+                    "class": CompanyShareFactor, "name": _field, "group": GROUP, "subgroup": _statement,
+                    "frequency": _frequency, "data_type": METADATA_FIELDS.get(_field, "numeric"), "source": _source,
+                    "description": f"{_PROVIDER.get(_source, _source)} {_statement.replace('_', ' ')} "
+                                   f"({_LABEL[_frequency]}): {_field}, stored at the filing's publication",
+                    "dependencies": {}, "parameters": {"statement": _statement, "field": _field},
+                }
 
 for _cls in CALCULATED_FACTORS:
     for _frequency in FREQUENCIES:

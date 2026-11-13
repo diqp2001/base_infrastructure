@@ -4,11 +4,12 @@ src/domain/entities/factor/finance/financial_assets/share_factor/company_share/f
 Company financial statement factors of a CompanyShare (group 'fundamental').
 
 Raw statement fields are CompanyShareFactor series - one per provider field, no class of their own:
-    name       the provider's field, as the provider spells it (FMP: 'revenue', 'netIncome', 'totalAssets', ...)
+    name       the canonical field (STATEMENT_FIELDS, spelled as FMP's statements: 'revenue', 'netIncome', ...); each
+               provider maps its own response into it (Eulerpool: SEC XBRL tags)
     group      'fundamental'
     subgroup   the statement: 'income_statement' | 'balance_sheet' | 'cash_flow'
     frequency  the fiscal period: '1q' (quarters Q1..Q4) | '1y' (fiscal years)
-    source     the provider ('fmp')
+    source     the provider ('fmp', 'eulerpool')
 A value is stored at the moment its filing became public (the acceptance time; the filing date's end when the
 provider gives no acceptance time) - never at the fiscal period's end - and is read as of a decision time
 (Factor.point_in_time_policy: the latest value accepted by then). The filing's own data are series of the same
@@ -42,10 +43,12 @@ QUARTERLY, ANNUAL = "1q", "1y"
 TTM_SUFFIX = "_ttm"
 QUARTERS_PER_YEAR = 4
 # the providers of raw statement series (Factor.SOURCES keys), in order of preference: a dependency reads these only
-# (never a calculated row), and a missing series is created under the first
-STATEMENT_SOURCES: Tuple[str, ...] = ("fmp",)
+# (never a calculated row), ONE provider per value - the first whose series yields the whole window (the resolver
+# reads them in this order and creates the series of an enabled provider that has none yet). FMP first (exact
+# acceptance times), Eulerpool (SEC XBRL, SEC-deadline availability) when FMP has nothing for the share.
+STATEMENT_SOURCES: Tuple[str, ...] = ("fmp", "eulerpool")
 
-# the provider's statement fields (FMP /stable statements), stored as raw CompanyShareFactor series
+# the canonical statement fields (named as FMP's /stable statements; every provider maps into them), stored as raw CompanyShareFactor series
 STATEMENT_FIELDS: Dict[str, Tuple[str, ...]] = {
     INCOME_STATEMENT: (
         "revenue", "costOfRevenue", "grossProfit",

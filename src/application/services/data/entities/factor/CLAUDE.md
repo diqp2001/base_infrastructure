@@ -56,8 +56,11 @@ A raw value that is not stored is asked from the factory's repository families i
 providers): `factory.provider_family_enabled(family, factor.source)` says whether to ask a family and
 `factory.factor_value_provider(family)` returns its `FactorValueProviderPort`
 (`fetch_factor_value(factor_entity, entity, time_date)`). The service never names a provider; which series a
-provider serves is its own rule (IBKR: bars; FMP: `fmp` fundamental series, off until
-`create_fmp_repositories()`). Point-in-time series (`Factor.point_in_time_policy`, the financial statements) are read
+provider serves is its own rule (IBKR: bars; FMP / Eulerpool: their fundamental series, off until
+`create_fmp_repositories()` / `create_eulerpool_repositories()`). A `DependencySpec` with several `source_in`
+providers (the statement factors: `fmp`, `eulerpool`) reads ONE provider per value, in `source_in` order: the
+service creates the series of each enabled provider (`_missing_sources`) and takes the first group that yields
+values (`_series_by_source`); a missing dependency is created under the first enabled provider (`_preferred_source`). Point-in-time series (`Factor.point_in_time_policy`, the financial statements) are read
 as of the decision time: the latest value stamped at or before it (stamp = publication), within max_age.
 
 ### Branch B — no `calculate_dependencies` (Source 1)

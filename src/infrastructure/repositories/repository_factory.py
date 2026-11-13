@@ -435,7 +435,7 @@ class RepositoryFactory:
     providing clean separation of concerns and making IBKR client optional.
     """
 
-    def __init__(self, session: Session, ibkr_client=None, fmp_client=None):
+    def __init__(self, session: Session, ibkr_client=None, fmp_client=None, eulerpool_client=None):
         """
         Initialize repository factory.
         
@@ -444,13 +444,17 @@ class RepositoryFactory:
             ibkr_client: Optional Interactive Brokers API client
             fmp_client: Optional Financial Modeling Prep client (FMPClient); create_fmp_repositories() builds one
                 from the configured key
+            eulerpool_client: Optional Eulerpool client (EulerpoolClient); create_eulerpool_repositories() builds
+                one from the configured key
         """
         self.session = session
         self.ibkr_client = ibkr_client
         self.fmp_client = fmp_client
+        self.eulerpool_client = eulerpool_client
         self._local_repositories = {}
         self._ibkr_repositories = {}
         self._fmp_repositories = {}
+        self._eulerpool_repositories = {}
         # ibkr is only advertised as available when an actual client was supplied.
         # _resolve_factor_without_dependencies iterates this dict, so setting ibkr=True
         # without a client causes unnecessary IBKR lookup attempts on every resolution.
@@ -460,9 +464,13 @@ class RepositoryFactory:
             # FMP is asked only once enabled (a client given, or create_fmp_repositories): a resolution never
             # spends the subscription's daily requests by surprise
             'fmp': bool(fmp_client),
+            # Eulerpool: same rule (requests count against the monthly quota)
+            'eulerpool': bool(eulerpool_client),
         }
         if fmp_client:
             self.create_fmp_repositories(fmp_client)
+        if eulerpool_client:
+            self.create_eulerpool_repositories(eulerpool_client)
         self.create_local_repositories()
         if ibkr_client:
             self.create_ibkr_repositories()
@@ -1127,19 +1135,54 @@ class RepositoryFactory:
         self._available_repository_families['fmp'] = True
         return self._fmp_repositories
 
+    def create_eulerpool_repositories(self, eulerpool_client=None) -> Optional[Dict[str, Any]]:
+        """Create the Eulerpool repositories and enable the 'eulerpool' family of the resolution service. Without a
+        client the configured key is used (EulerpoolClient.from_environment); no key -> None, family off. The factor
+        values are the shared StatementFactorValueRepository over the Eulerpool statements (no Eulerpool-specific
+        factor value code)."""
+        from src.infrastructure.repositories.eulerpool_repo.eulerpool_client import EulerpoolClient, EulerpoolError
+        from src.infrastructure.repositories.eulerpool_repo.fundamentals.eulerpool_financial_statement_repository import (
+            STATEMENT_REPOSITORIES,
+        )
+        from src.infrastructure.repositories.eulerpool_repo.fundamentals.eulerpool_fundamentals_repository import (
+            EulerpoolFundamentalsRepository,
+        )
+        from src.infrastructure.repositories.fundamental_provider.statement_factor_value_repository import (
+            StatementFactorValueRepository,
+        )
+        client = eulerpool_client or self.eulerpool_client or EulerpoolClient.from_environment()
+        if client is None:
+            return None
+        if client is not self.eulerpool_client or not self._eulerpool_repositories:
+            self.eulerpool_client = client
+            fundamentals = EulerpoolFundamentalsRepository(client, factory=self)
+            statements = {s: cls(client, factory=self, fundamentals=fundamentals)
+                          for s, cls in STATEMENT_REPOSITORIES.items()}
+            factor_values = StatementFactorValueRepository('eulerpool', 'Eulerpool', statements, factory=self,
+                                                           errors=(EulerpoolError,))
+            self._eulerpool_repositories = {'FactorValue': factor_values, 'Fundamentals': fundamentals, **{
+                type(repo).__name__.removeprefix('Eulerpool').removesuffix('Repository'): repo
+                for repo in statements.values()}}
+        self._available_repository_families['eulerpool'] = True
+        return self._eulerpool_repositories
+
     # -- data providers (FactorValueProviderPort), by repository family --
     def factor_value_provider(self, family: str):
-        """The factor value repository of a data provider family ('ibkr', 'fmp'), or None (unknown, not enabled)."""
+        """The factor value repository of a data provider family ('ibkr', 'fmp', 'eulerpool'), or None (unknown, not
+        enabled)."""
         if family == 'ibkr':
             return self._create_or_get_ibkr_repo('factor_value_ibkr_repo')
         if family == 'fmp':
             return self.factor_value_fmp_repo
+        if family == 'eulerpool':
+            return self.factor_value_eulerpool_repo
         return None
 
     def provider_family_enabled(self, family: str, factor_source: Optional[str] = None) -> bool:
         """Whether the resolution service may ask a provider family for a missing raw value. A family is asked once
-        available; IBKR is also asked for a series whose source is IBKR (its client is created on demand). FMP only
-        once enabled (create_fmp_repositories): its requests count against the subscription."""
+        available; IBKR is also asked for a series whose source is IBKR (its client is created on demand). FMP and
+        Eulerpool only once enabled (create_fmp_repositories / create_eulerpool_repositories): their requests count
+        against the subscription."""
         if self._available_repository_families.get(family, False):
             return True
         return family == 'ibkr' and factor_source == 'ibkr'
@@ -1153,6 +1196,16 @@ class RepositoryFactory:
     def factor_value_fmp_repo(self):
         """FMP factor value repository (the resolution service's 'fmp' family), None until FMP is enabled."""
         return self._fmp_repositories.get('FactorValue')
+
+    def get_eulerpool_repository(self, key: str):
+        """An Eulerpool repository ('FactorValue', 'Fundamentals', 'FinancialStatement' kinds: 'IncomeStatement',
+        'BalanceSheet', 'CashFlowStatement') once create_eulerpool_repositories() has run, else None."""
+        return self._eulerpool_repositories.get(key)
+
+    @property
+    def factor_value_eulerpool_repo(self):
+        """Eulerpool factor value repository (the resolution service's 'eulerpool' family), None until enabled."""
+        return self._eulerpool_repositories.get('FactorValue')
 
     def has_ibkr_client(self) -> bool:
         """Check if IBKR client is available."""

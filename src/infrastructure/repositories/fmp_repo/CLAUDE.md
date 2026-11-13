@@ -5,10 +5,15 @@ repositories, and `FactorValueResolutionService` reaches FMP as a repository fam
 
 ## One provider port for every data source
 `FactorValueProviderPort.fetch_factor_value(factor_entity, entity, time_date)` (`src/domain/ports/factor/`) is
-implemented by `IBKRFactorValueRepository` and `FMPFactorValueRepository`. The resolver asks
+implemented by `IBKRFactorValueRepository`, `FMPFactorValueRepository` and (Eulerpool) the shared
+`StatementFactorValueRepository`. The resolver asks
 `RepositoryFactory.factor_value_provider(family)` for a family's provider and `provider_family_enabled(family, source)`
 whether to ask it - it names no provider itself. A provider decides which series it serves (FMP: source `fmp`,
 group `fundamental`). A new data source = a provider repository + those two factory methods, no resolver change.
+Statements: `FMPFactorValueRepository` is the shared `fundamental_provider/StatementFactorValueRepository` (storage,
+point in time, resolver hook) over the FMP statement repositories (`FinancialStatementSourcePort` -> canonical
+`StatementRecord`, `src/domain/ports/factor/financial_statement_source_port.py`); Eulerpool uses the same class
+(`eulerpool_repo/CLAUDE.md`).
 
 ```
 fmp_repo/

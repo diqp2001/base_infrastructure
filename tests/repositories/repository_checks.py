@@ -58,8 +58,10 @@ def is_ibkr(module_name: str) -> bool:
 
 
 def is_provider(module_name: str) -> bool:
-    """A data provider's repositories (IBKR, FMP): built on a client, not registered as local repositories."""
-    return is_ibkr(module_name) or ".fmp_repo." in module_name
+    """A data provider's repositories (IBKR, FMP, Eulerpool, the shared statement provider): built on a client, not
+    registered as local repositories."""
+    return is_ibkr(module_name) or any(f".{p}." in module_name
+                                       for p in ("fmp_repo", "eulerpool_repo", "fundamental_provider"))
 
 
 def is_local_factor(module_name: str) -> bool:
@@ -101,8 +103,12 @@ def build(cls: type, session, factory):
             kwargs[name] = factory
         elif name in ("ibkr_client", "ib_client", "client", "ib_broker", "broker"):
             kwargs[name] = MagicMock(name="ibkr_client")
-        elif name == "fmp_client":
-            kwargs[name] = MagicMock(name="fmp_client")
+        elif name in ("fmp_client", "eulerpool_client"):
+            kwargs[name] = MagicMock(name=name)
+        elif name in ("source", "label"):                      # StatementFactorValueRepository
+            kwargs[name] = "test"
+        elif name == "statements":
+            kwargs[name] = {}
         elif name == "engine":
             kwargs[name] = engine
         elif name in ("local_repo", "local_repository"):

@@ -9,22 +9,26 @@ i.e. 4 x limit quarters. The rows are the provider's latest figures for each per
 
 Availability: a record is public from its acceptance time (acceptedDate, US Eastern as FMP gives it); without one,
 from the day after its filing date. A record with neither is dropped (it cannot be placed in time).
-Duplicates: one record per fiscal period (the first published); two periods published at the same moment keep the
-later period only (a value per series and moment) - both are logged.
+Duplicates: fundamental_provider.statement_records.deduplicate (one record per period, the first published; one
+period per moment; never a period older than one already published) - each drop is logged. StatementRecord is the
+shared canonical record (src/domain/ports/factor/financial_statement_source_port.py).
 """
 
 from __future__ import annotations
 
 import logging
-import math
-from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.fundamental.company_share_fundamental_factor import (
     ANNUAL, BALANCE_SHEET, CASH_FLOW, INCOME_STATEMENT, QUARTERLY, STATEMENT_FIELDS,
 )
+from src.domain.ports.factor.financial_statement_source_port import (  # noqa: F401  (StatementRecord re-exported)
+    FinancialStatementSourcePort, StatementRecord,
+)
 from src.infrastructure.repositories.fmp_repo.base_fmp_repository import BaseFMPRepository
+from src.infrastructure.repositories.fundamental_provider.statement_records import (
+    deduplicate as _deduplicate, number as _number, parse_date as _date, parse_datetime as _datetime,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,76 +36,12 @@ PERIOD_REQUESTS = {QUARTERLY: ("Q1", "Q2", "Q3", "Q4"), ANNUAL: ("FY",)}
 DEFAULT_LIMIT = 5
 
 
-def _number(value: Any) -> Optional[float]:
-    if value is None or isinstance(value, bool):
-        return None
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return None
-    return number if math.isfinite(number) else None
-
-
-def _date(value: Any) -> Optional[date]:
-    try:
-        return datetime.strptime(str(value)[:10], "%Y-%m-%d").date() if value else None
-    except ValueError:
-        return None
-
-
-def _datetime(value: Any) -> Optional[datetime]:
-    if not value:
-        return None
-    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
-        try:
-            return datetime.strptime(str(value)[:19], fmt)
-        except ValueError:
-            continue
-    return None
-
-
-@dataclass(frozen=True)
-class StatementRecord:
-    """One statement of one fiscal period, as filed."""
-    symbol: str
-    statement: str                      # income_statement | balance_sheet | cash_flow
-    frequency: str                      # 1q | 1y
-    period: str                         # Q1..Q4 | FY
-    fiscal_year: Optional[int]
-    period_end: date
-    filing_date: Optional[date]
-    accepted_at: Optional[datetime]
-    reported_currency: Optional[str]
-    cik: Optional[str]
-    values: Dict[str, Optional[float]] = field(default_factory=dict)
-
-    @property
-    def available_at(self) -> Optional[datetime]:
-        """When the figures became public: the acceptance time, else the day after the filing date."""
-        if self.accepted_at is not None:
-            return self.accepted_at
-        if self.filing_date is not None:
-            return datetime.combine(self.filing_date + timedelta(days=1), datetime.min.time())
-        return None
-
-    def metadata(self) -> Dict[str, Optional[str]]:
-        """The filing's data as stored (series names: the provider's fields - METADATA_FIELDS)."""
-        return {
-            "date": self.period_end.isoformat(),
-            "filingDate": self.filing_date.isoformat() if self.filing_date else None,
-            "acceptedDate": self.accepted_at.isoformat(sep=" ") if self.accepted_at else None,
-            "fiscalYear": str(self.fiscal_year) if self.fiscal_year is not None else None,
-            "period": self.period,
-            "reportedCurrency": self.reported_currency,
-            "cik": self.cik,
-        }
-
-
-class FMPFinancialStatementRepository(BaseFMPRepository):
+class FMPFinancialStatementRepository(BaseFMPRepository, FinancialStatementSourcePort):
     """Fetches and normalizes one FMP statement. Subclasses set STATEMENT and ENDPOINT."""
 
     STATEMENT: str = ""
     ENDPOINT: str = ""
+    FREQUENCIES = tuple(PERIOD_REQUESTS)
 
     def __init__(self, fmp_client, factory=None, limit: int = DEFAULT_LIMIT):
         super().__init__(fmp_client, factory)
@@ -155,26 +95,7 @@ class FMPFinancialStatementRepository(BaseFMPRepository):
 
     @staticmethod
     def deduplicate(records: List[StatementRecord]) -> List[StatementRecord]:
-        by_period: Dict[tuple, StatementRecord] = {}
-        for r in records:
-            key = (r.fiscal_year, r.period, r.period_end)
-            kept = by_period.get(key)
-            if kept is not None:
-                logger.warning(f"FMP {r.statement} {r.symbol} {r.period} {r.period_end}: duplicate period - keeping "
-                               f"the first published ({min(kept.available_at, r.available_at)})")
-                if r.available_at >= kept.available_at:
-                    continue
-            by_period[key] = r
-        by_stamp: Dict[datetime, StatementRecord] = {}
-        for r in by_period.values():
-            kept = by_stamp.get(r.available_at)
-            if kept is not None:
-                later = max((kept, r), key=lambda x: x.period_end)
-                logger.warning(f"FMP {r.statement} {r.symbol}: periods {kept.period_end} and {r.period_end} published "
-                               f"at the same moment {r.available_at} - keeping {later.period_end}")
-                r = later
-            by_stamp[r.available_at] = r
-        return sorted(by_stamp.values(), key=lambda x: x.available_at)
+        return _deduplicate(records, "FMP")
 
 
 class FMPIncomeStatementRepository(FMPFinancialStatementRepository):

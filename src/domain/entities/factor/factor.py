@@ -257,6 +257,7 @@ class Factor(ABC):
         "ibkr":                 {"label": "Interactive Brokers",   "ibkr_supported": True},
         "calculated":           {"label": "Calculated",            "ibkr_supported": False},
         "fmp":                  {"label": "Financial Modeling Prep","ibkr_supported": False},
+        "eulerpool":            {"label": "Eulerpool",             "ibkr_supported": False},
         "yahoo":                {"label": "Yahoo Finance",          "ibkr_supported": False},
         "alpha_vantage":        {"label": "Alpha Vantage",         "ibkr_supported": False},
         "quandl":               {"label": "Quandl",                "ibkr_supported": False},

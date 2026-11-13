@@ -402,7 +402,7 @@ Valid group values (validated in `Factor.__init__`):
 
 **`"volume"`, `"order"`, `"transaction"`, `"position"`, `"price_model"` were added 2026-07-29** to accommodate existing factor libraries that reference these groups (avg_turnover_6m, trading lifecycle factors, option pricing models).
 
-**Do NOT add to `SOURCES`** — that dict is frozen. For a new data source use one of the existing canonical keys (`ibkr`, `calculated`, `fmp`, `yahoo`, `alpha_vantage`, `quandl`).
+**`SOURCES`**: one key per real data provider (`ibkr`, `calculated`, `fmp`, `eulerpool`, `yahoo`, `alpha_vantage`, `quandl`). Never invent a key for a variant of an existing provider; a NEW provider gets its own key (owner's decision 2026-11-13, `eulerpool`) so its series stay distinct and the source selection (`provider_family_enabled`, `STATEMENT_SOURCES`) can address it.
 
 **`'option'` added 2026-07-31** — subgroup for the base `CompanyShareOptionFactor` OHLCV price points (close, open, high, low, volume for an option contract). This disambiguates them from share price factors that share the same `group='price'`.
 
@@ -883,12 +883,15 @@ ORM identities `etf_share_option_factor`, `etf_share_option_net_premium_factor`,
 
 ## Company financial statement factors (added 2026-11-12)
 
-Module docstring: `share_factor/company_share/fundamental/company_share_fundamental_factor.py`. Provider: FMP
-(`src/infrastructure/repositories/fmp_repo/CLAUDE.md`).
+Module docstring: `share_factor/company_share/fundamental/company_share_fundamental_factor.py`. Providers: FMP
+(`src/infrastructure/repositories/fmp_repo/CLAUDE.md`) and Eulerpool (`.../eulerpool_repo/CLAUDE.md`, 2026-11-13),
+both through `FinancialStatementSourcePort` (`src/domain/ports/factor/financial_statement_source_port.py`: canonical
+`StatementRecord`) and the shared `StatementFactorValueRepository` (`src/infrastructure/repositories/fundamental_provider/`).
 
 - **Raw**: no class of their own - `CompanyShareFactor` series, group `fundamental`, subgroup the statement
   (`income_statement`, `balance_sheet`, `cash_flow`), frequency `1q` (fiscal quarter) or `1y` (fiscal year), source
-  `fmp`, name = the FMP field (`STATEMENT_FIELDS`, plus the filing's data `METADATA_FIELDS`). A field in two statements
+  = the provider (`fmp`, `eulerpool`: one series per provider), name = the canonical field (`STATEMENT_FIELDS`,
+  spelled as FMP's statements; Eulerpool maps its XBRL tags into them), plus the filing's data `METADATA_FIELDS`. A field in two statements
   (netIncome, depreciationAndAmortization, inventory, accountsReceivables) is two series: the cash flow `inventory` is
   a change, the balance sheet one a level. Fields FMP derives (grossProfit, netDebt, freeCashFlow, ...: `IDENTITIES`)
   are stored as delivered, not recalculated (one request returns them all).
@@ -908,6 +911,8 @@ Module docstring: `share_factor/company_share/fundamental/company_share_fundamen
 | `CompanyShareFundamentalStatementItemFactor` | statement totals from their components (`IDENTITIES`): free_cash_flow (OCF + capex), net_debt, gross_profit, cost_and_expenses, cash_and_short_term_investments, goodwill_and_intangible_assets, net_change_in_cash - the provider's own total stays a separate raw series |
 
   No value on a missing input or a non-positive denominator / growth base. Statement dependencies read
-  `STATEMENT_SOURCES` (`fmp`) only. Dependencies are `DependencySpec`s (fiscal-period windows), not stored
+  `STATEMENT_SOURCES` (`fmp`, then `eulerpool`) only, ONE provider per value: the first whose series yields the
+  window (the resolver creates the series of each enabled provider). Dependencies are `DependencySpec`s (fiscal-period windows), not stored
   `FactorDependency` rows (those are calendar lags read from stored values only). ORM identities `company_share_fundamental_<kind>_factor`; library
-  `company_share_fundamental_library` (keys `<subgroup>.<name>.<frequency>`). Tests: `tests/fmp/`.
+  `company_share_fundamental_library` (keys `<subgroup>.<name>.<frequency>`, Eulerpool raw series
+  `eulerpool.<subgroup>.<name>.<frequency>`). Tests: `tests/fmp/`, `tests/eulerpool/`.
