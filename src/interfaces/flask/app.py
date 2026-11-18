@@ -5,6 +5,8 @@ from src.interfaces.flask.web.controllers.entity_upload_controller import entity
 from src.interfaces.flask.web.controllers.stm_controller import stm_bp
 from src.interfaces.flask.web.controllers.csm_controller import csm_bp
 from src.interfaces.flask.web.controllers.dispersion_controller import dispersion_bp
+from src.interfaces.flask.web.controllers.dispersion_stm_controller import create_dispersion_stm_blueprint
+from src.interfaces.flask.web.controllers.stm_deciles_controller import create_stm_deciles_blueprint
 from src.interfaces.flask.web.controllers.spx_v2_controller import spx_v2_bp
 from src.interfaces.flask.web.controllers.strategy_controller import strategies_bp
 from src.interfaces.flask.web.controllers.factor_analysis_controller import factor_analysis_bp
@@ -35,6 +37,8 @@ class FlaskApp:
         self.app.register_blueprint(stm_bp)          # /stm  Spatio-Temporal Momentum dashboard
         self.app.register_blueprint(csm_bp)          # /csm  Cross-sectional momentum (LightGBM + Optuna) dashboard
         self.app.register_blueprint(dispersion_bp)   # /dispersion  ETF dispersion-option screener results
+        self.app.register_blueprint(create_dispersion_stm_blueprint())   # /dispersion-stm  monthly STM-filtered dispersion backtest
+        self.app.register_blueprint(create_stm_deciles_blueprint())     # /stm-deciles  monthly STM decile backtest
         self.app.register_blueprint(spx_v2_bp)       # /spx_v2  SPX call spread market maker (v2) dashboard
         self.app.register_blueprint(strategies_bp)   # /strategies  configure, launch and compare experiments
         self.app.register_blueprint(factor_analysis_bp)   # /factor-analysis  CAPM / Fama-French analysis of results

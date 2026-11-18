@@ -513,6 +513,14 @@ class TradeManager:
             cso_holding = session.query(CompanyShareOptionPortfolioHoldingModel).filter_by(
                 company_share_option_id=asset.id,
             ).first()
+            if cso_holding is None:
+                # an option on an ETF share: ETFShareOptionPortfolioHolding keyed by etf_share_option_id
+                from src.infrastructure.models.finance.holding.etf_share_option_portfolio_holding import (
+                    ETFShareOptionPortfolioHoldingModel,
+                )
+                cso_holding = session.query(ETFShareOptionPortfolioHoldingModel).filter_by(
+                    etf_share_option_id=asset.id,
+                ).first()
             if cso_holding and cso_holding.position_id:
                 pos = session.query(PositionModel).filter_by(
                     id=cso_holding.position_id,

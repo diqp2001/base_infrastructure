@@ -11,6 +11,11 @@ cross-sectional median, the rolling training window is 10 sessions (390 bars) an
 252 x 39 bars. Candidates whose series has too few 10-minute bars (e.g. year-to-date windows, an index without
 intraday bars) are left out of the study by its coverage filter.
 
+Fundamental candidates (added 2026-11-16): ten point-in-time fundamental factors of the issuers (ROE, ROA, net income,
+total assets and EPS growth; csm_fundamentals) from Eulerpool's SEC statements, each value used only from its
+publication (SEC-deadline availability). Chosen for coverage: >= 90 % of the 48 shares in Sep-Oct 2026 (probe of
+2026-11-16); margins, EBITDA, debt and cash-flow measures are not reported by the banks (0-15 %).
+
 Results, models, signals, universe and portfolio are kept separate from the daily project. Data: IBKR 10-minute
 TRADES bars (the account has no US-equity quote permission for MIDPOINT, BI-037), plus the series the candidates
 read (OPTION_IMPLIED_VOLATILITY of the shares, SPY, IRX) at the same bar size.
@@ -60,6 +65,21 @@ BAR_SIZE_SETTING = '10 mins'
 BARS_PER_SESSION = bars_per_session(BAR_MINUTES)      # 39 bars in a 09:30-16:00 session
 TRAINING_WINDOW = 10 * BARS_PER_SESSION               # rolling training window: 10 sessions = 390 bars
 
+# ── fundamentals: statement provider family (RepositoryFactory.enable_provider_family) and the candidates ──
+FUNDAMENTALS_SOURCE = 'eulerpool'
+FUNDAMENTAL_FEATURES = (
+    'fund_roe_ttm_1q',                    # net income TTM / average equity
+    'fund_roa_ttm_1q',                    # net income TTM / average total assets
+    'fund_net_income_growth_yoy_1q',      # latest quarter vs the same quarter a year earlier
+    'fund_net_income_growth_ttm_1q',      # last four quarters vs the four before
+    'fund_total_assets_growth_yoy_1q',    # balance sheet growth over a year
+    'fund_roe_1y',
+    'fund_roa_1y',
+    'fund_net_income_growth_1y',
+    'fund_total_assets_growth_1y',
+    'fund_eps_growth_1y',                 # diluted EPS, fiscal year on fiscal year
+)
+
 
 def _factor_configs():
     """Signal factor created through Misbuffet BaseModelTrainer.create_factors (10-minute rows)."""
@@ -102,6 +122,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     'factors': _factor_configs(),
 
+    # statement provider of the fundamental candidates (csm.features.fundamentals); None = no fundamentals
+    'fundamentals_source': FUNDAMENTALS_SOURCE,
+
     # Live progress + final results of the latest run (read by the Flask /csm dashboard, ?project=csm_10m)
     'results_dir': str(BASE_PROJECT_ROOT / 'results' / 'cross_sectional_momentum_10m'),
 
@@ -112,6 +135,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             'cross_sectional_ranks': False,
             'vol_span': BARS_PER_SESSION,      # EWM span of the bar volatility used for position sizing: 1 session
             'exclude': (),
+            # point-in-time fundamentals (constant between filings: cross-sectional, not intraday, information)
+            'fundamentals': FUNDAMENTAL_FEATURES,
         },
         'label': {'horizon': 1},               # the next 10-minute bar
         'bar_minutes': BAR_MINUTES,

@@ -3,6 +3,7 @@ ORM model for ETFShareOption - separate from src.domain entity to avoid metaclas
 """
 
 from sqlalchemy import Column, Integer, ForeignKey
+from sqlalchemy.orm import relationship
 
 from src.infrastructure.models.finance.financial_assets.derivative.option.options import OptionsModel
 from src.infrastructure.models.finance.financial_assets.derivative.option.share_option_terms import ShareOptionTermsMixin
@@ -17,6 +18,9 @@ class ETFShareOptionModel(ShareOptionTermsMixin, OptionsModel):
 
     id = Column(Integer, ForeignKey("options.id"), primary_key=True)
     # exchange_id, strike_price, multiplier, expiry: ShareOptionTermsMixin
+    etf_share_option_portfolio_holdings = relationship(
+        "src.infrastructure.models.finance.holding.etf_share_option_portfolio_holding.ETFShareOptionPortfolioHoldingModel",
+        back_populates="etf_share_options")
 
     __mapper_args__ = {
         "polymorphic_identity": "ETFShareOption",

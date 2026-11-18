@@ -837,6 +837,9 @@ class InteractiveBrokersBroker(BaseBroker):
         # a UTC-aware datetime bypasses the ET→UTC conversion and will shift
         # the window by 4–5 hours, dropping the intended bars.
         end_date_time = self.format_ib_datetime(date_time=end_date_time, duration=duration_str)
+        if what_to_show == "ADJUSTED_LAST":
+            # IBKR serves dividend-adjusted bars only up to now: endDateTime must be empty (error 10339 otherwise)
+            end_date_time = ""
 
         if not self.ib_connection or not self.ib_connection.is_connected():
             return []

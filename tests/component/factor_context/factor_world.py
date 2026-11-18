@@ -198,6 +198,46 @@ class FactorWorld:
         self._etf = etf
         return etf
 
+    def etf_option(self, quoted: bool = False):
+        """A call on the ETF 'TEST', with the ETF's IBKR implied volatility series (OPTION_IMPLIED_VOLATILITY, 0.18)
+        the model price reads. ``quoted``: another call (strike 545) that also has IBKR MIDPOINT closes (its market
+        price, 12.00 on the share bar days); unquoted, the option is valued at its model price (created on first use)."""
+        from src.domain.entities.finance.financial_assets.derivatives.option.etf_share_option import ETFShareOption
+        from src.infrastructure.models.factor.factor import ETFShareFactorModel, ETFShareOptionFactorModel
+        cache = self.__dict__.setdefault("_etf_options", {})
+        if quoted in cache:
+            return cache[quoted]
+        etf = self.etf()
+        if not getattr(self, "_etf_iv", False):
+            iv = ETFShareFactorModel(name="close", group="price", subgroup="OPTION_IMPLIED_VOLATILITY", frequency="1d",
+                                     data_type="numeric", source="ibkr", definition="implied volatility",
+                                     factor_type="etf_share_factor")
+            self.s.add(iv)
+            self.s.commit()
+            for day in self.days:
+                self.s.add(FactorValueModel(factor_id=iv.id, entity_id=etf.id, entity_type="ETFShare", date=day,
+                                            value=repr(0.18)))
+            self.s.commit()
+            self._etf_iv = True
+        strike = 545.0 if quoted else 540.0
+        option = self.f.get_local_repository("ETFShareOption").add(ETFShareOption(
+            id=None, name=f"TEST {strike:g} C", symbol=f"TEST  260220C00{int(strike * 1000):06d}",
+            currency_id=self.usd.id, underlying_asset_id=etf.id, exchange_id=1, option_type="call",
+            start_date=date(2025, 12, 1), end_date=date(2026, 2, 20), strike_price=strike, multiplier=100,
+            expiry="20260220"))
+        if quoted:
+            mid = ETFShareOptionFactorModel(name="close", group="price", subgroup="MIDPOINT", frequency="1d",
+                                            data_type="numeric", source="ibkr", definition="close",
+                                            factor_type="etf_share_option_factor")
+            self.s.add(mid)
+            self.s.commit()
+            for day in self.days[-30:]:
+                self.s.add(FactorValueModel(factor_id=mid.id, entity_id=option.id, entity_type="ETFShareOption",
+                                            date=day, value=repr(12.0)))
+            self.s.commit()
+        cache[quoted] = option
+        return option
+
     # AAPL's quarterly financial statements (FMP raw fundamental series): 8 quarters, each stamped when it was
     # published (45 days after the quarter's end), the last one before T
     STATEMENTS = {("income_statement", "revenue"): 1000.0, ("income_statement", "grossProfit"): 450.0,
@@ -365,6 +405,8 @@ class FactorWorld:
         for prefix in ("IndexFutureOption", "IndexFuture", "Index"):
             if factor_name.startswith(prefix):
                 return self.index_family()[prefix]
+        if factor_name in ("ETFShareOptionModelPriceFactor", "ETFShareOptionValueFactor"):
+            return self.etf_option(quoted=True)
         if factor_name.startswith("ETFShare"):
             return self.etf()
         if factor_name.startswith("Currency"):

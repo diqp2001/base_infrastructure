@@ -141,6 +141,11 @@ NON_PRICE_WHAT_TO_SHOW = frozenset({D.OPTION_IMPLIED_VOLATILITY.value, D.HISTORI
 # one side of the book (P.08.04: bid / ask backtest fills): prices, but never read in place of a close / mark —
 # only when a reader names that subgroup explicitly
 QUOTE_SIDE_WHAT_TO_SHOW = frozenset({D.BID.value, D.ASK.value, D.BID_ASK.value})
+# dividend-adjusted closes (IBKR ADJUSTED_LAST, back-adjusted as of the request): a total-return research series, not
+# the price the share traded at - never read in place of a close / mark, only when a reader names that subgroup
+ADJUSTED_WHAT_TO_SHOW = frozenset({D.ADJUSTED_LAST.value})
+# whatToShow series a reader without a subgroup never reads (it gets a traded price / mark instead)
+EXPLICIT_ONLY_WHAT_TO_SHOW = NON_PRICE_WHAT_TO_SHOW | QUOTE_SIDE_WHAT_TO_SHOW | ADJUSTED_WHAT_TO_SHOW
 
 
 def is_what_to_show(subgroup: Optional[str]) -> bool:

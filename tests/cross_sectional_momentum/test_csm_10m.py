@@ -45,7 +45,8 @@ def test_a_daily_configuration_hash_is_unchanged_by_the_bar_size_field():
     d = cfg.to_dict()
     for k in ("artifact_dir", "persist_signals", "persist_features", "bar_minutes"):
         d.pop(k)
-    assert cfg.bar_minutes is None
+    d["features"].pop("fundamentals")               # no fundamentals: left out of the hash too
+    assert cfg.bar_minutes is None and not cfg.features.fundamentals
     assert cfg.model_hash() == hashlib.sha256(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()
 
 

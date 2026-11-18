@@ -48,8 +48,8 @@ class STMPriceHistoryReader:
         if self.subgroup is not None:
             q = q.filter(FactorModel.subgroup == self.subgroup)
         else:                                    # never a volatility / rate series or a book side in place of a price
-            from src.domain.entities.factor.source_policy import NON_PRICE_WHAT_TO_SHOW, QUOTE_SIDE_WHAT_TO_SHOW
-            q = q.filter(~FactorModel.subgroup.in_(list(NON_PRICE_WHAT_TO_SHOW | QUOTE_SIDE_WHAT_TO_SHOW)))
+            from src.domain.entities.factor.source_policy import EXPLICIT_ONLY_WHAT_TO_SHOW
+            q = q.filter(~FactorModel.subgroup.in_(list(EXPLICIT_ONLY_WHAT_TO_SHOW)))
         ranked = []
         for factor_id, subgroup in q.all():
             rank = (order.index(subgroup) if subgroup in order else
@@ -134,12 +134,12 @@ class STMFrontierPriceReader:
         self.bar_minutes = bar_minutes
 
     def load_close_panel(self, assets: Dict[int, str], start=None, end=None) -> pd.DataFrame:
-        from src.domain.entities.factor.source_policy import NON_PRICE_WHAT_TO_SHOW, QUOTE_SIDE_WHAT_TO_SHOW
+        from src.domain.entities.factor.source_policy import EXPLICIT_ONLY_WHAT_TO_SHOW
         panel = self.history_service.get_factor_value_panel(
             assets, factor_name=self.close_factor_name, factor_type=self.factor_type,
             frequency=self.frequency, subgroup=self.subgroup,
             exclude_subgroups=() if self.subgroup is not None
-            else tuple(NON_PRICE_WHAT_TO_SHOW | QUOTE_SIDE_WHAT_TO_SHOW),
+            else tuple(EXPLICIT_ONLY_WHAT_TO_SHOW),
             start=pd.Timestamp(start).to_pydatetime() if start is not None else None,
             end=(next_key(end, self.bar_minutes) - pd.Timedelta(microseconds=1)).to_pydatetime()
             if end is not None else None,

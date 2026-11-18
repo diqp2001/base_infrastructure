@@ -37,12 +37,19 @@ class CSMFeatureConfig:
     cross_sectional_ranks: bool = False
     vol_span: int = 20                    # EWM span of the daily volatility used for position sizing (not a feature)
     exclude: Tuple[str, ...] = ()         # candidates left out of the study
+    # point-in-time fundamental candidates (csm_fundamentals: 'fund_<factor>_<1q|1y>'), read from the statement
+    # provider(s) the cycle is given; empty = none (the default: no statements are fetched)
+    fundamentals: Tuple[str, ...] = ()
 
     def base_feature_names(self) -> List[str]:
         from src.application.services.data.entities.factor.cross_sectional_momentum.csm_feature_definition import (
             CSMFeatureDefinition,
         )
-        return [n for n in CSMFeatureDefinition.FEATURE_NAMES if n not in self.exclude]
+        names = list(CSMFeatureDefinition.FEATURE_NAMES) + list(self.fundamentals)
+        return [n for n in names if n not in self.exclude]
+
+    def fundamental_names(self) -> List[str]:
+        return [n for n in self.fundamentals if n not in self.exclude]
 
     def feature_names(self) -> List[str]:
         base = self.base_feature_names()
@@ -141,4 +148,6 @@ class CSMConfiguration:
             d.pop(k, None)
         if d.get("bar_minutes") is None:
             d.pop("bar_minutes", None)            # daily: the hash of the models trained before the field existed
+        if not d.get("features", {}).get("fundamentals"):
+            d.get("features", {}).pop("fundamentals", None)    # idem: models trained before fundamentals existed
         return hashlib.sha256(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()

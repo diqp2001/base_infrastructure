@@ -1304,15 +1304,14 @@ class FactorValueResolutionService:
         # BI-036: raw IBKR fields come as one series per whatToShow (subgroup). Read the series in order of
         # preference and use the FIRST that yields values — never a mix of MIDPOINT and TRADES in one dependency.
         from src.domain.entities.factor.source_policy import (
-            NON_PRICE_WHAT_TO_SHOW,
-            QUOTE_SIDE_WHAT_TO_SHOW,
+            EXPLICIT_ONLY_WHAT_TO_SHOW,
             is_what_to_show,
         )
         if getattr(spec, 'subgroup', None) is None:
             # a close of OPTION_IMPLIED_VOLATILITY is a volatility, not a price; a BID / ASK close is one side of the
-            # book, not a mark: both only read when named by the spec
+            # book, not a mark; an ADJUSTED_LAST close is dividend-adjusted, not traded: all only read when named by the spec
             matching_factors = [f for f in matching_factors
-                                if getattr(f, 'subgroup', None) not in NON_PRICE_WHAT_TO_SHOW | QUOTE_SIDE_WHAT_TO_SHOW]
+                                if getattr(f, 'subgroup', None) not in EXPLICIT_ONLY_WHAT_TO_SHOW]
         matching_factors = matching_factors + self._missing_sources(spec, dep_repo, matching_factors, parent_factor)
         groups = self._series_in_reading_order(matching_factors, spec)
         tried = set()

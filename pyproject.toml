@@ -100,6 +100,10 @@ ignore_imports = [
     "src.application.managers.project_managers.cross_sectionnal_project.backtesting.synthetic_demo -> src.infrastructure.models",
     "src.application.managers.project_managers.cross_sectionnal_project_10m.backtesting.synthetic_demo -> src.infrastructure.models.**",
     "src.application.managers.project_managers.cross_sectionnal_project_10m.backtesting.synthetic_demo -> src.infrastructure.models",
+    "src.application.managers.project_managers.etf_dispersion_stm_project.backtesting.synthetic_demo -> src.infrastructure.models.**",
+    "src.application.managers.project_managers.etf_dispersion_stm_project.backtesting.synthetic_demo -> src.infrastructure.models",
+    "src.application.managers.project_managers.stm_monthly_decile_project.backtesting.synthetic_demo -> src.infrastructure.models.**",
+    "src.application.managers.project_managers.stm_monthly_decile_project.backtesting.synthetic_demo -> src.infrastructure.models",
     "src.application.managers.project_managers.market_making_project.data.data_loader -> src.infrastructure.models.**",
 ]
 

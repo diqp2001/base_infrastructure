@@ -613,3 +613,26 @@ class BacktestFactorModel(FactorModel):
 
 # Technical / Momentum factor models (separate file to keep this file manageable)
 from src.infrastructure.models.factor.company_share_technical_momentum_factor_models import *  # noqa: E402, F401, F403
+
+class CompanyShareOptionModelPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "company_share_option_model_price_factor"
+    }
+
+
+class ETFShareOptionModelPriceFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_option_model_price_factor"
+    }
+
+
+class ETFShareOptionValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_option_value_factor"
+    }
+
+
+class ETFShareOptionPortfolioHoldingValueFactorModel(FactorModel):
+    __mapper_args__ = {
+        "polymorphic_identity": "etf_share_option_portfolio_holding_value_factor"
+    }

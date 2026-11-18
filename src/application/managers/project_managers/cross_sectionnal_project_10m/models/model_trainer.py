@@ -22,6 +22,10 @@ from src.application.managers.project_managers.cross_sectionnal_project_10m.data
 from src.application.managers.project_managers.cross_sectionnal_project_10m.data.universe_setup import UniverseSetup
 from src.application.services.data.backtest_preload.backtest_data_preload_service import BacktestDataPreloadService
 from src.application.services.data.entities.factor.cross_sectional_momentum.csm_features import benchmark_entity_types
+from src.application.services.data.entities.factor.cross_sectional_momentum.csm_fundamentals import (
+    CSMFundamentals,
+    statement_sources_of,
+)
 from src.application.services.data.entities.factor.cross_sectional_momentum.csm_model_provider import (
     CSMModelProvider,
 )
@@ -63,6 +67,20 @@ class CSMModelTrainer(BaseModelTrainer):
         updater.mark_imported()                       # the history is there: no second full import at bar 1
         return results
 
+    def build_fundamentals(self, factory, log=None):
+        """CSMFundamentals of the fundamental candidates from the configured statement provider (Eulerpool), or None
+        when none are configured. Statements are fetched once per share and kept in memory (nothing stored)."""
+        names = self.csm_config.features.fundamental_names()
+        family = self.config.get("fundamentals_source")
+        if not names or not family:
+            return None
+        provider = factory.enable_provider_family(family)
+        if provider is None:
+            raise RuntimeError(f"fundamental candidates configured but the '{family}' provider is not available "
+                               f"(no API key?)")
+        return CSMFundamentals([statement_sources_of(provider)], names, errors=getattr(provider, "errors", ()),
+                               log=log or self.logger.info)
+
     def build_cycle(self, market_data_service, history_service, factory, log=None) -> CSMTradingCycle:
         """Entities, universe and the trading cycle, bound to the algorithm's Misbuffet services."""
         history_start = self.config["price_history_start"]
@@ -100,4 +118,5 @@ class CSMModelTrainer(BaseModelTrainer):
             universe_id=getattr(universe, "id", None),
             log=log or self.logger.info,
             benchmark_entities=benchmark_entities,
+            fundamentals=self.build_fundamentals(factory, log=log),
         )

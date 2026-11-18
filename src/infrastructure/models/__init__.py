@@ -91,6 +91,7 @@ from src.infrastructure.models.finance.portfolio.portfolio import PortfolioModel
 from src.infrastructure.models.finance.portfolio.derivative_portfolio import DerivativePortfolioModel
 from src.infrastructure.models.finance.portfolio.company_share_portfolio import CompanySharePortfolioModel
 from src.infrastructure.models.finance.portfolio.company_share_option_portfolio import CompanyShareOptionPortfolioModel
+from src.infrastructure.models.finance.portfolio.etf_share_option_portfolio import ETFShareOptionPortfolioModel
 from src.infrastructure.models.finance.portfolio.company_share_portfolio_option_portfolio import CompanySharePortfolioOptionPortfolioModel
 from src.infrastructure.models.finance.position import PositionModel
 from src.infrastructure.models.finance.market_data import MarketDataModel
@@ -107,9 +108,11 @@ from src.infrastructure.models.finance.holding.portfolio_holding import Portfoli
 from src.infrastructure.models.finance.holding.security_holding import SecurityHoldingModel
 from src.infrastructure.models.finance.holding.company_share_portfolio_holding import CompanySharePortfolioHoldingModel
 from src.infrastructure.models.finance.holding.company_share_option_portfolio_holding import CompanyShareOptionPortfolioHoldingModel
+from src.infrastructure.models.finance.holding.etf_share_option_portfolio_holding import ETFShareOptionPortfolioHoldingModel
 from src.infrastructure.models.finance.holding.company_share_portfolio_option_portfolio_holding import CompanySharePortfolioOptionPortfolioHoldingModel
 from src.infrastructure.models.finance.holding.company_share_portfolio_portfolio_holding import CompanySharePortfolioPortfolioHoldingModel
 from src.infrastructure.models.finance.holding.company_share_option_portfolio_portfolio_holding import CompanyShareOptionPortfolioPortfolioHoldingModel
+from src.infrastructure.models.finance.holding.etf_share_option_portfolio_portfolio_holding import ETFShareOptionPortfolioPortfolioHoldingModel
 from src.infrastructure.models.finance.holding.derivative.derivative_portfolio_holding import DerivativePortfolioHoldingModel
 
 # Account, Order, and Transaction models
@@ -196,5 +199,6 @@ __all__ = [
     'UniverseModel', 'UniverseConstituentModel',
     'MLModelModel', 'ModelFeatureModel', 'ModelTrainingModel', 'TrainingMetricModel', 'ModelArtifactModel',
     'StrategyConfigurationModel', 'StrategyExperimentModel',
+    'ETFShareOptionPortfolioModel', 'ETFShareOptionPortfolioHoldingModel', 'ETFShareOptionPortfolioPortfolioHoldingModel',
     'ensure_models_registered'
 ]

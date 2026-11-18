@@ -75,6 +75,21 @@ Statement factors read `STATEMENT_SOURCES = ("fmp", "eulerpool")`: one provider 
 times), Eulerpool when FMP yields nothing (402 symbols). The resolver creates the series of every ENABLED provider and
 reads them in that order (`_missing_sources`, `_series_by_source`) - no provider name in application code.
 
+## Daily prices (prices/eulerpool_price_history.py, 2026-11-16)
+
+`EulerpoolPriceHistory` implements the dispersion `PriceHistoryPort` on `GET /charting/ohlcv/{id}?resolution=D`.
+
+- Daily bars go back to 1989. The trading day is the bar stamp's UTC date.
+- It serves stocks only: DIA, SPY and DIA's ISIN all return 404.
+- Quality, checked against IBKR over 13 months: most closes are identical, but scattered days are off by 0.1 to 5.8 %.
+  Use it as a fallback only.
+- Intraday bars cover only about the last week.
+
+## Users
+- `etf_dispersion_stm_project` (2026-11-16): daily-close fallback for members IBKR no longer lists. File cache only.
+- `cross_sectionnal_project_10m` (2026-11-16): fundamental candidates of the classifier through
+  `RepositoryFactory.enable_provider_family('eulerpool')` and the statement repositories (in-memory, nothing stored).
+
 ## Tests
 `tests/eulerpool/` (fake Eulerpool session, in-memory SQLite): client, endpoints, canonical statements, pipeline
 (raw value, gross margin, FCF, growth, ROE, FMP / Eulerpool selection, IBKR + FMP + Eulerpool in one factor).

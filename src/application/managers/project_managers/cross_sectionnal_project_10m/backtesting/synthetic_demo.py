@@ -89,8 +89,10 @@ def _seed(session, model, entity_type: str, factor_type: str, bars: dict, ids) -
 
 
 def run_synthetic_demo(progress, backtest_sessions: int = 2, n_trials: int = 6, training_sessions: int = 4,
-                       tickers: Optional[List[str]] = None, seed: int = 11, keep_cycle: bool = False):
-    """keep_cycle: also return the results and the cycle, and leave its in-memory database open."""
+                       tickers: Optional[List[str]] = None, seed: int = 11, keep_cycle: bool = False,
+                       fundamentals=None):
+    """keep_cycle: also return the results and the cycle, and leave its in-memory database open.
+    fundamentals: a CSMFundamentals over in-memory statements (None: the fundamental candidates stay empty)."""
     from src.infrastructure.models import ModelBase
     from src.infrastructure.models.factor.factor import CompanyShareFactorModel, IndexFactorModel
     from src.infrastructure.repositories.repository_factory import RepositoryFactory
@@ -130,7 +132,8 @@ def run_synthetic_demo(progress, backtest_sessions: int = 2, n_trials: int = 6, 
     history = MarketDataHistoryService(SimpleNamespace(entity_service=SimpleNamespace(repository_factory=factory)))
     cycle = CSMTradingCycle(factory, csm, history, ids, history_start=index[0].normalize(),
                             retrain_every_days=config["retrain_every_days"], universe_service=universe_service,
-                            universe_id=universe.id, log=progress.log, benchmark_entities={"SPY": 999, "IRX": 998})
+                            universe_id=universe.id, log=progress.log, benchmark_entities={"SPY": 999, "IRX": 998},
+                            fundamentals=fundamentals)
 
     progress.phase("Trading cycle: Optuna TPE / train / score / trade every 10 minutes (synthetic)")
     # the engine clock: a bar stamped t is known from t + 10 minutes

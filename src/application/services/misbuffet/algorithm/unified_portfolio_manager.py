@@ -351,6 +351,11 @@ class UnifiedPortfolioManager:
             return 'CompanyShare'
         if session.query(CompanyShareOptionModel).filter_by(symbol=ticker).first():
             return 'CompanyShareOption'
+        from src.infrastructure.models.finance.financial_assets.derivative.option.etf_share_option import (
+            ETFShareOptionModel,
+        )
+        if session.query(ETFShareOptionModel).filter_by(symbol=ticker).first():
+            return 'ETFShareOption'
         return None
 
     def _find_existing_container(self, ticker: str) -> Optional[int]:
@@ -376,6 +381,9 @@ class UnifiedPortfolioManager:
             from src.infrastructure.models.finance.holding.company_share_option_portfolio_portfolio_holding import (
                 CompanyShareOptionPortfolioPortfolioHoldingModel,
             )
+            from src.infrastructure.models.finance.holding.etf_share_option_portfolio_portfolio_holding import (
+                ETFShareOptionPortfolioPortfolioHoldingModel,
+            )
             from src.infrastructure.models.finance.position import PositionModel
 
             session = self.portfolio_repo.session
@@ -393,7 +401,8 @@ class UnifiedPortfolioManager:
             if held:
                 return container_id
             for link_model in (CompanySharePortfolioPortfolioHoldingModel,
-                               CompanyShareOptionPortfolioPortfolioHoldingModel):
+                               CompanyShareOptionPortfolioPortfolioHoldingModel,
+                               ETFShareOptionPortfolioPortfolioHoldingModel):
                 for link in session.query(link_model).filter(link_model.container_id == container_id).all():
                     found = self._container_holding(ticker, link.asset_id)
                     if found:
@@ -1694,6 +1703,16 @@ class UnifiedPortfolioManager:
             for sh in cso_sub_holdings:
                 total += self._qty_in_container(ticker, sh.asset_id)
 
+            # Recurse into ETFShareOption sub-portfolio holdings
+            from src.infrastructure.models.finance.holding.etf_share_option_portfolio_portfolio_holding import (
+                ETFShareOptionPortfolioPortfolioHoldingModel,
+            )
+            eso_sub_holdings = session.query(ETFShareOptionPortfolioPortfolioHoldingModel).filter(
+                ETFShareOptionPortfolioPortfolioHoldingModel.container_id == container_id
+            ).all()
+            for sh in eso_sub_holdings:
+                total += self._qty_in_container(ticker, sh.asset_id)
+
             return total
 
         except Exception:
@@ -1735,12 +1754,13 @@ class UnifiedPortfolioManager:
             # Sync quantity to the CSO holding's linked PositionModel so the
             # factor resolution service (which reads position_rel.quantity) sees
             # the current fill quantity instead of the initial 0.
-            try:
-                cso_repo = self.repository_factory.get_local_repository('CompanyShareOptionPortfolio')
-                if cso_repo and hasattr(cso_repo, 'update_option_holding_quantity'):
-                    cso_repo.update_option_holding_quantity(ticker, new_quantity)
-            except Exception:
-                pass
+            for option_portfolio_key in ('CompanyShareOptionPortfolio', 'ETFShareOptionPortfolio'):
+                try:
+                    option_repo = self.repository_factory.get_local_repository(option_portfolio_key)
+                    if option_repo and hasattr(option_repo, 'update_option_holding_quantity'):
+                        option_repo.update_option_holding_quantity(ticker, new_quantity)
+                except Exception:
+                    pass
 
             return True
         except Exception as e:

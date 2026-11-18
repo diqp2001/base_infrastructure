@@ -62,6 +62,7 @@ class WindowResult:
     training_id: Optional[int] = None
     artifact_id: Optional[int] = None
     metadata: Dict[str, object] = field(default_factory=dict)
+    model: Optional[object] = None   # the trained network (in-memory scoring without the artifact store)
 
 
 class STMWalkForwardTrainer:
@@ -112,7 +113,8 @@ class STMWalkForwardTrainer:
                       if len(split.test) else {})
         wr = WindowResult(start=start, val_preds=val_preds, test_preds=test_preds, val=split.val,
                           test=split.test, evaluation=evaluation, best_val_sharpe=res.best_val_sharpe,
-                          best_epoch=res.best_epoch, epochs_run=res.epochs_run, metadata=metadata)
+                          best_epoch=res.best_epoch, epochs_run=res.epochs_run, metadata=metadata,
+                          model=model)
         if training is not None:
             artifact = self.artifact_store.save_artifact(training, model, metadata)
             self.artifact_store.record_metrics(

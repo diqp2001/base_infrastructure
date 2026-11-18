@@ -1,7 +1,9 @@
 """
 CompanyShareOptionValueFactor — the market value of a CompanyShareOption asset.
 
-Value is determined by the CompanyShareOptionMidPriceFactor. This factor bridges
+Value is determined by the CompanyShareOptionMidPriceFactor (the market's quotes); when the option has no quote
+(e.g. an expired contract in a backtest: IBKR keeps no history of expired options), by its model price
+(CompanyShareOptionModelPriceFactor: Black-Scholes on the underlying's close, IBKR implied vol and IRX). This factor bridges
 a raw CompanyShareOption asset and holding-value calculations so portfolio logic
 can use a generic 'asset value' concept rather than being tied to a specific
 price factor name.
@@ -13,6 +15,7 @@ from decimal import Decimal
 
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_mid_price_factor import CompanyShareOptionMidPriceFactor
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_factor import CompanyShareOptionFactor
+from src.domain.entities.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_model_price_factor import CompanyShareOptionModelPriceFactor
 
 
 class CompanyShareOptionValueFactor(CompanyShareOptionFactor):
@@ -48,10 +51,12 @@ class CompanyShareOptionValueFactor(CompanyShareOptionFactor):
         )
 
     def calculate(self, dependencies: Dict[str, Any]) -> Optional[Decimal]:
-        """Return the option mid price as the value of the company share option."""
+        """The option's mid price; without one, its model price."""
         raw = dependencies.get('CompanyShareOptionMidPriceFactor')
-        if raw is None:
-            return None
+        if raw is None or raw == []:
+            model = dependencies.get('CompanyShareOptionModelPriceFactor')
+            values = [v for v in (model if isinstance(model, list) else [model]) if v is not None] if model else []
+            return Decimal(str(values[-1])) if values and float(values[-1]) >= 0 else None
         if isinstance(raw, list):
             valid = [Decimal(str(v)) for v in raw if v is not None]
             if not valid:
@@ -74,5 +79,11 @@ class CompanyShareOptionValueFactor(CompanyShareOptionFactor):
                 frequency=DependencySpec.SELF,
                 source_in=["calculated"],
             ),
-            
+            DependencySpec(
+                factor_type=CompanyShareOptionModelPriceFactor,
+                group="price_model",
+                subgroup="black_scholes",
+                source_in=["calculated"],
+            ),
+
         ]

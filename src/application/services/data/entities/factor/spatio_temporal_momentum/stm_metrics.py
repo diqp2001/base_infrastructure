@@ -4,7 +4,8 @@ Performance metrics used by the reference evaluation notebook.
 The reference imports them from `empyrical` (sharpe_ratio, sortino_ratio,
 calmar_ratio, max_drawdown, annual_return) and sklearn's accuracy_score.
 `empyrical` is not a project dependency, so the same formulas are
-re-implemented here for daily simple returns with a zero risk-free rate.
+re-implemented here for simple returns with a zero risk-free rate; ``periods_per_year`` = the return
+frequency (252 daily by default, 12 monthly).
 """
 
 from __future__ import annotations
@@ -21,32 +22,32 @@ def _clean(returns) -> np.ndarray:
     return r[~np.isnan(r)]
 
 
-def sharpe_ratio(returns) -> float:
+def sharpe_ratio(returns, periods_per_year: int = APPROX_BDAYS_PER_YEAR) -> float:
     r = _clean(returns)
     if len(r) < 2:
         return float("nan")
     std = np.std(r, ddof=1)
     if std == 0:
         return float("nan")
-    return float(np.mean(r) / std * np.sqrt(APPROX_BDAYS_PER_YEAR))
+    return float(np.mean(r) / std * np.sqrt(periods_per_year))
 
 
-def downside_risk(returns) -> float:
+def downside_risk(returns, periods_per_year: int = APPROX_BDAYS_PER_YEAR) -> float:
     r = _clean(returns)
     if len(r) == 0:
         return float("nan")
     downside = np.clip(r, -np.inf, 0.0)
-    return float(np.sqrt(np.mean(downside ** 2)) * np.sqrt(APPROX_BDAYS_PER_YEAR))
+    return float(np.sqrt(np.mean(downside ** 2)) * np.sqrt(periods_per_year))
 
 
-def sortino_ratio(returns) -> float:
+def sortino_ratio(returns, periods_per_year: int = APPROX_BDAYS_PER_YEAR) -> float:
     r = _clean(returns)
     if len(r) < 2:
         return float("nan")
-    dr = downside_risk(r)
+    dr = downside_risk(r, periods_per_year)
     if not dr:
         return float("nan")
-    return float(np.mean(r) * APPROX_BDAYS_PER_YEAR / dr)
+    return float(np.mean(r) * periods_per_year / dr)
 
 
 def max_drawdown(returns) -> float:
@@ -58,22 +59,22 @@ def max_drawdown(returns) -> float:
     return float(np.min(cumulative / running_max - 1.0))
 
 
-def annual_return(returns) -> float:
+def annual_return(returns, periods_per_year: int = APPROX_BDAYS_PER_YEAR) -> float:
     r = _clean(returns)
     if len(r) == 0:
         return float("nan")
     ending = np.prod(1.0 + r)
-    years = len(r) / APPROX_BDAYS_PER_YEAR
+    years = len(r) / periods_per_year
     if ending <= 0:
         return -1.0
     return float(ending ** (1.0 / years) - 1.0)
 
 
-def calmar_ratio(returns) -> float:
+def calmar_ratio(returns, periods_per_year: int = APPROX_BDAYS_PER_YEAR) -> float:
     mdd = max_drawdown(returns)
     if not mdd or np.isnan(mdd):
         return float("nan")
-    return float(annual_return(returns) / abs(mdd))
+    return float(annual_return(returns, periods_per_year) / abs(mdd))
 
 
 def hit_rate(returns_by_asset, preds_by_asset, direction_threshold: float = 0.0) -> float:

@@ -87,7 +87,8 @@ class CSMTradingCycle:
     def __init__(self, factory, config: CSMConfiguration, history_service, ticker_to_entity: Dict[str, int],
                  history_start, retrain_every_days: int = 21, data_updater: Optional[Callable] = None,
                  universe_service=None, universe_id: Optional[int] = None, persist: bool = True,
-                 log: Optional[Callable[[str], None]] = None, benchmark_entities: Optional[Dict[str, int]] = None):
+                 log: Optional[Callable[[str], None]] = None, benchmark_entities: Optional[Dict[str, int]] = None,
+                 fundamentals=None):
         self.factory = factory
         self.config = config
         self.history_service = history_service
@@ -123,7 +124,10 @@ class CSMTradingCycle:
         # option C: the candidate values of every decision, on the factors the resolution path uses
         self.feature_store = (CSMFeatureStore(factory, config, self.signal_store)
                               if self.persist and config.persist_features else None)
-        self.feature_engine = CSMFeatureEngine(config.features)      # domain factors' calculate(), cached
+        # domain factors' calculate(), cached; fundamentals = CSMFundamentals of the fundamental candidates (or None)
+        self.feature_engine = CSMFeatureEngine(config.features, fundamentals=fundamentals)
+        if config.features.fundamental_names() and fundamentals is None:
+            self.log("[CSM] fundamental candidates configured but no statement source: they stay empty")
         self._last_result: Optional[CSMCycleResult] = None
         self._loaded: Dict[int, object] = {}
 

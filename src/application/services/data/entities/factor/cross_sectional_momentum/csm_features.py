@@ -12,6 +12,10 @@ factor-resolution path (CompanyShareCrossSectionalMomentumFactor) feeds the same
 so both paths read identical values. Every value at date d uses bars up to d only; a window with a missing bar
 gives no value.
 
+Fundamental candidates (CSMFeatureConfig.fundamentals, opt-in): point-in-time values of the calculated fundamental
+factors, given by the engine's CSMFundamentals (csm_fundamentals); no fundamentals source -> those columns are empty
+(and the study's coverage filter leaves them out).
+
 Optional ``cs_rank_<name>``: percentile rank of the feature across the assets that have it on that date.
 
 Label (training only): 1 when the return over the next ``horizon`` sessions beats the cross-sectional median of
@@ -136,8 +140,9 @@ def _library_parameters(factor) -> Dict:
 class CSMFeatureEngine:
     """Computes the candidate features with the domain factors; values are cached per (asset, date)."""
 
-    def __init__(self, features: CSMFeatureConfig):
+    def __init__(self, features: CSMFeatureConfig, fundamentals=None):
         self.config = features
+        self.fundamentals = fundamentals            # CSMFundamentals of features.fundamental_names(), or None
         names = set(features.base_feature_names())
         self.factors = {n: cls() for n, cls in candidate_factor_classes().items() if n in names}
         self.windows = {n: _windows(f) for n, f in self.factors.items()}
@@ -210,7 +215,16 @@ def build_dataset(bars: Union[pd.DataFrame, Dict[str, pd.DataFrame]], features: 
         for key, series in (benchmarks or {}).items():
             frame[key if "@" in key else f"close@{key}"] = series.reindex(closes.index).astype(float)
         per_asset[a] = engine.asset_features(a, frame)
-    columns = {n: pd.DataFrame({a: f[n] for a, f in per_asset.items()}).reindex(closes.index) for n in base}
+    fundamental = set(features.fundamental_names())
+    columns = {n: pd.DataFrame({a: f[n] for a, f in per_asset.items()}).reindex(closes.index)
+               for n in base if n not in fundamental}
+    for n in base:
+        if n in fundamental:
+            source = engine.fundamentals
+            columns[n] = (source.panel(n, list(closes.columns), closes.index)
+                          if source is not None and n in source.factors
+                          else pd.DataFrame(np.nan, index=closes.index, columns=closes.columns))
+    columns = {n: columns[n] for n in base}
     if features.cross_sectional_ranks:
         for n in base:
             columns[f"cs_rank_{n}"] = columns[n].rank(axis=1, pct=True)

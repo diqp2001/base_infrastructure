@@ -147,6 +147,8 @@ from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.currency.currency_yield_factor_repository import CurrencyYieldFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.currency.ibkr_currency_yield_factor_repository import IBKRCurrencyYieldFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_factor_repository import IBKRCompanyShareFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.etf_share.ibkr_etf_share_factor_repository import IBKRETFShareFactorRepository
+from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.ibkr_etf_share_option_factor_repository import IBKRETFShareOptionFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.share.company_share.ibkr_company_share_value_factor_repository import IBKRCompanyShareValueFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.currency.ibkr_currency_value_factor_repository import IBKRCurrencyValueFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.finance.financial_assets.currency.ibkr_currency_rate_factor_repository import IBKRCurrencyRateFactorRepository
@@ -159,6 +161,7 @@ from src.infrastructure.repositories.local_repo.finance.portfolio.portfolio_repo
 from src.infrastructure.repositories.local_repo.finance.portfolio.company_share_portfolio_repository import CompanySharePortfolioRepository
 from src.infrastructure.repositories.local_repo.finance.portfolio.currency_portfolio_repository import CurrencyPortfolioRepository
 from src.infrastructure.repositories.local_repo.finance.portfolio.company_share_option_portfolio_repository import CompanyShareOptionPortfolioRepository
+from src.infrastructure.repositories.local_repo.finance.portfolio.etf_share_option_portfolio_repository import ETFShareOptionPortfolioRepository
 from src.infrastructure.repositories.local_repo.finance.portfolio.derivative_portfolio_repository import DerivativePortfolioRepository
 from src.infrastructure.repositories.local_repo.finance.company_repository import CompanyRepository
 from src.infrastructure.repositories.local_repo.finance.holding.holding_repository import HoldingRepository
@@ -168,7 +171,9 @@ from src.infrastructure.repositories.local_repo.finance.holding.currency_portfol
 from src.infrastructure.repositories.local_repo.finance.holding.company_share_portfolio_portfolio_holding_repository import CompanySharePortfolioPortfolioHoldingRepository
 from src.infrastructure.repositories.local_repo.finance.holding.currency_portfolio_portfolio_holding_repository import CurrencyPortfolioPortfolioHoldingRepository
 from src.infrastructure.repositories.local_repo.finance.holding.company_share_option_portfolio_holding_repository import CompanyShareOptionPortfolioHoldingRepository
+from src.infrastructure.repositories.local_repo.finance.holding.etf_share_option_portfolio_holding_repository import ETFShareOptionPortfolioHoldingRepository
 from src.infrastructure.repositories.local_repo.finance.holding.company_share_option_portfolio_portfolio_holding_repository import CompanyShareOptionPortfolioPortfolioHoldingRepository
+from src.infrastructure.repositories.local_repo.finance.holding.etf_share_option_portfolio_portfolio_holding_repository import ETFShareOptionPortfolioPortfolioHoldingRepository
 from src.infrastructure.repositories.local_repo.finance.financial_statements.financial_statement_repository import FinancialStatementRepository
 from src.infrastructure.repositories.local_repo.finance.financial_statements.income_statement_repository import IncomeStatementRepository
 from src.infrastructure.repositories.local_repo.finance.financial_statements.balance_sheet_repository import BalanceSheetRepository
@@ -211,6 +216,10 @@ from src.infrastructure.repositories.local_repo.factor.finance.portfolio.currenc
 from src.infrastructure.repositories.local_repo.factor.finance.holding.currency_portfolio_portfolio_holding_value_factor_repository import CurrencyPortfolioPortfolioHoldingValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.holding.currency_portfolio_holding_value_factor_repository import CurrencyPortfolioHoldingValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_value_factor_repository import CompanyShareOptionValueFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.company_share_option.company_share_option_model_price_factor_repository import CompanyShareOptionModelPriceFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_model_price_factor_repository import ETFShareOptionModelPriceFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_value_factor_repository import ETFShareOptionValueFactorRepository
+from src.infrastructure.repositories.local_repo.factor.finance.holding.etf_share_option_portfolio.etf_share_option_portfolio_holding_value_factor_repository import ETFShareOptionPortfolioHoldingValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.holding.company_share_option_portfolio.company_share_option_portfolio_holding_value_factor_repository import CompanyShareOptionPortfolioHoldingValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.portfolio.derivatives.option.company_share_option_portfolio.company_share_option_portfolio_value_factor_repository import CompanyShareOptionPortfolioValueFactorRepository
 from src.infrastructure.repositories.local_repo.factor.finance.holding.company_share_option_portfolio_portfolio.company_share_option_portfolio_portfolio_holding_value_factor_repository import CompanyShareOptionPortfolioPortfolioHoldingValueFactorRepository
@@ -354,6 +363,7 @@ from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.bond_rep
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.cash_repository import IBKRCashRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.commodity_repository import IBKRCommodityRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.company_share_repository import IBKRCompanyShareRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.etf_share_repository import IBKRETFShareRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.crypto_repository import IBKRCryptoRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.currency_repository import IBKRCurrencyRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.equity_repository import IBKREquityRepository
@@ -361,6 +371,7 @@ from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivati
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.future.bond_future_repository import IBKRBondFutureRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.option.index_future_option_repository import IBKRIndexFutureOptionRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.option.company_share_option_repository import IBKRCompanyShareOptionRepository
+from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.derivatives.option.etf_share_option_repository import IBKRETFShareOptionRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.index_repository import IBKRIndexRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.index.index_company_share_repository import IBKRIndexCompanyShareRepository
 from src.infrastructure.repositories.ibkr_repo.finance.financial_assets.index.index_company_share_portfolio_repository import IBKRIndexCompanySharePortfolioRepository
@@ -530,6 +541,10 @@ class RepositoryFactory:
                 'CompanyShareOptionImpliedDivYieldFactor': CompanyShareOptionImpliedDivYieldFactorRepository(self.session, factory=self),
                 'CompanyShareOptionRFYieldFactor': CompanyShareOptionRFYieldFactorRepository(self.session, factory=self),
                 'CompanyShareOptionValueFactor': CompanyShareOptionValueFactorRepository(self.session, factory=self),
+                'CompanyShareOptionModelPriceFactor': CompanyShareOptionModelPriceFactorRepository(self.session, factory=self),
+                'ETFShareOptionModelPriceFactor': ETFShareOptionModelPriceFactorRepository(self.session, factory=self),
+                'ETFShareOptionValueFactor': ETFShareOptionValueFactorRepository(self.session, factory=self),
+                'ETFShareOptionPortfolioHoldingValueFactor': ETFShareOptionPortfolioHoldingValueFactorRepository(self.session, factory=self),
                 'CompanyShareOptionImpliedCorrFactor': CompanyShareOptionImpliedCorrFactorRepository(self.session, factory=self),
                 'CompanyShareOptionVolFactor': CompanyShareOptionVolFactorRepository(self.session, factory=self),
                 'CompanyShareOptionVarFactor': CompanyShareOptionVarFactorRepository(self.session, factory=self),
@@ -590,6 +605,7 @@ class RepositoryFactory:
                 'ETFShareOption': ETFShareOptionRepository(self.session, factory=self),
                 'CompanySharePortfolioOptionPortfolio': CompanySharePortfolioOptionPortfolioRepository(self.session, factory=self),
                 'CompanyShareOptionPortfolio': CompanyShareOptionPortfolioRepository(self.session, factory=self),
+                'ETFShareOptionPortfolio': ETFShareOptionPortfolioRepository(self.session, factory=self),
                 'CompanySharePortfolio': CompanySharePortfolioRepository(self.session, factory=self),
                 'CurrencyPortfolio': CurrencyPortfolioRepository(self.session, factory=self),
                 'DerivativePortfolio': DerivativePortfolioRepository(self.session, factory=self),
@@ -651,10 +667,12 @@ class RepositoryFactory:
                 'PortfolioHolding': PortfolioHoldingRepository(self.session, factory=self),
                 'CompanySharePortfolioHolding': CompanySharePortfolioHoldingRepository(self.session, factory=self),
                 'CompanyShareOptionPortfolioHolding': CompanyShareOptionPortfolioHoldingRepository(self.session, factory=self),
+                'ETFShareOptionPortfolioHolding': ETFShareOptionPortfolioHoldingRepository(self.session, factory=self),
                 'CurrencyPortfolioHolding': CurrencyPortfolioHoldingRepository(self.session, factory=self),
                 'CompanySharePortfolioPortfolioHolding': CompanySharePortfolioPortfolioHoldingRepository(self.session, factory=self),
                 'CurrencyPortfolioPortfolioHolding': CurrencyPortfolioPortfolioHoldingRepository(self.session, factory=self),
                 'CompanyShareOptionPortfolioPortfolioHolding': CompanyShareOptionPortfolioPortfolioHoldingRepository(self.session, factory=self),
+                'ETFShareOptionPortfolioPortfolioHolding': ETFShareOptionPortfolioPortfolioHoldingRepository(self.session, factory=self),
                 # Financial statement repositories
                 'FinancialStatement': FinancialStatementRepository(self.session, factory=self),
                 'IncomeStatement': IncomeStatementRepository(self.session, factory=self),
@@ -865,6 +883,7 @@ class RepositoryFactory:
                 'IndexFuturePriceReturnFactor': IBKRIndexFuturePriceReturnFactorRepository(ibkr_client=client, factory=self),
                 'ShareFactor': IBKRShareFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareFactor': IBKRCompanyShareFactorRepository(ibkr_client=client, factory=self),
+                'ETFShareFactor': IBKRETFShareFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareValueFactor': IBKRCompanyShareValueFactorRepository(ibkr_client=client, factory=self),
                 'CurrencyValueFactor': IBKRCurrencyValueFactorRepository(ibkr_client=client, factory=self),
                 'CurrencyRateFactor': IBKRCurrencyRateFactorRepository(ibkr_client=client, factory=self),
@@ -881,6 +900,7 @@ class RepositoryFactory:
                 'PortfolioCompanyShareOptionFactor': IBKRPortfolioCompanyShareOptionFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionDeltaFactor': IBKRCompanyShareOptionDeltaFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionFactor': IBKRCompanyShareOptionFactorRepository(ibkr_client=client, factory=self),
+                'ETFShareOptionFactor': IBKRETFShareOptionFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionMidPriceFactor': IBKRCompanyShareOptionMidPriceFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionGammaFactor': IBKRCompanyShareOptionGammaFactorRepository(ibkr_client=client, factory=self),
                 'CompanyShareOptionPriceFactor': IBKRCompanyShareOptionPriceFactorRepository(ibkr_client=client, factory=self),
@@ -924,7 +944,9 @@ class RepositoryFactory:
                 'BondFuture': IBKRBondFutureRepository(ibkr_client=client, factory=self),
                 'IndexFutureOption': IBKRIndexFutureOptionRepository(ibkr_client=client, factory=self),
                 'CompanyShareOption': IBKRCompanyShareOptionRepository(ibkr_client=client, factory=self),
+                'ETFShareOption': IBKRETFShareOptionRepository(ibkr_client=client, factory=self),
                 'CompanyShare': IBKRCompanyShareRepository(ibkr_client=client, factory=self),
+                'ETFShare': IBKRETFShareRepository(ibkr_client=client, factory=self),
                 'Currency': IBKRCurrencyRepository(ibkr_client=client, factory=self),
                 'Bond': IBKRBondRepository(ibkr_client=client, factory=self),
                 'Index': IBKRIndexRepository(ibkr_client=client, factory=self),
@@ -1167,6 +1189,14 @@ class RepositoryFactory:
         return self._eulerpool_repositories
 
     # -- data providers (FactorValueProviderPort), by repository family --
+    def enable_provider_family(self, family: str):
+        """Enable a subscription provider family ('fmp', 'eulerpool') with its configured key and return its factor
+        value repository, or None (unknown family, no key)."""
+        create = {'fmp': self.create_fmp_repositories, 'eulerpool': self.create_eulerpool_repositories}.get(family)
+        if create is None or create() is None:
+            return None
+        return self.factor_value_provider(family)
+
     def factor_value_provider(self, family: str):
         """The factor value repository of a data provider family ('ibkr', 'fmp', 'eulerpool'), or None (unknown, not
         enabled)."""

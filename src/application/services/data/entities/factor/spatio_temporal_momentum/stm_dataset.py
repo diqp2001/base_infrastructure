@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Mapping, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -82,9 +82,45 @@ def align_close_panel(close_panel: pd.DataFrame, required_rows: int = 0) -> Tupl
     return panel, report
 
 
+def cross_sectional_zscore(frame: pd.DataFrame, clip: float = 3.0,
+                           groups: Optional[Mapping[str, str]] = None, min_group_size: int = 2) -> pd.DataFrame:
+    """Each date's values standardised across assets ((x - mean) / std), clipped to +-clip; a date with fewer than
+    two values or no dispersion is all NaN. Uses each date's own row only (no look-ahead).
+
+    ``groups`` ({asset: group}, e.g. the sector): group-neutral scaling. An asset whose group has at least
+    ``min_group_size`` values that date is scored on its distance to its group's mean, divided by the standard
+    deviation of those distances across every such asset (one scale for all groups, so a 2-name group is not
+    blown up by its own tiny dispersion); an asset alone in its group (or with no group) keeps the plain
+    cross-sectional z-score."""
+    mean = frame.mean(axis=1)
+    std = frame.std(axis=1, ddof=0)
+    plain = frame.sub(mean, axis=0).div(std.where(std > 0), axis=0)
+    if not groups:
+        return plain.clip(-clip, clip)
+    labels = pd.Series({c: groups.get(c) for c in frame.columns}, dtype=object)
+    labels = labels.where(labels.notna(), labels.index.map(lambda c: f"__alone__{c}"))
+    by_group = frame.T.groupby(labels)
+    group_mean = by_group.transform("mean").T
+    group_count = frame.notna().T.groupby(labels).transform("sum").T
+    in_group = group_count >= min_group_size
+    residual = (frame - group_mean).where(in_group)
+    scale = residual.pow(2).mean(axis=1).pow(0.5)            # ddof 0, over the grouped assets only
+    neutral = residual.div(scale.where(scale > 0), axis=0)
+    return neutral.where(in_group, plain).clip(-clip, clip)
+
+
 def build_feature_panel(close_panel: pd.DataFrame, cfg: STMFeatureConfig, horizon: int = 1,
-                        assets: Optional[List[str]] = None) -> FeaturePanel:
-    """Compute features for an aligned close panel (dates x assets)."""
+                        assets: Optional[List[str]] = None,
+                        extra_features: Optional[Dict[str, pd.DataFrame]] = None,
+                        extra_feature_groups: Optional[Mapping[str, str]] = None) -> FeaturePanel:
+    """Compute features for an aligned close panel (dates x assets).
+
+    ``extra_features``: {name: dates x assets} point-in-time series known at each date (e.g. fundamentals,
+    csm_fundamentals), appended after the price features in the given order. Each is standardised across assets on
+    each date (cross_sectional_zscore); a missing value is 0 - the date's cross-sectional mean - never a later
+    observation, so a share without a filing does not remove the whole date from training.
+    ``extra_feature_groups`` ({asset: group}, e.g. the sector): the extra features are scaled group-neutrally
+    (cross_sectional_zscore(groups=...)) instead of across every asset."""
     if assets is not None:
         missing = [a for a in assets if a not in close_panel.columns]
         if missing:
@@ -102,6 +138,14 @@ def build_feature_panel(close_panel: pd.DataFrame, cfg: STMFeatureConfig, horizo
     target_orig = np.stack([frames[a]["target_returns_nonscaled"].to_numpy(dtype=float) for a in asset_list], axis=1)
     vol = np.stack([frames[a]["daily_vol"].to_numpy(dtype=float) for a in asset_list], axis=1)
     first = first_valid_feature_row(frames, names, cfg.min_warmup_rows)
+    if extra_features:
+        extra = []
+        for name, frame in extra_features.items():
+            z = cross_sectional_zscore(frame.reindex(index=close_panel.index, columns=asset_list).astype(float),
+                                       groups=extra_feature_groups)
+            extra.append(z.fillna(0.0).to_numpy(dtype=float))
+            names = names + [name]
+        features = np.concatenate([features, np.stack(extra, axis=2)], axis=2)
     return FeaturePanel(
         dates=pd.DatetimeIndex(close_panel.index),
         assets=asset_list,
