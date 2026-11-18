@@ -27,7 +27,7 @@ from src.application.managers.project_managers.stm_monthly_decile_project.backte
     TIMINGS_FILE,
 )
 from src.application.services.misbuffet import run_manifest
-from src.application.services.portfolio_research.decile_report import decile_status, write_report
+from src.application.services.portfolio_research.decile_report import decile_status, publish_research, write_report
 from src.application.services.timing.step_timings import summarise as summarise_step_timings
 
 
@@ -50,7 +50,8 @@ class STMMonthlyDecileProjectManager(ProjectManager):
         """Run the Misbuffet backtest; the algorithm retrains, scores, forms the deciles and trades D10 - D1."""
         folder = os.path.join(self.results_dir, datetime.now().strftime("%Y%m%dT%H%M%S"))
         settings = project_config.settings(self.config)
-        status = decile_status(self.results_dir, "backtest", on_month=lambda cycle: write_report(cycle, folder, settings))
+        status = decile_status(self.results_dir, "backtest",
+                               on_month=lambda cycle: (write_report(cycle, folder, settings), self._publish(cycle)))
         start, end = project_config.backtest_window(self.config)
         months_total = (end.year - start.year) * 12 + end.month - start.month   # rebalances: one per month after the first
         status.update(run_folder=folder, start=str(start), end=str(end), months_total=months_total,
@@ -92,9 +93,44 @@ class STMMonthlyDecileProjectManager(ProjectManager):
         if cycle is None:
             raise RuntimeError("The engine ran without a decile cycle (see the algorithm's initialize log)")
         summary = write_report(cycle, folder, settings)
+        self._publish(cycle)
         self.results = {'engine': engine_result, 'summary': summary, 'folder': folder,
                         'value_history': getattr(algorithm, 'value_history', [])}
         return self.results
+
+    def _publish(self, cycle) -> None:
+        """The decile research of this run into the run registry, and the models A / B it used. Called after every
+        month and at the end; never stops the run."""
+        run = getattr(self.runner, "run", None)
+        service = getattr(self.runner, "_registry_service", None)
+        if run is None or service is None:
+            return
+        try:
+            from src.application.services.backtest_registry.model_registry_service import ModelRegistryService
+            from src.application.services.backtest_registry.research_result_service import ResearchResultService
+            publish_research(cycle, ResearchResultService(service.factory), run.id)
+            models = ModelRegistryService(service.factory)
+            section, stm = self.config["deciles"], project_config.build_stm_configuration(self.config)
+            price_features = list(stm.features.feature_names())
+            for variant in project_config.variants(self.config):
+                features = price_features + (list(section["fundamentals"]) if variant == "B" else [])
+                model = models.register_model(
+                    f"stm_monthly_decile_{variant}", algorithm=stm.model.model_type,
+                    description=("STM model on monthly bars, price features" if variant == "A" else
+                                 "STM model on monthly bars, price features + Eulerpool point-in-time fundamentals "
+                                 f"({section.get('fundamental_scaling', 'sector_neutral')})"),
+                    configuration={"features": features, "hyperparameters": dict(stm.model.params or {}),
+                                   "lookback": stm.model.lookback,
+                                   "training": {"rolling_window_rows": stm.training.rolling_window_rows,
+                                                "val_days": stm.training.val_days,
+                                                "n_epochs": stm.training.n_epochs},
+                                   "training_frequency": "monthly", "prediction_frequency": "monthly",
+                                   "prediction_horizon": stm.prediction_horizon,
+                                   "version": str(self.config.get("version", "1"))})
+                role = f"{variant} (traded)" if variant == section.get("traded_variant") else variant
+                service.link_model(run, model.id, role=role)
+        except Exception as e:
+            self.logger.warning(f"run {run.id}: research results not published: {e}")
 
 
 if __name__ == "__main__":

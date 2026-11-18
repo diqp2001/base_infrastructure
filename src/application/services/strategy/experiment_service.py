@@ -21,6 +21,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable, List, Optional
 
+from src.application.services.backtest_registry.run_identity import pid_alive  # noqa: F401  (re-exported)
 from src.application.services.strategy.configuration_service import StrategyConfigurationService
 from src.domain.entities.strategy.strategy_experiment import (
     BACKTEST,
@@ -36,18 +37,6 @@ STARTUP_GRACE = timedelta(minutes=5)          # a QUEUED experiment whose worker
 
 class ExperimentConflict(Exception):
     """Another experiment is running."""
-
-
-def pid_alive(pid: Optional[int]) -> bool:
-    """Never os.kill(pid, 0) on Windows: it terminates the process."""
-    if not pid:
-        return False
-    try:
-        import psutil
-        p = psutil.Process(int(pid))
-        return p.is_running() and p.status() != psutil.STATUS_ZOMBIE
-    except Exception:
-        return False
 
 
 class JobRunner:

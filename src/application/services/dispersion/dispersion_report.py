@@ -130,3 +130,28 @@ def write_report(results: Sequence[MonthResult], folder: str, settings: Dict[str
     with open(os.path.join(folder, "summary.json"), "w", encoding="utf-8") as f:
         json.dump(s, f, indent=2, default=str)
     return s
+
+
+PUBLISHED_COLUMNS = ("original_pnl", "filtered_pnl", "incremental_pnl", "short_premium", "full_basket_premium",
+                     "selected_basket_premium", "unused_premium", "n_selected", "pct_selected", "mean_model_score")
+
+
+def publish_research(results: Sequence[MonthResult], results_service, run_id: int) -> int:
+    """Publish the settled months to the run registry (ResearchResultService): one series per P&L / premium column,
+    dated at the expiry (group 'dispersion'), and the A / B / incremental P&L statistics as metrics."""
+    trades = trade_rows(results)
+    if trades.empty or "incremental_pnl" not in trades:
+        return 0
+    settled = trades[trades["incremental_pnl"].notna()].copy()
+    if settled.empty:
+        return 0
+    settled.index = pd.to_datetime(settled["expiry"])
+    frame = settled[[c for c in PUBLISHED_COLUMNS if c in settled]].astype(float)
+    points = results_service.publish_frame(run_id, frame, group="dispersion")
+    stats = summary(trades)
+    for scope in ("original", "model_filtered", "incremental"):
+        if isinstance(stats.get(scope), dict):
+            results_service.publish_metrics(run_id, stats[scope], scope=scope)
+    results_service.publish_metrics(run_id, {k: v for k, v in stats.items() if not isinstance(v, dict)},
+                                    scope="dispersion")
+    return points

@@ -394,6 +394,15 @@ from src.infrastructure.repositories.local_repo.factor.finance.order.company_sha
 # Backtest repositories
 from src.infrastructure.repositories.local_repo.backtest.model_repository import ModelRepository
 from src.infrastructure.repositories.local_repo.backtest.backtest_repository import BacktestRepository
+from src.infrastructure.repositories.local_repo.backtest.backtest_run_repository import (
+    BacktestRunModelLinkRepository,
+    BacktestRunPortfolioRepository,
+    BacktestRunRepository,
+)
+from src.infrastructure.repositories.local_repo.backtest.research_result_repository import (
+    ResearchSeriesRepository,
+    RunMetricRepository,
+)
 from src.infrastructure.repositories.local_repo.backtest.universe_repository import UniverseRepository
 from src.infrastructure.repositories.local_repo.backtest.backtest_factor_backtest_repository import BacktestFactorBacktestRepository
 from src.infrastructure.repositories.local_repo.factor.backtest.backtest_factor_repository import BacktestFactorRepository
@@ -693,6 +702,12 @@ class RepositoryFactory:
                 # Backtest repositories
                 'Model': ModelRepository(self.session, factory=self),
                 'Backtest': BacktestRepository(self.session, factory=self),
+                # generic research / backtest registry (2026-11-18)
+                'BacktestRun': BacktestRunRepository(self.session, factory=self),
+                'BacktestRunPortfolio': BacktestRunPortfolioRepository(self.session, factory=self),
+                'BacktestRunModelLink': BacktestRunModelLinkRepository(self.session, factory=self),
+                'ResearchSeries': ResearchSeriesRepository(self.session, factory=self),
+                'RunMetric': RunMetricRepository(self.session, factory=self),
                 'Universe': UniverseRepository(self.session, factory=self),
                 'BacktestFactorBacktest': BacktestFactorBacktestRepository(self.session, factory=self),
                 'BacktestFactor': BacktestFactorRepository(self.session, factory=self),
@@ -2313,6 +2328,26 @@ class RepositoryFactory:
         return self.get_local_repository('UniverseConstituent')
 
     # ML properties
+    @property
+    def backtest_run_local_repo(self):
+        return self.get_local_repository('BacktestRun')
+
+    @property
+    def backtest_run_portfolio_local_repo(self):
+        return self.get_local_repository('BacktestRunPortfolio')
+
+    @property
+    def backtest_run_model_link_local_repo(self):
+        return self.get_local_repository('BacktestRunModelLink')
+
+    @property
+    def research_series_local_repo(self):
+        return self.get_local_repository('ResearchSeries')
+
+    @property
+    def run_metric_local_repo(self):
+        return self.get_local_repository('RunMetric')
+
     @property
     def ml_model_local_repo(self):
         return self.get_local_repository('MLModel')

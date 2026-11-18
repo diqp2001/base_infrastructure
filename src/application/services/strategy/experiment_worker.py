@@ -136,6 +136,7 @@ def run_experiment(experiment_id: int, experiments, configurations, beat_reposit
         base = adapter.base_config()["Portfolio"]["name"]
         native = service.native_config(configuration, results_dir=experiment.results_dir,
                                        portfolio_name=portfolio_name(base, experiment_id))
+        native["strategy_experiment_id"] = experiment_id      # the backtest run registry links the run to it
         if manager_factory is None:
             manager = adapter.manager_class()(config=native, database_service=database_service)
         else:

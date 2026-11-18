@@ -35,3 +35,29 @@ class BacktestRunner(BaseBacktestRunner):
         algorithm.set_entity_service(self.model_trainer.data_loader.financial_asset_service)
         self.algorithm_instance = algorithm
         return algorithm
+
+    def describe_run(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """The run registry's view of this run (BaseBacktestRunner.describe_run)."""
+        from src.application.services.universe.djia_membership import BASE_DATE, CHANGES, ETF, build_membership
+        membership = build_membership()
+        return {
+            "universe_description": "Dow Jones Industrial Average members (DIA), point-in-time",
+            "universe_snapshot": {
+                "point_in_time_membership": True, "index": "DJIA", "etf": ETF, "base_date": str(BASE_DATE),
+                "members_ever": membership.all_constituents(),
+                "changes": [{"date": str(c.effective), "added": list(c.added), "removed": list(c.removed)}
+                            for c in CHANGES]},
+            "price_source": config["deciles"].get("research_price_series", "TRADES"),
+            "include_dividends": config["deciles"].get("research_price_series") == "ADJUSTED_LAST",
+            "include_transaction_costs": True,
+            "gross_leverage": config["deciles"].get("long_short_gross"),
+            "assumptions": {
+                "engine_price_source": "TRADES", "engine_dividends": False,
+                "research_price_source": config["deciles"].get("research_price_series", "TRADES"),
+                "research_transaction_cost_bps": config["deciles"].get("transaction_cost_bps"),
+                "engine_transaction_costs": "none (fills at the close)",
+                "fundamental_scaling": config["deciles"].get("fundamental_scaling"),
+                "variants": ["A", "B"] if config["deciles"].get("use_eulerpool_fundamentals") else ["A"],
+                "traded_variant": config["deciles"].get("traded_variant"),
+                "rebalance": "monthly", "holding_period": "1 month", "retraining": "monthly"},
+        }

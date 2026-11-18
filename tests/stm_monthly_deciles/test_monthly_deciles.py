@@ -403,3 +403,31 @@ def test_adjusted_last_requests_end_now():
         except Exception:
             pass                                              # only the request's end time matters here
     assert sent[:2] == ["", "20261117-21:00:00"]
+
+
+# ---------------------------------------------------------------- the run registry (2026-11-18)
+def test_the_decile_research_is_published_to_the_run_registry(run):
+    from src.application.services.backtest_registry.backtest_run_service import BacktestRunService
+    from src.application.services.backtest_registry.research_query_service import ResearchQueryService
+    from src.application.services.backtest_registry.research_result_service import ResearchResultService
+    from src.application.services.misbuffet.run_manifest import GitState
+    from src.application.services.portfolio_research.decile_report import publish_research
+    from tests.spatio_temporal_momentum.helpers import make_factory
+    _, cycle, _ = run
+    factory, session, engine = make_factory()
+    try:
+        runs = BacktestRunService(factory, git=lambda: GitState(commit="x", dirty=False), branch=lambda: None)
+        r = runs.start(runs.register("stm_monthly_deciles", {"project_name": "stm_monthly_deciles"}))
+        results = ResearchResultService(factory)
+        n = publish_research(cycle, results, r.id)
+        assert n > 0 and publish_research(cycle, results, r.id) == n          # republishing replaces
+        query = ResearchQueryService(factory)
+        names = {s["name"] for s in query.series(r.id)["series"]}
+        assert {"A/gross/D1", "A/gross/D10", "A/gross/D10-D1", "B/net/D10-D1"} <= names
+        assert any(name.startswith("A/turnover/") for name in names)
+        metrics = query.metrics(r.id)
+        assert {"A/gross", "A/net", "B/gross", "B/net"} <= set(metrics)
+        assert "D10-D1.sharpe_ratio" in metrics["A/gross"] and "monotonicity.average_spread" in metrics["A/gross"]
+    finally:
+        session.close()
+        engine.dispose()

@@ -1,0 +1,54 @@
+{% extends "research_registry_base.html" %}
+{% block title %}Compare runs{% endblock %}
+{% block content %}
+<h4>Compare runs</h4>
+<form class="row g-2 mb-3" method="get"><div class="col-auto">
+    <label class="form-label small muted" for="c-ids">Run ids</label>
+    <input id="c-ids" class="form-control form-control-sm" name="run_ids" value="{{ ids|join(',') }}" placeholder="12,15,18"></div>
+    <div class="col-auto align-self-end"><button class="btn btn-sm btn-outline-light">Compare</button></div></form>
+{% if not result %}<p class="muted">Enter two or more run ids, or tick runs on the <a href="{{ url_for('research_registry.runs') }}">run list</a>.</p>
+{% else %}
+
+<div class="card mb-3"><div class="card-header">Comparability</div><div class="card-body">
+{% if result.warnings %}{% for w in result.warnings %}<div class="warning-box">⚠ {{ w }}</div>{% endfor %}
+<div class="small muted mt-2">These runs can be viewed together, but the differences above change what their numbers mean.</div>
+{% else %}<div class="small">No assumption differs: same window, universe, price source, dividends, costs, capital and leverage.</div>{% endif %}
+</div></div>
+
+<div class="card mb-3"><div class="card-header">Runs</div><div class="table-responsive"><table class="table table-sm mb-0">
+<thead><tr><th>Run</th><th>Project</th><th>Models</th><th>Universe</th><th>Period</th><th>Status</th><th>Price source</th><th>Commit</th></tr></thead>
+{% for r in result.runs %}<tr>
+    <td><a href="{{ url_for('research_registry.run', run_id=r.id) }}">{{ r.id }}</a></td><td>{{ r.project_name }}</td>
+    <td class="small">{% for m in r.models %}{{ m.name }} <span class="muted">({{ m.role }})</span><br>{% else %}–{% endfor %}</td>
+    <td class="small">{{ r.universe_description or '–' }}</td>
+    <td class="small">{{ (r.requested_start or '')[:10] }} → {{ (r.requested_end or '')[:10] }}</td>
+    <td><span class="status status-{{ r.status }}">{{ r.status }}</span> <span class="muted small">{{ r.progress }}</span></td>
+    <td>{{ r.price_source or '–' }}</td><td><code>{{ (r.code_commit or '–')[:10] }}</code></td></tr>{% endfor %}
+</table></div></div>
+
+<div class="card mb-3"><div class="card-header">Equity curves <span class="muted small">(main book, rebased to 1)</span></div><div class="card-body">
+<div class="chart" data-chart='{{ chart }}' data-height="300"></div>
+{% if overflow %}<div class="small muted">Only the first 8 runs are drawn; every run is in the tables.</div>{% endif %}
+</div></div>
+
+<div class="card mb-3"><div class="card-header">Engine metrics</div><div class="table-responsive"><table class="table table-sm mb-0">
+<thead><tr><th>Metric</th>{% for r in result.runs %}<th class="num">Run {{ r.id }}</th>{% endfor %}</tr></thead>
+{% for m in result.metrics %}<tr><th class="small">{{ m.name|replace('_',' ') }}</th>
+{% for r in result.runs %}<td class="num">{{ m.by_run[r.id|string]|metric(m.name) }}</td>{% endfor %}</tr>{% endfor %}
+</table></div></div>
+
+<div class="card mb-3"><div class="card-header">Differences</div><div class="table-responsive"><table class="table table-sm mb-0">
+<thead><tr><th>Field</th>{% for r in result.runs %}<th>Run {{ r.id }}</th>{% endfor %}</tr></thead>
+{% for d in result.differences %}<tr><th class="small">{{ d.label }}</th>{% for r in result.runs %}<td class="small">{{ d.by_run[r.id|string] }}</td>{% endfor %}</tr>
+{% else %}<tr><td class="muted" colspan="9">none</td></tr>{% endfor %}
+</table></div></div>
+
+<div class="card mb-3"><div class="card-header">Configuration differences <span class="muted small">({{ result.config_differences|length }} keys)</span></div>
+<div class="table-responsive" style="max-height:520px"><table class="table table-sm mb-0">
+<thead><tr><th>Key</th>{% for r in result.runs %}<th>Run {{ r.id }}</th>{% endfor %}</tr></thead>
+{% for d in result.config_differences %}<tr><td class="small"><code>{{ d.field }}</code></td>{% for r in result.runs %}<td class="small">{{ d.by_run[r.id|string]|string|truncate(80) }}</td>{% endfor %}</tr>
+{% else %}<tr><td class="muted" colspan="9">identical configurations</td></tr>{% endfor %}
+</table></div></div>
+<p class="small muted">{{ result.note }}</p>
+{% endif %}
+{% endblock %}

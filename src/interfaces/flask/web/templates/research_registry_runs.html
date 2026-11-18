@@ -1,0 +1,60 @@
+{% extends "research_registry_base.html" %}
+{% block title %}Research runs{% endblock %}
+{% block content %}
+<h4>Backtest runs</h4>
+<p class="muted small mb-2">Every execution of a backtest, with its own id, configuration, code commit, universe and
+status. A PARTIAL run stopped before the end of its window. Tick two or more runs to compare them.</p>
+
+<form class="row g-2 align-items-end mb-3" method="get">
+    <div class="col-auto"><label class="form-label small muted" for="f-project">Project</label>
+        <select id="f-project" class="form-select form-select-sm" name="project"><option value="">all</option>
+        {% for p in projects %}<option {% if filters.project == p %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></div>
+    <div class="col-auto"><label class="form-label small muted" for="f-model">Model</label>
+        <select id="f-model" class="form-select form-select-sm" name="model_id"><option value="">all</option>
+        {% for m in models %}<option value="{{ m.id }}" {% if filters.model_id == m.id %}selected{% endif %}>{{ m.name }}</option>{% endfor %}</select></div>
+    <div class="col-auto"><label class="form-label small muted" for="f-status">Status</label>
+        <select id="f-status" class="form-select form-select-sm" name="status"><option value="">all</option>
+        {% for s in statuses %}<option {% if filters.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></div>
+    <div class="col-auto"><label class="form-label small muted" for="f-universe">Universe contains</label>
+        <input id="f-universe" class="form-control form-control-sm" name="universe" value="{{ filters.universe or '' }}"></div>
+    <div class="col-auto"><label class="form-label small muted" for="f-from">Created from</label>
+        <input id="f-from" type="date" class="form-control form-control-sm" name="created_from"
+               value="{{ filters.created_from.date().isoformat() if filters.created_from else '' }}"></div>
+    <div class="col-auto"><label class="form-label small muted" for="f-to">to</label>
+        <input id="f-to" type="date" class="form-control form-control-sm" name="created_to"
+               value="{{ filters.created_to.date().isoformat() if filters.created_to else '' }}"></div>
+    <div class="col-auto"><button class="btn btn-sm btn-outline-light">Filter</button>
+        <a class="btn btn-sm btn-link" href="{{ url_for('research_registry.runs') }}">reset</a></div>
+</form>
+
+<form method="get" action="{{ url_for('research_registry.compare') }}" onsubmit="this.run_ids.value=[...document.querySelectorAll('input.pick:checked')].map(e=>e.value).join(',')">
+<input type="hidden" name="run_ids">
+<div class="card"><div class="card-header d-flex justify-content-between align-items-center">
+    <span>{{ runs|length }} run(s)</span><button class="btn btn-sm btn-outline-light">Compare selected</button></div>
+<div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+<thead><tr><th></th><th>Run</th><th>Project</th><th>Model</th><th>Universe</th><th>Period</th><th>Status</th>
+    <th class="num">Return</th><th class="num">Sharpe</th><th class="num">Max DD</th><th>Created</th></tr></thead>
+<tbody>
+{% for r in runs %}
+<tr>
+    <td><input type="checkbox" class="pick form-check-input" value="{{ r.id }}" aria-label="select run {{ r.id }}"></td>
+    <td><a href="{{ url_for('research_registry.run', run_id=r.id) }}">{{ r.id }}</a>
+        {% if r.run_name %}<div class="muted small">{{ r.run_name }}</div>{% endif %}</td>
+    <td>{{ r.project_name }}</td>
+    <td>{% for m in r.models %}<div class="small">{{ m.name }}{% if m.role %} <span class="muted">({{ m.role }})</span>{% endif %}</div>{% else %}<span class="muted">–</span>{% endfor %}</td>
+    <td class="small">{{ r.universe_description or '–' }}</td>
+    <td class="small">{{ (r.requested_start or '')[:10] }} → {{ (r.requested_end or '')[:10] }}</td>
+    <td><span class="status status-{{ r.status }}">{{ r.status }}</span>
+        <div class="progress-bar-wrap mt-1 {% if r.status == 'PARTIAL' %}partial{% endif %}"><i style="width:{{ (fraction(r) * 100)|round(1) }}%"></i></div>
+        <div class="muted small">{{ r.progress }}</div></td>
+    <td class="num">{{ r.cumulative_return|metric('cumulative_return') }}</td>
+    <td class="num">{{ r.sharpe_ratio|metric('sharpe_ratio') }}</td>
+    <td class="num">{{ r.max_drawdown|metric('max_drawdown') }}</td>
+    <td class="small muted">{{ (r.created_at or '')[:16]|replace('T', ' ') }}</td>
+</tr>
+{% else %}
+<tr><td colspan="11" class="muted">No run registered yet. Runs appear here once a project's backtest starts.</td></tr>
+{% endfor %}
+</tbody></table></div></div>
+</form>
+{% endblock %}

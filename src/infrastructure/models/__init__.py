@@ -130,6 +130,7 @@ from src.infrastructure.models.backtest.backtest import BacktestModel
 from src.infrastructure.models.backtest.backtest_factor_backtest import BacktestFactorBacktestModel
 from src.infrastructure.models.backtest.model import ModelModel
 from src.infrastructure.models.backtest.universe import UniverseModel
+import src.infrastructure.models.backtest.backtest_run  # noqa: F401  run registry tables (2026-11-18)
 from src.infrastructure.models.time_series.time_series import TimeSeriesModel
 from src.infrastructure.models.time_series.finance.financial_asset_time_series import FinancialAssetTimeSeriesModel
 from src.infrastructure.models.time_series.finance.stock_time_series import StockTimeSeriesModel

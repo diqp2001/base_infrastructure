@@ -160,3 +160,34 @@ def decile_status(results_dir: str, step: str, on_month=None):
             self.update(**fields)
 
     return DecileRunStatus(results_dir, step, on_month=on_month)
+
+
+LONG_SHORT_NAME = "D10-D1"
+
+
+def publish_research(cycle, results_service, run_id: int) -> int:
+    """Publish the cycle's decile research to the run registry (ResearchResultService): per variant and gross / net,
+    one series per decile and D10-D1 (group '<variant>/<kind>'), the turnover per decile ('<variant>/turnover') and
+    the statistics / monotonicity as metrics (scope '<variant>/<kind>'). Republishing replaces."""
+    points = 0
+    for name, research in cycle.research.items():
+        for kind in ("gross", "net"):
+            frame = research.returns_frame(kind)
+            if frame.empty:
+                continue
+            frame = frame.rename(columns={"LS": LONG_SHORT_NAME})
+            group = f"{name}/{kind}"
+            points += results_service.publish_frame(run_id, frame, group=group, prefix=f"{group}/")
+        turnover_frame = research.turnover_frame()
+        if not turnover_frame.empty:
+            points += results_service.publish_frame(run_id, turnover_frame, group=f"{name}/turnover",
+                                                    prefix=f"{name}/turnover/")
+        summary = summarise(research)
+        for kind in ("gross", "net"):
+            block = summary.get(kind) or {}
+            flat = {f"{'D10-D1' if col == 'LS' else col}.{stat}": value
+                    for col, stats in (block.get("statistics") or {}).items() for stat, value in stats.items()}
+            flat.update({f"monotonicity.{k}": v for k, v in (block.get("monotonicity") or {}).items()})
+            if flat:
+                results_service.publish_metrics(run_id, flat, scope=f"{name}/{kind}")
+    return points

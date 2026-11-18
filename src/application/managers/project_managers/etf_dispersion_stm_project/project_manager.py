@@ -36,7 +36,7 @@ from src.application.managers.project_managers.etf_dispersion_stm_project.data.p
 )
 from src.application.managers.project_managers.project_manager import ProjectManager
 from src.application.services.dispersion.dispersion_progress import RunStatus
-from src.application.services.dispersion.dispersion_report import write_report
+from src.application.services.dispersion.dispersion_report import publish_research, write_report
 from src.application.services.dispersion.realized_payoff import third_fridays
 from src.application.services.misbuffet import run_manifest
 from src.application.services.timing.step_timings import summarise as summarise_step_timings
@@ -64,7 +64,8 @@ class EtfDispersionSTMProjectManager(ProjectManager):
         folder = os.path.join(self.results_dir, datetime.now().strftime("%Y%m%dT%H%M%S"))
         settings = project_config.settings(self.config)
         status = RunStatus(self.results_dir, "backtest",
-                           on_month=lambda cycle: write_report(cycle.months, folder, settings))
+                           on_month=lambda cycle: (write_report(cycle.months, folder, settings),
+                                                   self._publish(cycle)))
         start, end = project_config.backtest_window(self.config)
         status.update(run_folder=folder, start=start, end=end, months_total=len(third_fridays(start, end)),
                       message="Misbuffet backtest (settle / score / open month by month)")
@@ -106,9 +107,23 @@ class EtfDispersionSTMProjectManager(ProjectManager):
         if cycle is None:
             raise RuntimeError("The engine ran without a dispersion cycle (see the algorithm's initialize log)")
         summary = write_report(cycle.months, folder, settings)
+        self._publish(cycle)
         self.results = {'engine': engine_result, 'summary': summary, 'folder': folder,
                         'value_history': getattr(algorithm, 'value_history', [])}
         return self.results
+
+    def _publish(self, cycle) -> None:
+        """The settled months of this run into the run registry (after every month and at the end; never stops
+        the run)."""
+        run = getattr(self.runner, "run", None)
+        service = getattr(self.runner, "_registry_service", None)
+        if run is None or service is None:
+            return
+        try:
+            from src.application.services.backtest_registry.research_result_service import ResearchResultService
+            publish_research(cycle.months, ResearchResultService(service.factory), run.id)
+        except Exception as e:
+            self.logger.warning(f"run {run.id}: research results not published: {e}")
 
 
 def main(argv) -> None:

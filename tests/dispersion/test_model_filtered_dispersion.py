@@ -373,3 +373,29 @@ def test_status_page_shows_the_run_progress_read_only(tmp_path):
     assert "3 / 10 months" in page and "2,000" in page and "N=18" in page and "2024-02-16" in page
     assert client.get("/dispersion-stm/status.json").get_json()["months_done"] == 3 == read_status(str(tmp_path))["months_done"]
     assert client.post("/dispersion-stm/").status_code == 405
+
+
+def test_the_settled_months_are_published_to_the_run_registry():
+    from src.application.services.backtest_registry.backtest_run_service import BacktestRunService
+    from src.application.services.backtest_registry.research_query_service import ResearchQueryService
+    from src.application.services.backtest_registry.research_result_service import ResearchResultService
+    from src.application.services.dispersion.dispersion_report import publish_research
+    from src.application.services.misbuffet.run_manifest import GitState
+    from tests.spatio_temporal_momentum.helpers import make_factory
+    _, cycle, _ = run_synthetic_demo(end=date(2020, 12, 31))
+    factory, session, engine = make_factory()
+    try:
+        runs = BacktestRunService(factory, git=lambda: GitState(commit="x", dirty=False), branch=lambda: None)
+        r = runs.start(runs.register("etf_dispersion_stm", {"project_name": "etf_dispersion_stm"}))
+        assert publish_research(cycle.months, ResearchResultService(factory), r.id) > 0
+        query = ResearchQueryService(factory)
+        series = {s["name"]: s for s in query.series(r.id)["series"]}
+        assert {"original_pnl", "filtered_pnl", "incremental_pnl", "unused_premium"} <= set(series)
+        settled = [m for m in cycle.months if m.complete]
+        assert len(series["incremental_pnl"]["points"]) == len(settled)
+        metrics = query.metrics(r.id)
+        assert {"original", "model_filtered", "incremental", "dispersion"} <= set(metrics)
+        assert metrics["dispersion"]["trades_settled"] == len(settled)
+    finally:
+        session.close()
+        engine.dispose()

@@ -9,6 +9,15 @@ join table that links factors to backtests.
 
 ---
 
+## Run registry (2026-11-18)
+
+`backtest_run.py` (`BacktestRun`: one EXECUTION - identity, config snapshot, commit, requested / processed window,
+months planned / completed, assumptions, status PENDING / RUNNING / COMPLETED / PARTIAL / FAILED / CANCELLED decided
+from the bars processed), `backtest_run_link.py` (`BacktestRunPortfolio`, `BacktestRunModelLink`),
+`research_result.py` (`ResearchSeriesValue`, `RunMetric`) and the pure `run_comparison.py`. Models are the existing
+ML registry (`src/domain/entities/ml/`). Full description: `src/application/services/backtest_registry/CLAUDE.md`.
+The `Model` / `Backtest` entities below are older, empty and without a writer; the run registry supersedes them.
+
 ## Entity Summary
 
 | Domain entity | Table | Key columns |

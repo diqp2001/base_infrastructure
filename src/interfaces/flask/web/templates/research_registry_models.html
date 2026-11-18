@@ -1,0 +1,17 @@
+{% extends "research_registry_base.html" %}
+{% block title %}Models{% endblock %}
+{% block content %}
+<h4>Models</h4>
+<p class="muted small">Reusable research artifacts. A model has no universe of its own: open it to see every run that
+used it and the universe of each run.</p>
+<div class="card"><div class="table-responsive"><table class="table table-sm mb-0">
+<thead><tr><th>Model</th><th>Algorithm</th><th>Version</th><th>Status</th><th class="num">Trainings</th><th class="num">Runs</th><th>Updated</th></tr></thead>
+{% for m in models %}<tr>
+    <td><a href="{{ url_for('research_registry.model', model_id=m.id) }}">{{ m.name }}</a>
+        {% if m.description %}<div class="muted small">{{ m.description|truncate(110) }}</div>{% endif %}</td>
+    <td>{{ m.algorithm }}</td><td class="small">{{ m.version }}</td><td class="small">{{ m.status }}</td>
+    <td class="num">{{ m.trainings }}</td><td class="num">{{ m.runs }}</td>
+    <td class="small muted">{{ (m.updated_at or '')[:16]|replace('T',' ') }}</td></tr>
+{% else %}<tr><td colspan="7" class="muted">No model registered.</td></tr>{% endfor %}
+</table></div></div>
+{% endblock %}

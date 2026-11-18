@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Research runs{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --surface-0: #0d1117; --surface-1: #161b22; --surface-2: #21262d; --line: #30363d;
+            --text-primary: #e6edf3; --text-secondary: #c9d1d9; --text-muted: #8b949e;
+            --grid: #30363d; --axis: #6e7681;
+            /* status (reserved: never a series colour) */
+            --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b;
+        }
+        body { background: var(--surface-0); color: var(--text-secondary); font-family: 'Segoe UI', Tahoma, sans-serif; }
+        a { color: #58a6ff; }
+        .card { background: var(--surface-1); border: 1px solid var(--line); }
+        .card-header { background: var(--surface-2); border-bottom: 1px solid var(--line); font-weight: 600; color: var(--text-primary); }
+        .table { color: var(--text-secondary); font-size: 0.85rem; }
+        .table > :not(caption) > * > * { background: transparent; color: var(--text-secondary); border-color: var(--line); }
+        .table td.num, .table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+        .form-control, .form-select { background: var(--surface-0); color: var(--text-secondary); border-color: var(--line); }
+        .muted { color: var(--text-muted); }
+        h1, h2, h3, h4, h5 { color: var(--text-primary); }
+        .status { display: inline-block; padding: 1px 8px; border-radius: 9px; font-size: 0.75rem; font-weight: 600;
+                  border: 1px solid var(--line); white-space: nowrap; }
+        .status-COMPLETED { color: var(--good); border-color: var(--good); }
+        .status-PARTIAL { color: var(--warning); border-color: var(--warning); }
+        .status-FAILED, .status-CANCELLED { color: var(--critical); border-color: var(--critical); }
+        .status-RUNNING, .status-PENDING { color: #58a6ff; border-color: #58a6ff; }
+        .progress-bar-wrap { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; min-width: 80px; }
+        .progress-bar-wrap i { display: block; height: 100%; background: var(--text-muted); }
+        .progress-bar-wrap.partial i { background: var(--warning); }
+        .warning-box { border-left: 3px solid var(--warning); background: rgba(250, 178, 25, 0.08); padding: 6px 10px; margin: 4px 0; }
+        .pos { color: var(--good); } .neg { color: var(--critical); }
+        pre.json { background: #010409; color: var(--text-muted); max-height: 420px; overflow: auto; font-size: 0.75rem; }
+        .chart { position: relative; width: 100%; }
+        .chart svg { display: block; width: 100%; height: auto; }
+        .chart .tip { position: absolute; pointer-events: none; background: var(--surface-2); border: 1px solid var(--line);
+                      border-radius: 4px; padding: 4px 8px; font-size: 0.75rem; color: var(--text-primary); display: none;
+                      white-space: nowrap; z-index: 5; }
+        .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; }
+        .legend span.sw { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+        .multiples { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+        .multiples .cell { background: var(--surface-0); border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+        .multiples .cell .title { font-size: 0.78rem; color: var(--text-primary); }
+        code { color: #ffa657; }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-dark" style="background:var(--surface-1);border-bottom:1px solid var(--line)">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{ url_for('research_registry.runs') }}">Research registry</a>
+        <div class="d-flex gap-3">
+            <a href="{{ url_for('research_registry.runs') }}">Runs</a>
+            <a href="{{ url_for('research_registry.models') }}">Models</a>
+            <a href="/strategies/">Launch (strategies)</a>
+        </div>
+    </div>
+</nav>
+<main class="container-fluid py-3" style="max-width:1400px">
+{% block content %}{% endblock %}
+</main>
+<script>
+/* Line charts from data-chart JSON: {series:[{name,color,points:[[iso,value],...]}], format:'pct'|'num'|'ratio',
+   baseline:number|null}. One y-axis; 2px lines; legend when >= 2 series; crosshair + tooltip on hover. */
+(function () {
+  const NS = "http://www.w3.org/2000/svg";
+  function fmt(v, f) {
+    if (v === null || v === undefined || isNaN(v)) return "–";
+    if (f === "pct") return (v * 100).toFixed(2) + "%";
+    if (f === "ratio") return v.toFixed(3);
+    const a = Math.abs(v);
+    return a >= 1e6 ? (v / 1e6).toFixed(2) + "M" : a >= 1e3 ? (v / 1e3).toFixed(1) + "k" : v.toFixed(a < 1 ? 4 : 2);
+  }
+  function el(name, attrs, parent) {
+    const e = document.createElementNS(NS, name);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function draw(box) {
+    const spec = JSON.parse(box.dataset.chart);
+    const series = spec.series.filter(s => s.points.some(p => p[1] !== null));
+    if (!series.length) { box.innerHTML = '<div class="muted small">No data.</div>'; return; }
+    const W = 900, H = parseInt(box.dataset.height || "260"), L = 64, R = 12, T = 10, B = 26;
+    const xs = [], ys = [];
+    series.forEach(s => s.points.forEach(p => { xs.push(Date.parse(p[0])); if (p[1] !== null) ys.push(p[1]); }));
+    if (spec.baseline !== null && spec.baseline !== undefined) ys.push(spec.baseline);
+    let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    if (x0 === x1) x1 = x0 + 86400000;
+    if (y0 === y1) { y0 -= 1e-6 + Math.abs(y0) * 0.01; y1 += 1e-6 + Math.abs(y1) * 0.01; }
+    const pad = (y1 - y0) * 0.06; y0 -= pad; y1 += pad;
+    const X = t => L + (t - x0) / (x1 - x0) * (W - L - R), Y = v => T + (y1 - v) / (y1 - y0) * (H - T - B);
+    const svg = el("svg", {viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": spec.label || "line chart"});
+    const css = getComputedStyle(document.documentElement);
+    const grid = css.getPropertyValue("--grid"), axis = css.getPropertyValue("--axis"), muted = css.getPropertyValue("--text-muted");
+    for (let i = 0; i <= 4; i++) {
+      const v = y0 + (y1 - y0) * i / 4, y = Y(v);
+      el("line", {x1: L, x2: W - R, y1: y, y2: y, stroke: grid, "stroke-width": 1}, svg);
+      const t = el("text", {x: L - 6, y: y + 4, "text-anchor": "end", "font-size": 11, fill: muted}, svg);
+      t.textContent = fmt(v, spec.format);
+    }
+    if (spec.baseline !== null && spec.baseline !== undefined && spec.baseline > y0 && spec.baseline < y1)
+      el("line", {x1: L, x2: W - R, y1: Y(spec.baseline), y2: Y(spec.baseline), stroke: axis, "stroke-width": 1}, svg);
+    const years = new Date(x0).getUTCFullYear(), yearsEnd = new Date(x1).getUTCFullYear();
+    const step = Math.max(1, Math.ceil((yearsEnd - years + 1) / 8));
+    for (let yr = years; yr <= yearsEnd + 1; yr += step) {
+      const t = Date.UTC(yr, 0, 1);
+      if (t < x0 || t > x1) continue;
+      el("line", {x1: X(t), x2: X(t), y1: H - B, y2: H - B + 4, stroke: axis}, svg);
+      const lab = el("text", {x: X(t), y: H - 8, "text-anchor": "middle", "font-size": 11, fill: muted}, svg);
+      lab.textContent = yr;
+    }
+    if (years === yearsEnd || (x1 - x0) < 400 * 86400000) {
+      [x0, x1].forEach((t, i) => { const lab = el("text", {x: X(t), y: H - 8, "text-anchor": i ? "end" : "start", "font-size": 11, fill: muted}, svg);
+        lab.textContent = new Date(t).toISOString().slice(0, 7); });
+    }
+    series.forEach(s => {
+      let d = "", pen = false;
+      s.points.forEach(p => { if (p[1] === null) { pen = false; return; }
+        d += (pen ? "L" : "M") + X(Date.parse(p[0])).toFixed(1) + "," + Y(p[1]).toFixed(1); pen = true; });
+      el("path", {d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round"}, svg);
+    });
+    const cross = el("line", {y1: T, y2: H - B, stroke: axis, "stroke-width": 1, visibility: "hidden"}, svg);
+    const hit = el("rect", {x: L, y: T, width: W - L - R, height: H - T - B, fill: "transparent"}, svg);
+    box.innerHTML = "";
+    if (series.length > 1) {
+      const lg = document.createElement("div"); lg.className = "legend";
+      series.forEach(s => { const it = document.createElement("span");
+        it.innerHTML = `<span class="sw" style="background:${s.color}"></span>`; it.appendChild(document.createTextNode(s.name)); lg.appendChild(it); });
+      box.appendChild(lg);
+    }
+    box.appendChild(svg);
+    const tip = document.createElement("div"); tip.className = "tip"; box.appendChild(tip);
+    const dates = [...new Set(xs)].sort((a, b) => a - b);
+    hit.addEventListener("mousemove", ev => {
+      const r = svg.getBoundingClientRect(), sx = (ev.clientX - r.left) / r.width * W;
+      const t = x0 + (sx - L) / (W - L - R) * (x1 - x0);
+      let best = dates[0]; for (const d of dates) if (Math.abs(d - t) < Math.abs(best - t)) best = d;
+      cross.setAttribute("x1", X(best)); cross.setAttribute("x2", X(best)); cross.setAttribute("visibility", "visible");
+      const rows = series.map(s => { let v = null, bd = Infinity;
+        s.points.forEach(p => { const dd = Math.abs(Date.parse(p[0]) - best); if (dd < bd && dd <= 4 * 86400000) { bd = dd; v = p[1]; } });
+        return `<div><span class="sw" style="display:inline-block;width:10px;height:3px;background:${s.color};margin-right:5px;vertical-align:middle"></span>${s.name}: <b>${fmt(v, spec.format)}</b></div>`; });
+      tip.innerHTML = `<div class="muted">${new Date(best).toISOString().slice(0, 10)}</div>` + rows.join("");
+      tip.style.display = "block";
+      const left = (X(best) / W) * r.width;
+      tip.style.left = Math.min(left + 12, r.width - tip.offsetWidth - 4) + "px"; tip.style.top = "8px";
+    });
+    hit.addEventListener("mouseleave", () => { tip.style.display = "none"; cross.setAttribute("visibility", "hidden"); });
+  }
+  document.querySelectorAll(".chart[data-chart]").forEach(draw);
+})();
+</script>
+</body>
+</html>

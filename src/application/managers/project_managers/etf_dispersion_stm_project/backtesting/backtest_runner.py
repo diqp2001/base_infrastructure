@@ -35,3 +35,24 @@ class BacktestRunner(BaseBacktestRunner):
         algorithm.set_entity_service(self.model_trainer.data_loader.financial_asset_service)
         self.algorithm_instance = algorithm
         return algorithm
+
+    def describe_run(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """The run registry's view of this run (BaseBacktestRunner.describe_run)."""
+        from src.application.services.universe.djia_membership import BASE_DATE, CHANGES, ETF, build_membership
+        membership = build_membership()
+        return {
+            "universe_description": "Dow Jones Industrial Average members (DIA), point-in-time",
+            "universe_snapshot": {
+                "point_in_time_membership": True, "index": "DJIA", "etf": ETF, "base_date": str(BASE_DATE),
+                "members_ever": membership.all_constituents(),
+                "changes": [{"date": str(c.effective), "added": list(c.added), "removed": list(c.removed)}
+                            for c in CHANGES]},
+            "price_source": "TRADES",
+            "include_dividends": False,
+            "include_transaction_costs": False,
+            "assumptions": {
+                "option_prices": "IBKR MIDPOINT when quoted, else Black-Scholes (underlying close, its IBKR implied "
+                                 "vol, IRX); bid = ask",
+                "traded_strategy": config.get("dispersion", {}).get("traded"),
+                "short_leg": "N ATM DIA calls, N fixed on the full basket", "rebalance": "monthly expiry"},
+        }

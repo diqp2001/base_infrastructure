@@ -9,6 +9,14 @@ abstract hooks:
 All Misbuffet engine wiring, async threading, status/results/stop helpers,
 and performance-metric delegation live here so they don't have to be repeated
 in every project.
+
+Run registry (2026-11-18): every run_backtest is a BacktestRun (src/application/services/backtest_registry):
+a unique id, the full config snapshot, the git commit, the requested and the processed window, the portfolios it
+created, the models it used and a status decided from the bars actually processed (COMPLETED only when the last
+bar reaches the requested end; an early stop is PARTIAL). Each run books into its own portfolios
+(<Portfolio.name>_run<id>), so runs never reset or share each other's book. Projects describe their run with
+describe_run(config) (universe, price source, dividends, costs, leverage ...). config['run_registry'] =
+{'enabled': False} turns it off; a registry failure is logged and never stops the backtest.
 """
 
 import functools
@@ -86,6 +94,10 @@ class BaseBacktestRunner(ABC):
         self.backtest_thread: Optional[threading.Thread] = None
         self.results: Dict[str, Any] = {}
         self.progress: float = 0.0
+        self.run = None                      # BacktestRun of the current / last run_backtest (None: no registry)
+        self.run_tracker = None
+        self._registry_service = None
+        self._registry_session = None
 
     # ------------------------------------------------------------------
     # Abstract hooks — implemented by each project's BacktestRunner
@@ -106,6 +118,91 @@ class BaseBacktestRunner(ABC):
 
         Called by run_backtest after setup_components succeeds.
         """
+
+    def describe_run(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Run attributes for the registry that the config alone does not say (override per project):
+        universe_description, universe_snapshot, price_source, include_dividends, include_transaction_costs,
+        gross_leverage, assumptions, data_snapshot, run_name."""
+        return {}
+
+    # ------------------------------------------------------------------
+    # Run registry (generic research / backtest registry)
+    # ------------------------------------------------------------------
+
+    def _registry_factory(self):
+        from sqlalchemy.orm import sessionmaker
+        from src.infrastructure.repositories.repository_factory import RepositoryFactory
+        if self._registry_session is None:
+            # its own session: registry commits never commit (or roll back) the engine's pending work
+            self._registry_session = sessionmaker(bind=self.database_service.session.get_bind())()
+        return RepositoryFactory(self._registry_session)
+
+    def _register_run(self, config: Dict[str, Any], start_date, end_date) -> Dict[str, Any]:
+        """Register the run and give it its own portfolio name. Returns the config the run uses."""
+        self.run, self.run_tracker = None, None
+        settings = config.get('run_registry') or {}
+        if settings.get('enabled', True) is False:
+            return config
+        try:
+            from src.application.services.backtest_registry.backtest_run_service import BacktestRunService
+            service = BacktestRunService(self._registry_factory())
+            describe = dict(self.describe_run(config) or {})
+            run_name = describe.pop('run_name', None) or config.get('run_name')
+            run = service.register(str(config.get('project_name') or type(self).__name__), config,
+                                   run_name=run_name, requested_start=start_date, requested_end=end_date,
+                                   describe=describe)
+            portfolio = config.get('Portfolio')
+            if isinstance(portfolio, dict) and portfolio.get('name') and settings.get('unique_portfolios', True):
+                config = dict(config)
+                config['Portfolio'] = {**portfolio, 'name': f"{portfolio['name']}_run{run.id}"}
+            self.run = service.start(run)
+            self.run_tracker = service.tracker(self.run)
+            self._registry_service = service
+            self.logger.info(f"Backtest run {self.run.id} ({self.run.run_uid}) registered: "
+                             f"{self.run.months_planned} months planned")
+        except Exception as e:
+            self.logger.warning(f"Backtest run registry unavailable, the run is not registered: {e}")
+            self.run, self.run_tracker = None, None
+        return config
+
+    def _track_bars(self, algorithm) -> None:
+        """Wrap the algorithm's on_data: every processed bar moves the run's actual window."""
+        if self.run_tracker is None or algorithm is None or not hasattr(algorithm, 'on_data'):
+            return
+        tracker, inner = self.run_tracker, algorithm.on_data
+
+        def on_data(data, *args, **kwargs):
+            result = inner(data, *args, **kwargs)
+            try:
+                tracker.bar(getattr(data, 'time', None) or getattr(algorithm, 'time', None))
+            except Exception:
+                pass
+            return result
+        algorithm.on_data = on_data
+
+    def _finish_run(self, error: Optional[str] = None, cancelled: bool = False) -> None:
+        if self.run is None or self._registry_service is None:
+            return
+        service = self._registry_service
+        try:
+            if self.run_tracker is not None:
+                self.run_tracker.flush()
+                self.run = self.run_tracker.run
+            algorithm = self.algorithm_instance
+            portfolio = getattr(algorithm, '_current_portfolio_entity', None)
+            if portfolio is not None and getattr(portfolio, 'id', None) is not None:
+                service.register_portfolio_tree(self.run, portfolio.id, label=getattr(portfolio, 'name', None))
+            from src.application.services.misbuffet import run_manifest
+            artifacts = run_manifest.models_of(algorithm)
+            if artifacts:
+                service.link_artifacts(self.run, artifacts)
+            self.run = service.finish(self.run, error=error, cancelled=cancelled)
+            from src.application.services.backtest_registry.research_result_service import ResearchResultService
+            ResearchResultService(service.factory).engine_metrics(self.run.id, calculate_performance_metrics,
+                                                                  self.run.starting_capital)
+            self.logger.info(f"Backtest run {self.run.id}: {self.run.status} ({self.run.progress_label()})")
+        except Exception as e:
+            self.logger.warning(f"Backtest run {getattr(self.run, 'id', None)}: registry update failed: {e}")
 
     # ------------------------------------------------------------------
     # Generic backtest execution
@@ -134,6 +231,7 @@ class BaseBacktestRunner(ABC):
 
             start_date = _parse_date(config.get('backtest_start', '2025-07-01'))
             end_date = _parse_date(config.get('backtest_end', '2025-12-31'))
+            config = self._register_run(config, start_date, end_date)
             initial_capital = config.get('initial_capital', 100000)
             universe = config.get('universe')
             model_type = config.get('model_type')
@@ -147,6 +245,9 @@ class BaseBacktestRunner(ABC):
 
             self.logger.info("Creating configured algorithm instance...")
             configured_algorithm = self.create_algorithm_instance()
+            if configured_algorithm is not None:
+                self.algorithm_instance = configured_algorithm
+            self._track_bars(configured_algorithm)
 
             self.logger.info("Configuring Misbuffet framework...")
             misbuffet = Misbuffet.launch(config_file="launch_config.py")
@@ -201,17 +302,33 @@ class BaseBacktestRunner(ABC):
             if result:
                 self.logger.info(f"Result summary: {result.summary()}")
 
+            summary_text = str(backtest_summary.get('misbuffet_result') or '')
+            engine_error = None
+            if 'Backtest failed' in summary_text:
+                engine_error = summary_text.split('failed:', 1)[-1].strip() or summary_text
+            self._finish_run(error=engine_error)
+            if self.run is not None:
+                backtest_summary['run_id'] = self.run.id
+                backtest_summary['run_status'] = self.run.status
+                backtest_summary['run_progress'] = self.run.progress_label()
             self.results = backtest_summary
             self.is_running = False
             return backtest_summary
 
+        except KeyboardInterrupt:
+            self._finish_run(cancelled=True)
+            self.is_running = False
+            raise
         except Exception as e:
             self.logger.error(f"Error running backtest: {e}")
+            self._finish_run(error=f"{type(e).__name__}: {e}")
             self.is_running = False
             return {
                 'success': False,
                 'error': str(e),
                 'timestamp': datetime.now().isoformat(),
+                'run_id': getattr(self.run, 'id', None),
+                'run_status': getattr(self.run, 'status', None),
             }
 
     def run_backtest_async(self, config: Dict[str, Any]) -> Dict[str, Any]:
