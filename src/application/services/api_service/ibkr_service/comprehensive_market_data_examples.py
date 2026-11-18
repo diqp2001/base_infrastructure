@@ -930,6 +930,255 @@ class ComprehensiveIBMarketDataExamples(InteractiveBrokersApiService):
             summary["elements"] = sum(1 for _ in root.iter())
         return summary
 
+    # ------------------------------------------------------------------
+    # Data inventory of one stock: everything IBKR serves for it, tested for real
+    # ------------------------------------------------------------------
+
+    HISTORY_TYPES = ("TRADES", "MIDPOINT", "BID", "ASK", "BID_ASK", "ADJUSTED_LAST", "HISTORICAL_VOLATILITY",
+                     "OPTION_IMPLIED_VOLATILITY", "FEE_RATE", "REBATE_RATE", "SCHEDULE")
+    INTRADAY_PROBES = (("1 min", "1 D"), ("10 mins", "1 W"), ("1 hour", "1 M"))
+
+    def _temporary_callbacks(self, conn, callbacks: Dict[str, Any], pending: Dict[int, Any],
+                             errors: Dict[int, tuple]):
+        """Install EWrapper callbacks on the connection (instance attributes win over the class), plus an error
+        hook that records errors of ``pending`` request ids. Returns a restore() function."""
+        original_error = conn.error
+        had_own_error = "error" in vars(conn)
+
+        def on_error(reqId, errorCode, errorString, *args):
+            if reqId in pending:
+                errors[reqId] = (errorCode, errorString)
+                pending[reqId].set()
+            original_error(reqId, errorCode, errorString, *args)
+
+        for name, fn in callbacks.items():
+            setattr(conn, name, fn)
+        conn.error = on_error
+
+        def restore():
+            for name in callbacks:
+                vars(conn).pop(name, None)
+            if had_own_error:
+                conn.error = original_error
+            else:
+                vars(conn).pop("error", None)
+        return restore
+
+    def _head_timestamps(self, conn, contract: Contract, types, timeout: int) -> Dict[str, Dict[str, Any]]:
+        """reqHeadTimeStamp per whatToShow: the earliest date IBKR has data for (or its error)."""
+        import threading
+        pending: Dict[int, threading.Event] = {}
+        heads: Dict[int, str] = {}
+        errors: Dict[int, tuple] = {}
+
+        def on_head(reqId: int, headTimestamp: str):
+            heads[reqId] = headTimestamp
+            if reqId in pending:
+                pending[reqId].set()
+        restore = self._temporary_callbacks(conn, {"headTimestamp": on_head}, pending, errors)
+        out: Dict[str, Dict[str, Any]] = {}
+        try:
+            base_id = 80000 + int(time.time()) % 5000
+            for i, what in enumerate(types):
+                req_id = base_id + i
+                pending[req_id] = threading.Event()
+                conn.reqHeadTimeStamp(req_id, contract, what, 1, 1)
+                pending[req_id].wait(timeout)
+                if req_id in heads:
+                    out[what] = {"status": "ok", "earliest": heads[req_id]}
+                elif req_id in errors:
+                    out[what] = {"status": "error", "error_code": errors[req_id][0], "message": errors[req_id][1]}
+                else:
+                    out[what] = {"status": "timeout"}
+                try:
+                    conn.cancelHeadTimeStamp(req_id)
+                except Exception:
+                    pass
+                time.sleep(0.5)
+        finally:
+            restore()
+        return out
+
+    def _option_chain(self, conn, symbol: str, con_id: int, timeout: int) -> Dict[str, Any]:
+        req_id = 85000 + int(time.time()) % 5000
+        conn.request_option_chain(req_id, symbol, "STK", con_id)
+        waited = 0.0
+        while req_id not in conn.option_chains_done and waited < timeout:
+            time.sleep(0.5)
+            waited += 0.5
+        chains = conn.option_chains.pop(req_id, [])
+        error = conn.request_errors.pop(req_id, None) if hasattr(conn, "request_errors") else None
+        if not chains:
+            return {"status": "error" if error else "empty", "error": error}
+        expirations = sorted({e for c in chains for e in c.get("expirations", [])})
+        strikes = sorted({float(s) for c in chains for s in c.get("strikes", [])})
+        return {"status": "ok", "exchanges": sorted({c.get("exchange") for c in chains}),
+                "trading_classes": sorted({c.get("trading_class") for c in chains if c.get("trading_class")}),
+                "multipliers": sorted({str(c.get("multiplier")) for c in chains if c.get("multiplier")}),
+                "expirations": len(expirations), "first_expiries": expirations[:6],
+                "last_expiry": expirations[-1] if expirations else None,
+                "strikes": len(strikes), "strike_range": [strikes[0], strikes[-1]] if strikes else None}
+
+    # generic ticks of a stock: option volume / open interest, historical / implied vol, misc stats (13/26/52-week),
+    # RT volume, shortable shares, dividends
+    STOCK_GENERIC_TICKS = "100,101,104,106,165,233,236,456"      # 258 (fundamental ratios) needs the fundamentals entitlement
+
+    def _snapshot(self, conn, contract: Contract, market_data_type: int, seconds: int) -> Dict[str, Any]:
+        """Stream market data for ``seconds`` under market data type 1 (live) / 3 (delayed), then cancel: every tick
+        received (prices, sizes, generic and string ticks), the data type IBKR answered with, or its error."""
+        from ibapi.ticktype import TickTypeEnum
+        conn.reqMarketDataType(market_data_type)
+        time.sleep(0.5)
+        req_id = 88000 + int(time.time()) % 5000
+        conn.request_market_data(req_id, contract, snapshot=False, generic_tick_list=self.STOCK_GENERIC_TICKS)
+        time.sleep(seconds)
+        data = dict(conn.market_data.get(req_id, {}))
+        error = getattr(conn, "market_data_errors", {}).get(req_id)
+        answered_type = getattr(conn, "market_data_type", {}).get(req_id)
+        try:
+            conn.cancel_market_data(req_id)
+        except Exception:
+            pass
+        conn.reqMarketDataType(1)
+
+        def named(ticks):
+            return {TickTypeEnum.to_str(int(k)): v for k, v in (ticks or {}).items()
+                    if v not in (None, -1, -1.0, "")}
+        fields = {**named(data.get("prices")), **named(data.get("sizes")), **named(data.get("generic")),
+                  **{k: (v[:120] if isinstance(v, str) else v) for k, v in named(data.get("strings")).items()}}
+        return {"status": "ok" if fields else ("error" if error else "empty"), "market_data_type": answered_type,
+                "error": f"{error[0]}: {error[1]}" if error else None, "fields": fields}
+
+    def get_stock_data_inventory(self, symbol: str = "JPM", primary_exchange: str = "NYSE",
+                                 include_fundamentals: bool = True, timeout: int = 30) -> Dict[str, Any]:
+        """
+        Everything IBKR serves for one US stock, requested for real (READ-ONLY: no order method is called).
+
+        1. contract details (conId, name, stock type, exchanges, trading hours, min tick);
+        2. per historical data type (HISTORY_TYPES): the earliest available date (reqHeadTimeStamp) and a 5-day
+           daily request (bars, last bar, or IBKR's error code / message - e.g. 162 when the account has no
+           permission for that type);
+        3. intraday depth of TRADES (INTRADAY_PROBES);
+        4. market data snapshots, live (type 1) and delayed (type 3);
+        5. the option chain (exchanges, expirations, strikes);
+        6. the fundamental reports (reqFundamentalData, example_fundamental_data).
+
+        Connects when needed (and disconnects what it connected). Returns the report dict; logs a summary.
+        """
+        report: Dict[str, Any] = {"symbol": symbol, "requested_at": datetime.now().isoformat(timespec="seconds"),
+                                  "endpoint": f"{self.ib_broker.host}:{self.ib_broker.port}",
+                                  "client_id": self.ib_broker.client_id}
+        conn = getattr(self.ib_broker, "ib_connection", None)
+        connected_here = False
+        if conn is None or not conn.is_connected():
+            if not self.ib_broker.connect():
+                report["error"] = f"cannot connect to IBKR at {report['endpoint']}"
+                logger.error(report["error"])
+                return report
+            connected_here, conn = True, self.ib_broker.ib_connection
+        self.connected = True
+        report["accounts"] = getattr(conn, "managed_accounts", None) or getattr(self.ib_broker, "account_id", None)
+        try:
+            # a plain stock contract: create_stock_contract sets tradingClass = symbol, which IBKR may not match
+            contract = Contract()
+            contract.symbol, contract.secType, contract.exchange, contract.currency = symbol, "STK", "SMART", "USD"
+            if primary_exchange:
+                contract.primaryExchange = primary_exchange
+
+            # 1. contract details
+            details = self.ib_broker.get_contract_details(contract, timeout=15)
+            if details:
+                d = details[0]
+                contract.conId = int(d.get("contract_id") or 0)
+                report["contract"] = {k: d.get(k) for k in ("contract_id", "long_name", "stock_type", "primary_exchange",
+                                                            "currency", "min_tick", "time_zone_id", "valid_exchanges",
+                                                            "order_types")}
+                report["contract"]["liquid_hours"] = (d.get("liquid_hours") or "")[:60]
+            else:
+                report["contract"] = {"status": "not found"}
+
+            # 2. historical data types: earliest date + a 5-day daily request
+            heads = self._head_timestamps(conn, contract, self.HISTORY_TYPES, timeout=15)
+            history: Dict[str, Dict[str, Any]] = {}
+            for what in self.HISTORY_TYPES:
+                result = self.ib_broker.request_history(contract, "", "5 D", "1 day", what, use_rth=True,
+                                                        timeout=timeout)
+                entry = {"status": result.status, "bars": len(result.bars), "earliest": heads.get(what, {}).get(
+                    "earliest"), "head_status": heads.get(what, {}).get("status")}
+                if result.bars:
+                    last = result.bars[-1]
+                    entry["last_bar"] = {k: last.get(k) for k in ("date", "open", "high", "low", "close", "volume")}
+                if result.error_code is not None:
+                    entry.update(error_code=result.error_code, message=result.error_message[:200],
+                                 failure=result.failure)
+                elif heads.get(what, {}).get("status") == "error":
+                    entry["head_error"] = f"{heads[what].get('error_code')} {heads[what].get('message', '')[:120]}"
+                history[what] = entry
+            report["historical"] = history
+
+            # 3. intraday depth (TRADES)
+            intraday = {}
+            for bar, duration in self.INTRADAY_PROBES:
+                r = self.ib_broker.request_history(contract, "", duration, bar, "TRADES", use_rth=True,
+                                                   timeout=timeout)
+                intraday[bar] = {"duration": duration, "status": r.status, "bars": len(r.bars),
+                                 "first": r.bars[0].get("date") if r.bars else None,
+                                 "last": r.bars[-1].get("date") if r.bars else None,
+                                 "error": f"{r.error_code} {r.error_message[:120]}" if r.error_code else None}
+            report["intraday_trades"] = intraday
+
+            # 4. live / delayed snapshots
+            report["snapshot_live"] = self._snapshot(conn, contract, 1, 8)
+            report["snapshot_delayed"] = self._snapshot(conn, contract, 3, 8)
+
+            # 5. option chain
+            report["option_chain"] = (self._option_chain(conn, symbol, contract.conId, timeout)
+                                      if getattr(contract, "conId", 0) else {"status": "no conId"})
+
+            # 6. fundamentals
+            if include_fundamentals:
+                fundamentals = self.example_fundamental_data(symbol, primary_exchange=primary_exchange, timeout=20)
+                report["fundamentals"] = {rt: {k: v for k, v in r.items() if k in ("status", "error_code", "message",
+                                                                                   "xml_length", "summary")}
+                                          for rt, r in fundamentals.get("reports", {}).items()}
+        except Exception as e:
+            logger.error(f"Error building the data inventory of {symbol}: {e}")
+            report["error"] = f"{type(e).__name__}: {e}"
+        finally:
+            if connected_here:
+                try:
+                    self.ib_broker.disconnect()
+                except Exception:
+                    pass
+                self.connected = False
+        self._log_inventory(report)
+        return report
+
+    @staticmethod
+    def _log_inventory(report: Dict[str, Any]) -> None:
+        logger.info(f"\n=== IBKR data inventory: {report['symbol']} ({report.get('endpoint')}, "
+                    f"client {report.get('client_id')}) ===")
+        if report.get("error"):
+            logger.info(f"ERROR: {report['error']}")
+        c = report.get("contract") or {}
+        logger.info(f"Contract: {c.get('long_name')} conId={c.get('contract_id')} {c.get('stock_type')} "
+                    f"{c.get('primary_exchange')} minTick={c.get('min_tick')}")
+        for what, h in (report.get("historical") or {}).items():
+            last = h.get("last_bar") or {}
+            detail = (f"{h['bars']} bars, last {last.get('date')} close {last.get('close')}" if h.get("bars")
+                      else f"{h.get('error_code', '')} {h.get('message', h.get('head_error', ''))}")
+            logger.info(f"  {what:27s} {h['status']:9s} earliest={h.get('earliest') or '-':20s} {detail}")
+        for bar, r in (report.get("intraday_trades") or {}).items():
+            logger.info(f"  TRADES {bar:8s} {r['duration']:4s} {r['status']:9s} {r['bars']} bars "
+                        f"{r.get('first') or ''} .. {r.get('last') or ''} {r.get('error') or ''}")
+        for key in ("snapshot_live", "snapshot_delayed"):
+            s = report.get(key) or {}
+            logger.info(f"  {key}: {s.get('status')} {s.get('fields') or s.get('error') or ''}")
+        logger.info(f"  option chain: {report.get('option_chain')}")
+        for rt, r in (report.get("fundamentals") or {}).items():
+            logger.info(f"  fundamentals {rt}: {r.get('status')} {r.get('error_code') or ''} "
+                        f"{(r.get('message') or '')[:100]} {r.get('xml_length') or ''}")
+
     def run_all_examples(self):
         """
         Run all market data examples in sequence.
@@ -4009,6 +4258,22 @@ def main():
                 if examples.ib_broker.ib_connection:
                     examples.ib_broker._disconnect_impl()
             return result
+        elif sys.argv[1] == 'inventory':
+            # Everything IBKR serves for one stock, requested for real: inventory [SYMBOL] [CLIENT_ID] [PRIMARY_EXCHANGE]
+            # Endpoint: IBKR_HOST / IBKR_PORT (ibkr_settings) override the default 127.0.0.1:7497. Read-only.
+            import json
+            import os
+            symbol = sys.argv[2] if len(sys.argv) > 2 else "JPM"
+            client_id = int(sys.argv[3]) if len(sys.argv) > 3 else 97
+            primary = sys.argv[4] if len(sys.argv) > 4 else "NYSE"
+            examples = ComprehensiveIBMarketDataExamples(client_id=client_id)
+            report = examples.get_stock_data_inventory(symbol, primary_exchange=primary)
+            os.makedirs("results/ibkr_inventory", exist_ok=True)
+            path = os.path.join("results/ibkr_inventory", f"{symbol}_{datetime.now():%Y%m%dT%H%M%S}.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(report, f, indent=1, default=str)
+            print(f"Report: {path}")
+            return report
         elif sys.argv[1] == 'help':
             print("Usage:")
             print("  python comprehensive_market_data_examples.py              # Run all examples")
@@ -4027,13 +4292,5 @@ def main():
         examples.run_all_examples()
 
 
-
-
-
-
-
-
-
-
-
-
+if __name__ == "__main__":
+    main()

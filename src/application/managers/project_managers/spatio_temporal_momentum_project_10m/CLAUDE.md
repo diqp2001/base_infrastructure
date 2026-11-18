@@ -18,8 +18,10 @@ model re-scored intraday: features, labels, training and scoring are all on 10-m
   - rolling training window `training_window` = 390 bars (10 sessions); validation = last 3 calendar days;
   - annualisation `periods_per_year(10)` = 252 x 39 (features, weights and report metrics).
 * Retrain every day (`retrain_every_days` 1); a model is used from the bar after its validation end.
-* Data: IBKR **TRADES** 10-minute bars (`bar_size_setting` '10 mins'); the account has no US-equity quote
-  permission, so MIDPOINT is refused (BI-037). IBKR serves at least 3 months of 10-minute bars in one request.
+* Data: IBKR **TRADES** 10-minute bars (`bar_size_setting` '10 mins'), the source policy's first choice for stocks.
+  MIDPOINT was refused on the LIVE session (162, BI-037, 2026-10-21); the PAPER session serves US-equity quote history
+  and live quotes (checked 2026-11-18, see `src/application/services/misbuffet/brokers/ibkr/CLAUDE.md`). IBKR serves
+  at least 3 months of 10-minute bars in one request.
 * Engine clock: `config_interval {'custom_interval_minutes': 10, 'session_start': '09:40', 'session_end': '16:00'}`
   — the engine skips the night (first decision 09:40 when the 09:30 bar has closed, last at 16:00).
 * Kept separate from the daily projects: results `results/spatio_temporal_momentum_10m/`,

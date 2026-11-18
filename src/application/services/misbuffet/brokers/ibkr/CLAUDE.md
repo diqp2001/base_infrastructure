@@ -183,7 +183,7 @@ if days_to_expiry < 5 and not self.ibkr_client.has_market_data_subscription(cont
 
 ---
 
-## Historical request outcomes and the MIDPOINT permission finding (BI-037)
+## Historical request outcomes and the MIDPOINT permission findings (BI-037: live refused, paper served)
 
 `InteractiveBrokersBroker.request_history(...)` performs ONE reqHistoricalData and returns a `HistoryResult`
 (`history_result.py`): `complete` (bars + historicalDataEnd), `empty` (historicalDataEnd, zero bars), `failed`
@@ -198,7 +198,20 @@ A finished request's state is removed, so late callbacks for it are ignored.
     python -m src.application.services.misbuffet.brokers.ibkr.history_diagnostics MSFT
     python -m src.application.services.misbuffet.brokers.ibkr.history_diagnostics SPY --types TRADES MIDPOINT --bar "8 hours"
 
-**Finding 2026-10-21 (live account, TWS on 127.0.0.1:7497)** — qualified MSFT (conId 272093, primary NASDAQ) and
+**Current state of US-equity quote data — check WHICH session before concluding anything:**
+
+| Session | Quote history (`MIDPOINT` / `BID` / `ASK` / `BID_ASK`) | Live quotes | Fundamentals (`reqFundamentalData`, tick 258) | Evidence |
+|---|---|---|---|---|
+| **Paper** DUR314497 (IB Gateway container `ibkr-paper`, port 4004; from Windows via `ibkr-paper-forward` 127.0.0.1:4014) | ✅ served (JPM from 2004-01-23) | ✅ real time since 2026-11-03 | ❌ 10358 "Fundamentals data is not allowed" | `comprehensive_market_data_examples.py inventory JPM`, 2026-11-18 |
+| **Live** U11494855 (TWS 127.0.0.1:7497) | ❌ 162 "No market data permissions" | not tested | not tested | `history_diagnostics` MSFT / SPY, 2026-10-21 |
+
+The 162 refusal below is a LIVE-session finding only; it was later misquoted as "the account has no quote
+permission" for the paper session, which is wrong. Re-test (read-only) before relying on either row:
+`IBKR_HOST=127.0.0.1 IBKR_PORT=4014 python -m src.application.services.api_service.ibkr_service.comprehensive_market_data_examples inventory <SYMBOL> 97 <PRIMARY>`.
+Stocks still READ `TRADES` first: that is the source policy's choice (`source_policy.DEFAULT_SOURCE_POLICY`, owner
+2026-10-22: trades first, `MIDPOINT` after), no longer a permission workaround on paper.
+
+**Finding 2026-10-21 (LIVE account only, TWS on 127.0.0.1:7497)** — qualified MSFT (conId 272093, primary NASDAQ) and
 SPY (conId 756733, primary ARCA), same request path, durations 3 D, bars 1 day and 8 hours, useRTH True / False:
 TRADES returns bars every time; MIDPOINT, BID and ASK are refused immediately with 162 "No market data permissions
 for ISLAND STK" (MSFT) / "... for AMEX STK" (SPY) "Requested market data requires additional subscription for API".
@@ -207,6 +220,16 @@ the account's missing US-equity QUOTE permission for the API session (trade hist
 not). Fix outside the code: subscribe to the US equity quote bundle in Client Portal (Settings > Market Data
 Subscriptions) and make sure it is shared with the API session. Until then the BI-036 reading order falls back to
 the TRADES series for stocks. Option quotes (OPRA) are a separate subscription: SPX v2 option MIDPOINT bars worked.
+
+**Paper account finding 2026-11-18 (DUR314497, IB Gateway container through the local forwarder 127.0.0.1:4014,
+client id 97)** - `comprehensive_market_data_examples.py inventory JPM`: JPM historical `TRADES` (from 1980-03-17),
+`ADJUSTED_LAST` (1980), `MIDPOINT` / `BID` / `ASK` / `BID_ASK` (2004-01-23), `HISTORICAL_VOLATILITY` (2005),
+`OPTION_IMPLIED_VOLATILITY` (2006) and `FEE_RATE` (2013) all answered; live streaming quotes (market data type 1, with
+generic ticks 100,101,104,106,165,233,236,456: option volume / open interest, implied / historical vol, 13/26/52-week
+ranges, RT volume, shortable shares, IB dividends) answered; the option chain (22 exchanges, 16 expiries, 98 strikes)
+answered. Refused: `REBATE_RATE` (321, not a stock whatToShow), `SCHEDULE` (321, client version too low), every
+`reqFundamentalData` report and generic tick 258 (10358 "Fundamentals data is not allowed"). So the paper session HAS
+US-equity quote history, unlike the live session tested on 2026-10-21 above.
 
 **Availability finding 2026-10-21 (same diagnostic, `--sec-type OPT/FUT --end ...`)** — `SPY 281215C00775000`
 (conId 844798243): every type (MIDPOINT, TRADES, BID_ASK) answers 162 "HMDS query returned no data" for windows ending

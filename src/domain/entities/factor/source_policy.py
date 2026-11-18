@@ -109,11 +109,14 @@ DEFAULT_SOURCE_POLICY = SourcePolicy(rules=(
                subgroup="implied"),
     SourceRule(ANY, "volatility", ANY, _MARKS, (D.HISTORICAL_VOLATILITY,), note="IBKR historical volatility",
                subgroup="historical"),
-    # Shares: TRADES first — the owner's IBKR account has no US-equity quote permission, so MIDPOINT is refused
-    # (162, BI-037); it stays in the list, tried after TRADES (2026-10-22, owner's choice). Options / futures keep
-    # MIDPOINT first: their quotes are served (OPRA) and their trades are sparse.
+    # Shares: TRADES first, MIDPOINT after (owner's choice 2026-10-22). Originally a workaround: the LIVE session
+    # refused US-equity quote history (162, BI-037, 2026-10-21). The PAPER session serves it (MIDPOINT / BID / ASK,
+    # checked on JPM 2026-11-18), so on paper the order is a choice, not a permission limit - see
+    # src/application/services/misbuffet/brokers/ibkr/CLAUDE.md. Options / futures keep MIDPOINT first: their quotes
+    # are served (OPRA) and their trades are sparse.
     SourceRule("CompanyShare", "price", ANY, _MARKS, (D.TRADES, D.MIDPOINT), fallback_allowed=True,
-               note="share mark: trades first (no equity quote permission), midpoint when no trade history"),
+               note="share mark: trades first (policy choice; the live session has no equity quote permission), "
+                    "midpoint when no trade history"),
     SourceRule("ETFShare", "price", ANY, _MARKS, (D.TRADES, D.MIDPOINT), fallback_allowed=True,
                note="ETF share mark: an equity like a company share - trades first"),
     SourceRule(ANY, "price", ANY, _MARKS, (D.MIDPOINT, D.TRADES), fallback_allowed=True,
