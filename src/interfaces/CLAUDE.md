@@ -90,7 +90,7 @@ HTTP Request → API Controller → Application Service → Domain Logic → Inf
 
 ### Adding New Web Routes
 1. Add route method to `dashboard_controller.py`
-2. Create corresponding Jinja2 template in `templates/`
+2. Create corresponding Jinja2 template in the feature's folder under `templates/` (e.g. `templates/projects/<project>/`)
 3. Add navigation links and form handling
 4. Test with various screen sizes
 

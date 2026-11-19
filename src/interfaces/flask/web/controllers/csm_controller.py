@@ -61,7 +61,7 @@ def _report():
 
 @csm_bp.route("/")
 def dashboard():
-    return render_template("csm_dashboard.html", projects={k: v[0] for k, v in PROJECTS.items()},
+    return render_template("projects/csm/dashboard.html", projects={k: v[0] for k, v in PROJECTS.items()},
                            project=_project())
 
 
@@ -89,7 +89,7 @@ def results():
     report = _report()
     label = PROJECTS[_project()][0]
     if report is None:
-        return render_template("csm_results.html", report=None, project_label=label), 404
+        return render_template("projects/csm/results.html", report=None, project_label=label), 404
     figures = _cache()["figures"]
     for key in renderer.FIGURES:
         if key not in figures:
@@ -101,7 +101,7 @@ def results():
             sections.append({"kind": "table", "title": tables[key][0], "html": tables[key][1]})
         elif key in renderer.FIGURES:
             sections.append({"kind": "figure", "title": renderer.FIGURES[key][0], "png": figures[key]})
-    return render_template("csm_results.html", report=report, sections=sections, project=_project(),
+    return render_template("projects/csm/results.html", report=report, sections=sections, project=_project(),
                            project_label=label)
 
 

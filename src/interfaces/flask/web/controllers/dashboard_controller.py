@@ -68,25 +68,25 @@ def clean_for_json(data):
 
 @web_bp.route("/")
 def home():
-    return render_template("index.html")
+    return render_template("dashboard/index.html")
 
 @web_bp.route("/dashboard")
 def dashboard_hub():
     """Main comprehensive dashboard hub with all 7 views"""
-    return render_template("dashboard_hub.html")
+    return render_template("dashboard/hub.html")
 
 @web_bp.route("/backtest", methods=["POST"])
 def run_backtest():
     params = request.form  # values from an HTML form
     service = Misbuffet()
     results = service.run(params)  # returns a domain object or dict
-    return render_template("results.html", results=results)
+    return render_template("dashboard/results.html", results=results)
 
 @web_bp.route("/test_backtest", methods=["GET", "POST"])
 def run_test_backtest():
     """Display backtest configuration page or execute backtest via API call"""
     if request.method == "GET":
-        return render_template("test_manager.html", manager_type="backtest")
+        return render_template("dashboard/test_manager.html", manager_type="backtest")
     
     try:
         # Extract configuration from form data
@@ -118,7 +118,7 @@ def run_test_backtest():
                 plot_data = _create_performance_plots(performance_data)
                 metrics = _calculate_performance_metrics(performance_data)
                 
-                return render_template("performance_results.html", 
+                return render_template("dashboard/performance_results.html", 
                                      plot_data=plot_data, 
                                      metrics=metrics,
                                      manager_type="Backtest",
@@ -127,23 +127,23 @@ def run_test_backtest():
             else:
                 error_msg = api_response.json().get('error', 'Unknown API error')
                 flash(f"API Error: {error_msg}", "error")
-                return render_template("test_manager.html", manager_type="backtest", config=config)
+                return render_template("dashboard/test_manager.html", manager_type="backtest", config=config)
                 
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to call backtest API: {e}")
             flash(f"Failed to connect to API: {str(e)}", "error")
-            return render_template("test_manager.html", manager_type="backtest", config=config)
+            return render_template("dashboard/test_manager.html", manager_type="backtest", config=config)
         
     except Exception as e:
         logger.error(f"Error in web controller: {e}")
         flash(f"Error: {str(e)}", "error")
-        return render_template("test_manager.html", manager_type="backtest")
+        return render_template("dashboard/test_manager.html", manager_type="backtest")
 
 @web_bp.route("/test_live_trading", methods=["GET", "POST"])
 def run_test_live_trading():
     """Display live trading configuration page or execute via API call"""
     if request.method == "GET":
-        return render_template("test_manager.html", manager_type="live_trading")
+        return render_template("dashboard/test_manager.html", manager_type="live_trading")
     
     try:
         # Extract configuration from form data
@@ -173,7 +173,7 @@ def run_test_live_trading():
                 plot_data = _create_performance_plots(performance_data)
                 metrics = _calculate_performance_metrics(performance_data)
                 
-                return render_template("performance_results.html", 
+                return render_template("dashboard/performance_results.html", 
                                      plot_data=plot_data, 
                                      metrics=metrics,
                                      manager_type="Live Trading",
@@ -182,17 +182,17 @@ def run_test_live_trading():
             else:
                 error_msg = api_response.json().get('error', 'Unknown API error')
                 flash(f"API Error: {error_msg}", "error")
-                return render_template("test_manager.html", manager_type="live_trading", config=config)
+                return render_template("dashboard/test_manager.html", manager_type="live_trading", config=config)
                 
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to call live trading API: {e}")
             flash(f"Failed to connect to API: {str(e)}", "error")
-            return render_template("test_manager.html", manager_type="live_trading", config=config)
+            return render_template("dashboard/test_manager.html", manager_type="live_trading", config=config)
         
     except Exception as e:
         logger.error(f"Error in web controller: {e}")
         flash(f"Error: {str(e)}", "error")
-        return render_template("test_manager.html", manager_type="live_trading")
+        return render_template("dashboard/test_manager.html", manager_type="live_trading")
 
 def _create_performance_plots(performance_data):
     """Create performance visualization plots"""
@@ -361,7 +361,7 @@ def powerbuffet_home():
         databases = service.get_available_databases()
         visualizations = service.get_available_visualizations()
         
-        return render_template("powerbuffet.html", 
+        return render_template("dashboard/powerbuffet.html", 
                              databases=databases,
                              visualizations=visualizations)
     except Exception as e:
@@ -824,7 +824,7 @@ def _apply_config(updates: dict) -> list:
 def config_editor():
     """Render the base-project config editor page."""
     return render_template(
-        "config_editor.html",
+        "dashboard/config_editor.html",
         config=_read_config(),
         universe=_read_universe_config(),
         factors=_read_factors_config(),

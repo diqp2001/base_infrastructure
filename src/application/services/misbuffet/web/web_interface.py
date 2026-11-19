@@ -94,7 +94,7 @@ class WebInterfaceManager:
         @self.flask_app.app.route('/backtest_progress')
         def backtest_progress():
             """Display backtest progress with real-time updates"""
-            return render_template('backtest_progress.html')
+            return render_template('dashboard/backtest_progress.html')
         
         # Add shutdown endpoint for clean server shutdown
         @self.flask_app.app.route('/shutdown', methods=['POST'])

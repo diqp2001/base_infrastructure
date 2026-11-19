@@ -13,7 +13,7 @@ This document describes the comprehensive UI implementation changes made to tran
    - Added web-only interface launch with automatic browser opening
    - Integrated Flask application startup with proper error handling
 
-2. **Enhanced Dashboard Interface** (`src/interfaces/flask/web/templates/dashboard_hub.html`)
+2. **Enhanced Dashboard Interface** (`src/interfaces/flask/web/templates/dashboard/hub.html`)
    - Added Interactive Brokers connection button
    - Added Setup Factor System button
    - Added Import Data button  

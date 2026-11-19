@@ -86,7 +86,7 @@ def _manifest(day: str) -> dict:
 def results():
     day = _selected_date()
     if day is None:
-        return render_template("dispersion_results.html", day=None, dates=[], candidates=[], counts={},
+        return render_template("projects/dispersion/results.html", day=None, dates=[], candidates=[], counts={},
                                manifest={}), 200
     candidates = _candidates(day)
     history = _history_summary(day)
@@ -102,7 +102,7 @@ def results():
     except (OSError, ValueError):
         universe_counts = {}
     status = realized_history.read_status(RESULTS_DIR, day)
-    return render_template("dispersion_results.html", day=day, dates=_dates(), candidates=candidates,
+    return render_template("projects/dispersion/results.html", day=day, dates=_dates(), candidates=candidates,
                            counts=counts, universe_counts=universe_counts, manifest=_manifest(day),
                            history=history, history_status=status, history_running=_job_active(status),
                            busy=_any_job_active(day))
@@ -122,7 +122,7 @@ def detail(ticker: str):
         history = None
     chart = _history_chart(history) if history and history.get("series") else None
     replication_chart = _replication_chart(history) if history and history.get("replication_series") else None
-    return render_template("dispersion_detail.html", day=day, c=candidate, manifest=_manifest(day),
+    return render_template("projects/dispersion/detail.html", day=day, c=candidate, manifest=_manifest(day),
                            history=history, hstats=_Row((history or {}).get("stats") or {}), chart=chart,
                            replication_chart=replication_chart,
                            ticket=order_ticket(candidate, request.args.get("calls", type=int)),
@@ -213,7 +213,7 @@ def maturities(ticker: str):
     except (OSError, ValueError):
         result = None
     status = read_status(RESULTS_DIR, day, ticker)
-    return render_template("dispersion_maturities.html", day=day, ticker=ticker, result=result, status=status,
+    return render_template("projects/dispersion/maturities.html", day=day, ticker=ticker, result=result, status=status,
                            running=_job_active(status), busy=_any_job_active(day))
 
 

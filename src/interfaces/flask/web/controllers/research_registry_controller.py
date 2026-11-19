@@ -70,7 +70,7 @@ def runs():
     services = research_services()
     filters = run_filters()
     rows = services.list_runs(**filters)
-    return render_template("research_registry_runs.html", runs=plain(rows), filters=filters,
+    return render_template("research_registry/runs.html", runs=plain(rows), filters=filters,
                            projects=services.projects(), models=services.list_models(), statuses=STATUSES,
                            fraction=fraction)
 
@@ -95,7 +95,7 @@ def run(run_id: int):
              "last": next((p["value"] for p in reversed(s["points"]) if p["value"] is not None), None),
              "points": len(s["points"])})
     metrics = services.metrics(run_id)
-    return render_template("research_registry_run.html", run=plain(detail), equity_chart=equity_chart,
+    return render_template("research_registry/run.html", run=plain(detail), equity_chart=equity_chart,
                            groups=groups, metrics=metrics, fraction=fraction,
                            config_json=json.dumps(plain(detail.get("config_snapshot")), indent=1, sort_keys=True))
 
@@ -107,7 +107,7 @@ def compare():
     except ValueError:
         abort(400)
     if len(ids) < 2:
-        return render_template("research_registry_compare.html", result=None, ids=ids, chart=None)
+        return render_template("research_registry/compare.html", result=None, ids=ids, chart=None)
     try:
         result = research_services().compare(ids)
     except LookupError as e:
@@ -116,13 +116,13 @@ def compare():
     chart = chart_spec([{"name": c["label"] + ("" if c["status"] == "COMPLETED" else f" ({c['status']})"),
                          "color": SERIES_COLORS[i], "points": _points(c["points"])} for i, c in enumerate(overlay)],
                        fmt="ratio", baseline=1.0, label="Equity, rebased to 1")
-    return render_template("research_registry_compare.html", result=plain(result), ids=ids, chart=chart,
+    return render_template("research_registry/compare.html", result=plain(result), ids=ids, chart=chart,
                            overflow=len(result["equity"]) > 8, fraction=fraction)
 
 
 @research_registry_bp.route("/models")
 def models():
-    return render_template("research_registry_models.html", models=plain(research_services().list_models()))
+    return render_template("research_registry/models.html", models=plain(research_services().list_models()))
 
 
 @research_registry_bp.route("/models/<int:model_id>")
@@ -131,6 +131,6 @@ def model(model_id: int):
     m = services.model(model_id)
     if m is None:
         abort(404)
-    return render_template("research_registry_model.html", model=plain(m),
+    return render_template("research_registry/model.html", model=plain(m),
                            artifacts=plain(services.model_artifacts(model_id)),
                            config_json=json.dumps(plain(m.get("configuration")), indent=1, sort_keys=True))

@@ -8,11 +8,16 @@ src/interfaces/flask/
 ├── web/                         👈 HTML views + controllers
 │   ├── controllers/
 │   │   └── dashboard_controller.py
-│   ├── templates/
-│   │   ├── index.html          👈 Legacy home page
-│   │   ├── dashboard_hub.html  👈 NEW: Comprehensive dashboard
-│   │   ├── performance_results.html
-│   │   └── test_manager.html
+│   ├── templates/               👈 one folder per feature; render_template("<folder>/<page>.html")
+│   │   ├── dashboard/           👈 legacy pages: index, hub (/dashboard), results, performance_results,
+│   │   │                           test_manager, config_editor, powerbuffet, entity_upload, backtest_progress
+│   │   ├── factors/             👈 factor research / analysis: base, analysis, generation, generation_job,
+│   │   │                           research, _analysis_section (included by every results page)
+│   │   ├── research_registry/   👈 /research: base, runs, run, compare, models, model
+│   │   ├── strategies/          👈 /strategies: base, dashboard, new, view, edit, experiment, report, compare
+│   │   ├── projects/            👈 one subfolder per project: stm/, csm/, spx_v2/ (dashboard, results),
+│   │   │                           dispersion/ (results, detail, maturities)
+│   │   └── monitor/             👈 monitoring app: base, _section, overview, trading, ibkr, ...
 │   └── static/
 │       └── style.css
 └── api/                         👈 REST/JSON API

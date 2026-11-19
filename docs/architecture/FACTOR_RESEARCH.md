@@ -16,7 +16,7 @@ Added 2026-10-28. Three capabilities on the Flask app, all computed by applicati
 | Domain | `domain/entities/research/factor_models.py` — CAPM / FF3 / FF5 factor lists, series kinds (external, market proxy, mimicking portfolio), return conventions (total vs excess), analysis frequencies |
 | Application | `application/services/research/`: `statistics.py` (correlations, quantile portfolios, forward returns, OLS + Newey-West, rolling OLS), `factor_research.py`, `factor_generation.py` (+ worker and job store), `project_returns.py` (strategy returns of every results source), `factor_returns.py` (factor return series, local market proxy), `factor_regression.py`, `research_renderer.py`, `research_services.py` |
 | Infrastructure | `infrastructure/research/factor_return_files.py` (CSV + JSON store under `data/factor_returns/`, not committed; Kenneth R. French importer); `FactorValueRepository.get_values_panel` |
-| Interfaces | `factor_analysis_controller.py` (`/factor-analysis`), `factor_research_controller.py` (`/powerbuffet/generate`, `/powerbuffet/research`), templates `factor_*.html`, `research_base.html`, `_factor_analysis_section.html` |
+| Interfaces | `factor_analysis_controller.py` (`/factor-analysis`), `factor_research_controller.py` (`/powerbuffet/generate`, `/powerbuffet/research`), templates `factors/` (`base.html`, `analysis.html`, `generation*.html`, `research.html`, `_analysis_section.html`) |
 
 ## Methodology
 

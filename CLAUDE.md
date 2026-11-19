@@ -113,10 +113,13 @@ src/interfaces/
     ├── web/                        # HTML views + controllers
     │   ├── controllers/
     │   │   └── dashboard_controller.py
-    │   ├── templates/
-    │   │   ├── index.html         # Legacy home page
-    │   │   ├── dashboard_hub.html # NEW: Comprehensive dashboard
-    │   │   └── performance_results.html
+    │   ├── templates/              # one folder per feature (see src/interfaces/flask/CLAUDE.md)
+    │   │   ├── dashboard/          # legacy home (index.html), hub.html (/dashboard), performance_results.html
+    │   │   ├── factors/            # factor research / analysis pages
+    │   │   ├── research_registry/  # /research: backtest runs, comparison, models
+    │   │   ├── strategies/         # /strategies experiments
+    │   │   ├── projects/           # stm/, csm/, spx_v2/, dispersion/ dashboards and results
+    │   │   └── monitor/            # monitoring app
     │   └── static/
     └── api/                        # REST/JSON API
         ├── controllers/

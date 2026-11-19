@@ -81,7 +81,7 @@ def dashboard():
     configurations = s.configurations.list()
     experiments = sorted(s.experiments.list(), key=lambda e: e.id, reverse=True)
     names = {c.id: f"{c.name} v{c.version}" for c in configurations}
-    return render_template("strategies_dashboard.html", projects=s.registry.capabilities(),
+    return render_template("strategies/dashboard.html", projects=s.registry.capabilities(),
                            configurations=sorted(configurations, key=lambda c: (c.name, c.version)),
                            experiments=experiments, names=names)
 
@@ -95,10 +95,10 @@ def new():
                                         description=request.form.get("description", ""))
         except (ValueError, KeyError) as e:
             flash(str(e), "danger")
-            return render_template("strategies_new.html", projects=s.registry.capabilities(), form=request.form), 400
+            return render_template("strategies/new.html", projects=s.registry.capabilities(), form=request.form), 400
         flash(f"Draft '{c.name}' created from the project's defaults (today's configuration).", "success")
         return redirect(url_for("strategies.edit", configuration_id=c.id))
-    return render_template("strategies_new.html", projects=s.registry.capabilities(), form={})
+    return render_template("strategies/new.html", projects=s.registry.capabilities(), form={})
 
 
 @strategies_bp.route("/<int:configuration_id>")
@@ -107,7 +107,7 @@ def view(configuration_id: int):
     c = _configuration_or_404(configuration_id)
     _, issues = s.configurations.check(c)
     adapter = s.registry.get(c.project_key)
-    return render_template("strategies_view.html", c=c, issues=issues, schema=adapter.schema(),
+    return render_template("strategies/view.html", c=c, issues=issues, schema=adapter.schema(),
                            capabilities=adapter.capabilities(), versions=s.configurations.versions(c.name),
                            experiments=s.experiments.list(configuration_id=c.id))
 
@@ -137,7 +137,7 @@ def edit(configuration_id: int):
     elif not c.is_editable:
         flash(f"Version {c.version} is {c.status}: it cannot change. Create a new version to edit.", "warning")
         return redirect(url_for("strategies.view", configuration_id=configuration_id))
-    return render_template("strategies_edit.html", c=c, schema=adapter.schema(), capabilities=adapter.capabilities(),
+    return render_template("strategies/edit.html", c=c, schema=adapter.schema(), capabilities=adapter.capabilities(),
                            issues=issues)
 
 
@@ -212,7 +212,7 @@ def experiment(experiment_id: int):
     s.experiments.recover()
     e = _experiment_or_404(experiment_id)
     c = s.configurations.get(e.configuration_id)
-    return render_template("strategies_experiment.html", e=e, c=c, log=s.experiments.log_tail(experiment_id),
+    return render_template("strategies/experiment.html", e=e, c=c, log=s.experiments.log_tail(experiment_id),
                            artifacts=s.experiments.artifacts(experiment_id))
 
 
@@ -232,7 +232,7 @@ def experiment_report(experiment_id: int):
     _experiment_or_404(experiment_id)
     e, report, renderer = s.experiments.report(experiment_id)
     if report is None:
-        return render_template("strategies_report.html", e=e, report=None, sections=[]), 404
+        return render_template("strategies/report.html", e=e, report=None, sections=[]), 404
     tables = {key: (title, renderer.table_html(df)) for key, title, df in renderer.tables(report) if df is not None}
     order = getattr(renderer, "ORDER", None) or (list(tables) + list(renderer.FIGURES))
     sections = []
@@ -242,7 +242,7 @@ def experiment_report(experiment_id: int):
         elif key in renderer.FIGURES:
             sections.append({"kind": "figure", "title": renderer.FIGURES[key][0],
                              "png": renderer.figure_base64(report, key)})
-    return render_template("strategies_report.html", e=e, report=report, sections=sections)
+    return render_template("strategies/report.html", e=e, report=report, sections=sections)
 
 
 @strategies_bp.route("/experiments/<int:experiment_id>/report.pdf")
@@ -270,4 +270,4 @@ def compare():
         result = s.experiments.compare(ids)
     except LookupError:
         abort(404)
-    return render_template("strategies_compare.html", result=result)
+    return render_template("strategies/compare.html", result=result)

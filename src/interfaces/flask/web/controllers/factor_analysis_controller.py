@@ -110,7 +110,7 @@ def _run(args):
 @factor_analysis_bp.route("/")
 def page():
     ctx = _run(request.args)
-    return render_template("factor_analysis.html", **ctx)
+    return render_template("factors/analysis.html", **ctx)
 
 
 @factor_analysis_bp.route("/csv")

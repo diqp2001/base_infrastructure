@@ -69,7 +69,7 @@ def _generation_request(form):
 def generate():
     s = services()
     calculated = [f for f in s.data.factors() if f["source"] == "calculated"]
-    return render_template("factor_generation.html", universes=s.data.universes(), factors=calculated,
+    return render_template("factors/generation.html", universes=s.data.universes(), factors=calculated,
                            frequencies=_frequencies(), jobs=s.jobs.list()[:20], plan=None, form={})
 
 
@@ -79,7 +79,7 @@ def generate_plan():
     req = _generation_request(request.form)
     plan = s.generation.plan(req)
     calculated = [f for f in s.data.factors() if f["source"] == "calculated"]
-    return render_template("factor_generation.html", universes=s.data.universes(), factors=calculated,
+    return render_template("factors/generation.html", universes=s.data.universes(), factors=calculated,
                            frequencies=_frequencies(), jobs=s.jobs.list()[:20], plan=plan, form=request.form,
                            selected=[int(x) for x in request.form.getlist("factor_ids") if x.isdigit()])
 
@@ -107,7 +107,7 @@ def job(job_id):
         j = services().jobs.read(job_id)
     except (LookupError, ValueError):
         abort(404)
-    return render_template("factor_generation_job.html", job=j)
+    return render_template("factors/generation_job.html", job=j)
 
 
 @factor_research_bp.route("/generate/jobs/<job_id>/status")
@@ -178,7 +178,7 @@ def research():
                 figs["quantiles"] = rr.png(rr.fig_series(cum, "Cumulative return per quantile (equal weight, held one bar)"))
             ctx.update(figures=figs, cells=rr.correlation_cells(result.matrix, result.matrix_counts, result.matrix_notes),
                        table=rr.table_html)
-    return render_template("factor_research.html", **ctx)
+    return render_template("factors/research.html", **ctx)
 
 
 @factor_research_bp.route("/research/csv")

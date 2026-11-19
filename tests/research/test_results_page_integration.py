@@ -8,21 +8,21 @@ TEMPLATES = pathlib.Path(__file__).resolve().parents[2] / "src" / "interfaces" /
 
 
 @pytest.mark.parametrize("template,source", [
-    ("stm_results.html", "'stm:' ~ project"),
-    ("csm_results.html", "'csm:' ~ project"),
-    ("spx_v2_results.html", "'spx_v2'"),
-    ("strategies_report.html", "'experiment:' ~ e.id"),
+    ("projects/stm/results.html", "'stm:' ~ project"),
+    ("projects/csm/results.html", "'csm:' ~ project"),
+    ("projects/spx_v2/results.html", "'spx_v2'"),
+    ("strategies/report.html", "'experiment:' ~ e.id"),
 ])
 def test_each_results_page_includes_the_factor_analysis_section(template, source):
     text = (TEMPLATES / template).read_text(encoding="utf-8")
-    assert f"{{% set fa_source = {source} %}}{{% include \"_factor_analysis_section.html\" %}}" in text
+    assert f"{{% set fa_source = {source} %}}{{% include \"factors/_analysis_section.html\" %}}" in text
 
 
 def test_the_section_embeds_the_shared_page_for_its_source():
     from src.interfaces.flask.app import FlaskApp
     app = FlaskApp().get_app()
     with app.test_request_context():
-        html = app.jinja_env.get_template("_factor_analysis_section.html").render(fa_source="stm:10m")
+        html = app.jinja_env.get_template("factors/_analysis_section.html").render(fa_source="stm:10m")
     assert "/factor-analysis/?source=stm%3A10m&embedded=1" in html and "Factor Analysis" in html
 
 

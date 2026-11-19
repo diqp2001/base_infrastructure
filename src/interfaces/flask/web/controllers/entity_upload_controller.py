@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 def entity_upload_page():
     """Render the entity upload form."""
     entity_types = sorted(ENTITY_SCHEMAS.keys())
-    return render_template("entity_upload.html", entity_types=entity_types)
+    return render_template("dashboard/entity_upload.html", entity_types=entity_types)
 
 
 @entity_upload_bp.route("/entity-upload/template/<entity_type>", methods=["GET"])

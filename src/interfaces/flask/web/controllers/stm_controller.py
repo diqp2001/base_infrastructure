@@ -86,7 +86,7 @@ def _report():
 
 @stm_bp.route("/")
 def dashboard():
-    return render_template("stm_dashboard.html", projects={k: v[0] for k, v in PROJECTS.items()},
+    return render_template("projects/stm/dashboard.html", projects={k: v[0] for k, v in PROJECTS.items()},
                            project=_project())
 
 
@@ -113,7 +113,7 @@ def progress():
 def results():
     report = _report()
     if report is None:
-        return render_template("stm_results.html", report=None, project_label=PROJECTS[_project()][0]), 404
+        return render_template("projects/stm/results.html", report=None, project_label=PROJECTS[_project()][0]), 404
     figures = _cache()["figures"]
     for key in renderer.FIGURES:
         if key not in figures:
@@ -125,7 +125,7 @@ def results():
             sections.append({"kind": "table", "title": tables[key][0], "html": tables[key][1]})
         else:
             sections.append({"kind": "figure", "title": renderer.FIGURES[key][0], "png": figures[key]})
-    return render_template("stm_results.html", report=report, sections=sections,
+    return render_template("projects/stm/results.html", report=report, sections=sections,
                            project=_project(), project_label=PROJECTS[_project()][0])
 
 

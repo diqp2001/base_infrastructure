@@ -56,7 +56,7 @@ def _report():
 
 @spx_v2_bp.route("/")
 def dashboard():
-    return render_template("spx_v2_dashboard.html")
+    return render_template("projects/spx_v2/dashboard.html")
 
 
 @spx_v2_bp.route("/api/progress")
@@ -82,7 +82,7 @@ def progress():
 def results():
     report = _report()
     if report is None:
-        return render_template("spx_v2_results.html", report=None), 404
+        return render_template("projects/spx_v2/results.html", report=None), 404
     figures = _cache()["figures"]
     for key in renderer.FIGURES:
         if key not in figures:
@@ -94,7 +94,7 @@ def results():
             sections.append({"kind": "table", "title": tables[key][0], "html": tables[key][1]})
         else:
             sections.append({"kind": "figure", "title": renderer.FIGURES[key][0], "png": figures[key]})
-    return render_template("spx_v2_results.html", report=report, sections=sections)
+    return render_template("projects/spx_v2/results.html", report=report, sections=sections)
 
 
 @spx_v2_bp.route("/report.pdf")
