@@ -30,13 +30,41 @@ These decisions were made on 2026-11-19.
   `StrategyConfiguration`, `StrategyConfigurationService`, `StrategyConfigurationRepository`,
   `configuration_id` / `project_key` on entities, and `strategy_configuration_local_repo`.
 
+## Storage: strategies, parameters, parameter values (2026-11-19)
+
+| table | one row per | columns |
+|---|---|---|
+| `strategies` | strategy version | id, name, version, parent_id, strategy_type, description, status, content_hash, universe_id (FK), created / validated / locked |
+| `strategy_parameters` | distinct parameter | id, section, name (unique together), description |
+| `strategy_parameter_values` | (strategy, parameter) | strategy_id, parameter_id (unique together), value (text), value_type (null / bool / int / float / str / json), value_numeric (int / float copy, for filtering) |
+
+- **Every parameter is a row.** That includes the shared typed fields: section `definition`, names `bar_frequency`,
+  `bar_size`, `model_type`, `training_window`, `retrain_every_days`, `prediction_horizon`.
+- **Nested sections.** A parameter's name is its path in the section, JSON-pointer style, for example section
+  `model`, name `stm.model/params/hidden_dim`. A list is one value (JSON). Empty settings and empty sections keep a
+  row, so a strategy rebuilds exactly and its content hash does not change.
+- **Codec.** `src/infrastructure/repositories/mappers/strategy/strategy_parameter_codec.py`.
+- **Repository.** `StrategyRepository` writes the rows when it saves a strategy, replacing the previous ones, and
+  rebuilds the strategy when it reads (one query for a whole list). `parameter_values(section, name)` gives one
+  parameter across strategies.
+
+Example, the strategies whose training window exceeds 200:
+
+```sql
+SELECT s.name, s.version, v.value
+FROM strategies s
+JOIN strategy_parameter_values v ON v.strategy_id = s.id
+JOIN strategy_parameters p ON p.id = v.parameter_id
+WHERE p.section = 'definition' AND p.name = 'training_window' AND v.value_numeric > 200;
+```
+
 ## Strategy: what is a column, what stays in sections, what is not a strategy
 
 | kind | fields |
 |---|---|
 | identity | id, name, version, parent_id, status, content_hash, created / validated / locked timestamps |
-| typed definition (columns) | `strategy_type` (ProjectRegistry key), `universe_id`, `bar_frequency`, `bar_size`, `model_type`, `training_window`, `retrain_every_days`, `prediction_horizon` |
-| project parameters (JSON `sections`, validated by the project's schema) | `parameters` = model, training, trading, evaluation and data_policy; `features` = factors; `portfolio_construction` = portfolio; `risk` |
+| identity columns + typed definition (parameter rows, section `definition`) | `strategy_type` (ProjectRegistry key), `universe_id` (columns); `bar_frequency`, `bar_size`, `model_type`, `training_window`, `retrain_every_days`, `prediction_horizon` |
+| project parameters (`sections`, stored as parameter rows; validated by the project's schema when it has one) | `parameters` = model, training, trading, evaluation and data_policy; `features` = factors; `portfolio_construction` = portfolio; `risk` |
 | **not** a strategy (future `StrategyDeployment`) | the `live` block: account, host, port, client_id, paper_bar_prices, allow_delayed_prices, max_quote_age_seconds, order windows, supervisor, plus results / weights folders |
 
 The typed definition is read from the project's native config (`project_adapters.strategy_definition`) when a strategy
@@ -115,6 +143,77 @@ How a registration works:
 
 Tests: `tests/strategy/test_project_strategy_registration.py` (every project folder is wired; every default config
 gives a valid strategy without run or deployment settings).
+
+## Designing and running a strategy (/strategies)
+
+### Pages
+
+- **Dashboard.** It lists every strategy version with its trading bar, model, training window, retraining,
+  horizon, universe size and factor count.
+- **"Create a new strategy from this one".** On any strategy, it creates a draft with its own copy of the universe
+  (`StrategyDesignService.derive`).
+- **Design page** (`/strategies/<id>/design`, drafts only). Each part saves separately:
+  - trading, model and training: the model dropdown, the decision interval in minutes, the data bar, the training
+    window, retraining and horizon;
+  - the financial-asset universe: one line per type, e.g. `CompanyShare: JPM, BAC`;
+  - the factor universe: a checklist of the stored factors;
+  - the parameter sections (JSON).
+- **Strategy types with a web form** (`stm_reference`, `stm_paper`, `cross_sectional`). Their model, windows and
+  constituents are edited in their project form.
+- **Copy-on-write.** A universe that other strategies also use is copied before it changes.
+
+### Running
+
+`ProjectRegistry.get(<project folder>)` returns a `ProjectFolderAdapter`. A project strategy is launched like a
+web-configured one: validate it, then "Launch backtest". `strategy_project_config.apply_strategy` writes the
+strategy onto the project's own `get_config()` (deep copy):
+
+- **Sections.** Every stored key goes back to its place. `stm.<x>` goes into the stm section, and JSON lists and
+  class keys get the project's shapes back. The project's own factor class definitions are kept.
+- **Universe.** `config['universe']` becomes the strategy's instruments, in the order listed, which is the model's
+  asset order. For STM projects the explicit ticker list is set, and the universe gets a name of its own
+  (`<name>__strategy<id>`).
+- **Typed fields.**
+  - `bar_size` sets `bar_size_setting`.
+  - `bar_frequency` sets `stm.bar_minutes` (the data bars). The decision interval is
+    `trading.config_interval.custom_interval_minutes`.
+  - The model is applied as described under "Models".
+  - `training_window` is written only where the config has that key. `stm.training.rolling_window_rows` follows it
+    only where the project uses one number for both.
+  - `retrain_every_days` and `prediction_horizon` are written as is.
+- **Run settings.** The backtest window, capital, `live` block and folders stay the project's. Each experiment gets
+  its own results folder and portfolio.
+
+The worker runs the project's manager (`manager_class()(config=..., database_service=...)`). A project without a
+report object succeeds with its scalar results (`results_summary`). Applying the strategy registered from a config
+gives that config back (tested for every project).
+
+Launchable projects are those whose manager takes `config` and `database_service`, excluding the live STM project
+and the screener (`NOT_LAUNCHABLE`): cross_sectional (+10m), etf_dispersion_stm, SPX v2, stm (+10m, 10m_hourly,
+full) and stm_monthly_deciles.
+
+### Models (`model_catalog.py`)
+
+| project | models offered |
+|---|---|
+| STM-based (config has `stm`) | `tft`, `conv` (temporal convolution), `lstm`, `mlp`, `slp` (`stm_models.MODEL_MAPPING`) |
+| cross-sectional momentum (`csm`) | `lightgbm` |
+| others | the model their config names |
+
+- **Parameters on a switch.** Switching model keeps only the parameters the new network's constructor accepts.
+  For example, a TFT's `emb_dim` and `n_heads` never reach an LSTM, which takes `n_units` and `dropout`.
+- **Encoder length.** It is checked only for the TFT.
+- **Validation.** A model the project cannot train is refused when the strategy is validated.
+- **Web forms.** The STM form offers all five networks.
+- **Tests.** Every STM network goes through the Sharpe-loss walk-forward: it trains, stores its artifact, and the
+  reloaded artifact reproduces the predictions (`tests/strategy/test_strategy_run_from_design.py`).
+
+### Not wired yet
+
+- **Factor universe.** It is stored, edited and shown, but the projects do not read it. Their features are their
+  own configured factors. Feeding selected factors to a model as extra features is a per-project change.
+- **Point-in-time membership.** stm_monthly_deciles and etf_dispersion_stm take their members from the
+  point-in-time DJIA / DIA membership. The instruments list only sets which shares the engine can trade.
 
 ## Migrating an existing database
 

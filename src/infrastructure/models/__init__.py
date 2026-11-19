@@ -83,7 +83,9 @@ from src.infrastructure.models.ml.model_training import ModelTrainingModel
 from src.infrastructure.models.ml.training_metric import TrainingMetricModel
 from src.infrastructure.models.ml.model_artifact import ModelArtifactModel
 # Strategies (one row per version) and their experiments
-from src.infrastructure.models.strategy.strategy import StrategyModel, StrategyExperimentModel
+from src.infrastructure.models.strategy.strategy import (
+    StrategyModel, StrategyParameterModel, StrategyParameterValueModel, StrategyExperimentModel,
+)
 # Swap instruments
 from src.infrastructure.models.finance.financial_assets.derivative.swap.swap import SwapModel
 from src.infrastructure.models.finance.financial_assets.derivative.swap.swap_leg import SwapLegModel
@@ -201,7 +203,7 @@ __all__ = [
     'UniverseModel', 'InvestmentUniverseModel', 'UniverseFinancialAssetModel', 'UniverseFactorModel',
     'UniverseConstituentModel',
     'MLModelModel', 'ModelFeatureModel', 'ModelTrainingModel', 'TrainingMetricModel', 'ModelArtifactModel',
-    'StrategyModel', 'StrategyExperimentModel',
+    'StrategyModel', 'StrategyParameterModel', 'StrategyParameterValueModel', 'StrategyExperimentModel',
     'ETFShareOptionPortfolioModel', 'ETFShareOptionPortfolioHoldingModel', 'ETFShareOptionPortfolioPortfolioHoldingModel',
     'ensure_models_registered'
 ]

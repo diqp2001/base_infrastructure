@@ -25,16 +25,20 @@ def _loads(text: Optional[str]) -> dict:
 
 
 class StrategyMapper:
+    """The strategies row holds identity / status; the parameters (sections + typed definition) come from the
+    strategy_parameter_values rows (StrategyRepository reads and writes them)."""
 
     @staticmethod
-    def to_domain(orm: Optional[StrategyModel]) -> Optional[Strategy]:
+    def to_domain(orm: Optional[StrategyModel], sections: Optional[dict] = None,
+                  definition: Optional[dict] = None) -> Optional[Strategy]:
         if orm is None:
             return None
+        definition = definition or {}
         return Strategy(
-            id=orm.id, name=orm.name, strategy_type=orm.strategy_type, sections=_loads(orm.sections),
+            id=orm.id, name=orm.name, strategy_type=orm.strategy_type, sections=sections or {},
             description=orm.description or "", version=orm.version, parent_id=orm.parent_id, status=orm.status,
             universe_id=orm.universe_id, created_at=orm.created_at, validated_at=orm.validated_at,
-            locked_at=orm.locked_at, **{f: getattr(orm, f) for f in DEFINITION_FIELDS},
+            locked_at=orm.locked_at, **{f: definition.get(f) for f in DEFINITION_FIELDS},
         )
 
     @staticmethod
@@ -47,9 +51,6 @@ class StrategyMapper:
         orm.status = entity.status
         orm.content_hash = entity.content_hash
         orm.universe_id = entity.universe_id
-        for f in DEFINITION_FIELDS:
-            setattr(orm, f, getattr(entity, f))
-        orm.sections = _dumps(entity.sections)
         orm.created_at = entity.created_at
         orm.validated_at = entity.validated_at
         orm.locked_at = entity.locked_at

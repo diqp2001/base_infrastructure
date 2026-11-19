@@ -79,12 +79,84 @@ def _experiment_or_404(experiment_id: int):
 @strategies_bp.route("/")
 def dashboard():
     s = services()
-    configurations = s.configurations.list()
+    rows = s.design.overview()
     experiments = sorted(s.experiments.list(), key=lambda e: e.id, reverse=True)
-    names = {c.id: f"{c.name} v{c.version}" for c in configurations}
-    return render_template("strategies/dashboard.html", projects=s.registry.capabilities(),
-                           configurations=sorted(configurations, key=lambda c: (c.name, c.version)),
-                           experiments=experiments, names=names)
+    names = {r["strategy"].id: f"{r['strategy'].name} v{r['strategy'].version}" for r in rows}
+    return render_template("strategies/dashboard.html", projects=s.registry.capabilities(), rows=rows,
+                           configurations=[r["strategy"] for r in rows], experiments=experiments, names=names,
+                           registry_keys=set(s.registry.keys()))
+
+
+@strategies_bp.route("/<int:configuration_id>/derive", methods=["POST"])
+def derive(configuration_id: int):
+    """A new draft from this strategy (its own copy of the universe), then the design page."""
+    s = services()
+    _configuration_or_404(configuration_id)
+    try:
+        c = s.design.derive(configuration_id, name=request.form.get("name", ""),
+                            description=request.form.get("description") or None)
+    except ValueError as e:
+        flash(str(e), "danger")
+        return redirect(url_for("strategies.view", configuration_id=configuration_id))
+    flash(f"Draft '{c.name}' v{c.version} created from strategy #{configuration_id}: change what differs.", "success")
+    return redirect(url_for("strategies.design", configuration_id=c.id))
+
+
+@strategies_bp.route("/<int:configuration_id>/design", methods=["GET", "POST"])
+def design(configuration_id: int):
+    """Edit a draft's definition: trading / training frequency, model, financial-asset and factor universe,
+    parameter sections. Each form posts one part."""
+    from src.domain.entities.strategy.strategy import StrategyLocked
+    s = services()
+    c = _configuration_or_404(configuration_id)
+    if request.method == "POST":
+        part = request.form.get("part", "")
+        try:
+            if part == "definition":
+                s.design.update_definition(configuration_id, request.form.to_dict(),
+                                           description=request.form.get("description"))
+                flash("Definition saved (draft).", "success")
+            elif part == "assets":
+                _, unknown = s.design.set_financial_assets(configuration_id, request.form.get("instruments", ""))
+                if unknown:
+                    flash("Universe saved. Not stored as financial assets yet (kept in the request, added when a run "
+                          "creates them): " + "; ".join(f"{t}: {', '.join(v)}" for t, v in unknown.items()), "warning")
+                else:
+                    flash("Financial-asset universe saved.", "success")
+            elif part == "factors":
+                s.design.set_factors(configuration_id, request.form.getlist("factor_id"))
+                flash("Factor universe saved.", "success")
+            elif part == "section":
+                s.design.set_section(configuration_id, request.form.get("section", ""), request.form.get("json", ""))
+                flash(f"Section '{request.form.get('section')}' saved.", "success")
+            elif part == "validate":
+                c, issues = s.design.validate(configuration_id, registry=s.registry)
+                errors = [i for i in issues if i.severity == "error"]
+                if errors:
+                    flash(f"{len(errors)} issue(s): " + "; ".join(str(i) for i in errors), "danger")
+                else:
+                    flash("Validated.", "success")
+                    return redirect(url_for("strategies.view", configuration_id=configuration_id))
+            else:
+                abort(400)
+        except StrategyLocked as e:
+            flash(str(e), "warning")
+            return redirect(url_for("strategies.view", configuration_id=configuration_id))
+        except (ValueError, LookupError) as e:
+            flash(str(e), "danger")
+        return redirect(url_for("strategies.design", configuration_id=configuration_id) + f"#{part}")
+    if not c.is_editable:
+        flash(f"Version {c.version} is {c.status}: create a new strategy from it to change it.", "warning")
+        return redirect(url_for("strategies.view", configuration_id=configuration_id))
+    from src.domain.entities.strategy.configuration_schema import SECTIONS
+    from src.application.services.strategy.model_catalog import model_label
+    has_form = s.registry.has_form(c.strategy_type)
+    trading = c.section("trading").get("config_interval") or {}
+    return render_template("strategies/design.html", c=c, detail=s.design.universe_detail(c),
+                           catalog=s.design.factor_catalog(), sections=[x for x in SECTIONS if x != "universe"],
+                           has_schema=has_form, models=[(m, model_label(m)) for m in s.design.model_choices(c)],
+                           decision_minutes=trading.get("custom_interval_minutes") if isinstance(trading, dict)
+                           else None)
 
 
 @strategies_bp.route("/new", methods=["GET", "POST"])
@@ -106,18 +178,21 @@ def new():
 def view(configuration_id: int):
     s = services()
     c = _configuration_or_404(configuration_id)
+    common = dict(c=c, detail=s.design.universe_detail(c), versions=s.configurations.versions(c.name),
+                  experiments=s.experiments.list(configuration_id=c.id))
     try:
         adapter = s.registry.get(c.strategy_type)
-    except KeyError:                       # registered from a project's own config: shown as stored, read-only
-        return render_template("strategies/view.html", c=c, issues=[], schema=_stored_schema(c),
-                               capabilities=SimpleNamespace(label=f"project {c.strategy_type} (registered from its "
-                                                                  f"config when it ran)", unsupported=[]),
-                               versions=s.configurations.versions(c.name),
-                               experiments=s.experiments.list(configuration_id=c.id))
+    except KeyError:                       # a type no project implements any more: shown as stored, read-only
+        return render_template("strategies/view.html", issues=[], schema=_stored_schema(c), has_schema=False,
+                               launchable=False, capabilities=SimpleNamespace(
+                                   label=f"{c.strategy_type} (no project implements it)", unsupported=[]), **common)
+    has_form = s.registry.has_form(c.strategy_type)
     _, issues = s.configurations.check(c)
-    return render_template("strategies/view.html", c=c, issues=issues, schema=adapter.schema(),
-                           capabilities=adapter.capabilities(), versions=s.configurations.versions(c.name),
-                           experiments=s.experiments.list(configuration_id=c.id))
+    capabilities = adapter.capabilities() if has_form else SimpleNamespace(
+        label=f"project {c.strategy_type} (applied onto the project's own config)", unsupported=[])
+    return render_template("strategies/view.html", issues=issues, has_schema=has_form,
+                           schema=adapter.schema() if has_form else _stored_schema(c),
+                           launchable=getattr(adapter, "launchable", True), capabilities=capabilities, **common)
 
 
 def _stored_schema(c):

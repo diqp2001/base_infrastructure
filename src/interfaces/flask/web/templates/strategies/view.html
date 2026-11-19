@@ -11,12 +11,20 @@
     </div>
     <div class="text-end">
         {% if c.is_editable %}
-            <a class="btn btn-sm btn-primary" href="{{ url_for('strategies.edit', configuration_id=c.id) }}">Edit</a>
+            <a class="btn btn-sm btn-primary" href="{{ url_for('strategies.design', configuration_id=c.id) }}">Design
+                (frequency, training, universe, factors)</a>
+            {% if has_schema %}
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('strategies.edit', configuration_id=c.id) }}">Edit project parameters</a>
             <form method="post" action="{{ url_for('strategies.act', configuration_id=c.id, action='validate') }}" class="d-inline">
                 <button class="btn btn-sm btn-outline-info">Validate</button></form>
+            {% else %}
+            <form method="post" action="{{ url_for('strategies.design', configuration_id=c.id) }}" class="d-inline">
+                <input type="hidden" name="part" value="validate">
+                <button class="btn btn-sm btn-outline-info">Validate</button></form>
+            {% endif %}
         {% endif %}
-        <form method="post" action="{{ url_for('strategies.act', configuration_id=c.id, action='revise') }}" class="d-inline">
-            <button class="btn btn-sm btn-outline-secondary">New version</button></form>
+        <form method="post" action="{{ url_for('strategies.derive', configuration_id=c.id) }}" class="d-inline">
+            <button class="btn btn-sm btn-outline-secondary" title="next version of {{ c.name }}, as a draft">New version</button></form>
         <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('strategies.preview', configuration_id=c.id) }}">Preview (JSON)</a>
     </div>
 </div>
@@ -32,12 +40,32 @@
         <div class="card-header">Strategy definition</div>
         <div class="card-body p-0"><table class="table mb-0">
             <tr><td class="muted" style="width:45%">Strategy type</td><td><code>{{ c.strategy_type }}</code></td></tr>
-            <tr><td class="muted">Universe</td><td>{% if c.universe_id %}#{{ c.universe_id }}{% else %}— (not linked yet){% endif %}</td></tr>
-            {% for key, label in [('bar_frequency', 'Bar frequency'), ('bar_size', 'Bar size'), ('model_type', 'Model type'),
+            {% for key, label in [('bar_frequency', 'Bar frequency (trading)'), ('bar_size', 'Bar size'), ('model_type', 'Model type'),
                                   ('training_window', 'Training window (rows)'), ('retrain_every_days', 'Retrain every (days)'),
                                   ('prediction_horizon', 'Prediction horizon (rows)')] %}
             <tr><td class="muted">{{ label }}</td><td>{{ c[key] if c[key] is not none else '—' }}</td></tr>
             {% endfor %}
+        </table></div>
+    </div>
+    {% set u = detail.universe %}
+    <div class="card mb-3">
+        <div class="card-header">Universe
+            {% if u %}<span class="muted small">#{{ u.id }} {{ u.name }} v{{ u.version }}</span>{% endif %}</div>
+        <div class="card-body p-0"><table class="table mb-0">
+            {% if not u %}
+            <tr><td class="muted">No universe linked.</td></tr>
+            {% else %}
+            <tr><td class="muted" style="width:45%">Financial assets</td>
+                <td>{{ u.financial_asset_ids()|length }} stored
+                    {% for t, symbols in detail.instruments.items() %}<div class="small"><span class="muted">{{ t }}:</span> {{ symbols|join(', ') }}</div>{% endfor %}
+                    {% if detail.missing %}<div class="small text-warning">not stored yet:
+                        {% for t, s in detail.missing.items() %}{{ t }} {{ s|join(', ') }}{% if not loop.last %}; {% endif %}{% endfor %}</div>{% endif %}</td></tr>
+            <tr><td class="muted">Factors</td>
+                <td>{% if detail.factors %}{% for f in detail.factors %}<code>{{ f.name }}</code><span class="muted small"> {{ f.group }}/{{ f.subgroup }} {{ f.frequency }}</span>{% if not loop.last %}, {% endif %}{% endfor %}
+                    {% else %}<span class="muted">none</span>{% endif %}</td></tr>
+            {% if detail.shared_with %}<tr><td class="muted">Also used by</td>
+                <td>{% for s in detail.shared_with %}<a href="{{ url_for('strategies.view', configuration_id=s.id) }}">{{ s.name }} v{{ s.version }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</td></tr>{% endif %}
+            {% endif %}
         </table></div>
     </div>
     {% for section in schema.sections %}
@@ -59,7 +87,7 @@
     <div class="card mb-3">
         <div class="card-header">Launch backtest</div>
         <div class="card-body small">
-            {% if c.status in ('validated', 'locked') %}
+            {% if launchable and c.status in ('validated', 'locked') %}
             <form method="post" action="{{ url_for('strategies.act', configuration_id=c.id, action='launch') }}">
                 <div class="form-check mb-2">
                     <input class="form-check-input" type="checkbox" name="confirm" value="yes" id="confirm">
@@ -69,18 +97,24 @@
                 </div>
                 <button class="btn btn-success btn-sm">Launch backtest</button>
             </form>
+            {% elif not launchable %}
+            <div class="muted">Project <code>{{ c.strategy_type }}</code> is not launched from this page (live trading or
+                not a backtest project): it runs from the project itself.</div>
             {% else %}
-            <div class="muted">Validate the configuration first.</div>
+            <div class="muted">Validate the strategy first (Design → Validate).</div>
             {% endif %}
             <div class="muted mt-2">Paper and live trading are not available from this interface.</div>
         </div>
     </div>
     <div class="card mb-3">
-        <div class="card-header">Clone into a new experiment</div>
-        <div class="card-body">
-            <form method="post" action="{{ url_for('strategies.act', configuration_id=c.id, action='clone') }}">
-                <input class="form-control form-control-sm mb-2" name="name" placeholder="new name" required>
-                <button class="btn btn-sm btn-outline-secondary">Clone</button>
+        <div class="card-header" id="derive">Create a new strategy from this one</div>
+        <div class="card-body small">
+            <div class="muted mb-2">Copies the definition, the parameters and the universe (its own copy), as a draft you
+                then change: trading / training frequency, model, financial assets, factors.</div>
+            <form method="post" action="{{ url_for('strategies.derive', configuration_id=c.id) }}">
+                <input class="form-control form-control-sm mb-2" name="name" placeholder="new strategy name" required>
+                <input class="form-control form-control-sm mb-2" name="description" placeholder="description (optional)">
+                <button class="btn btn-sm btn-success">Create and design</button>
             </form>
         </div>
     </div>

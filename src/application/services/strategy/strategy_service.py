@@ -128,8 +128,11 @@ class StrategyService:
         return self.update(configuration_id, sections, description=description), issues
 
     def check(self, configuration: Strategy) -> Tuple[Dict[str, Dict[str, Any]], List[ValidationIssue]]:
-        """Validation without saving anything."""
-        return self.registry.get(configuration.strategy_type).validate(configuration.sections)
+        """Validation without saving anything (a project-folder strategy: it must apply onto the project)."""
+        adapter = self.registry.get(configuration.strategy_type)
+        if hasattr(adapter, "validate_strategy"):
+            return adapter.validate_strategy(configuration)
+        return adapter.validate(configuration.sections)
 
     def validate(self, configuration_id: int) -> Tuple[Strategy, List[ValidationIssue]]:
         configuration = self.get(configuration_id)
@@ -179,10 +182,12 @@ class StrategyService:
     # -- translation ----------------------------------------------------------------------------------------------
     def native_config(self, configuration: Strategy, **kwargs) -> Dict[str, Any]:
         adapter = self.registry.get(configuration.strategy_type)
-        normalised, issues = adapter.validate(configuration.sections)
+        normalised, issues = self.check(configuration)
         errors = [i for i in issues if i.severity == ERROR]
         if errors:
             raise ConfigurationInvalid(errors)
+        if hasattr(adapter, "native_config_for"):          # project-folder strategy: applied onto the project
+            return adapter.native_config_for(configuration, normalised, **kwargs)
         return adapter.native_config(normalised, **kwargs)
 
     def preview(self, configuration_id: int) -> Dict[str, Any]:

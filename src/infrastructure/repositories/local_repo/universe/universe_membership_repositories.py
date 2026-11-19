@@ -100,6 +100,15 @@ class UniverseFactorRepository(_MemberBase, UniverseFactorPort):
                 .order_by(UniverseFactorModel.id).all())
         return [self.mapper.to_domain(r) for r in rows]
 
+    def factor_catalog(self) -> List[dict]:
+        """Every stored factor a universe can list: {id, name, group, subgroup, frequency, source, factor_type}."""
+        from src.infrastructure.models.factor.factor import FactorModel
+        rows = (self.session.query(FactorModel.id, FactorModel.name, FactorModel.group, FactorModel.subgroup,
+                                   FactorModel.frequency, FactorModel.source, FactorModel.factor_type)
+                .order_by(FactorModel.group, FactorModel.name, FactorModel.id).all())
+        keys = ("id", "name", "group", "subgroup", "frequency", "source", "factor_type")
+        return [dict(zip(keys, r)) for r in rows]
+
     def add(self, entity: UniverseFactor) -> UniverseFactor:
         if entity.universe_id is None:
             raise ValueError("a universe factor needs a universe_id")

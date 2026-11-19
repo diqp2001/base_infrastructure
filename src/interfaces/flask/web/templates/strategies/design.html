@@ -1,0 +1,170 @@
+{% extends "strategies/base.html" %}
+{% block title %}Design {{ c.name }} v{{ c.version }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h3 class="mb-1">Design {{ c.name }} <small class="muted">v{{ c.version }}</small>
+            <span class="badge badge-{{ c.status }}">{{ c.status }}</span></h3>
+        <div class="muted small"><code>{{ c.strategy_type }}</code>
+            {% if c.parent_id %}· created from <a href="{{ url_for('strategies.view', configuration_id=c.parent_id) }}">#{{ c.parent_id }}</a>{% endif %}
+            · each part below saves on its own; saving sends the strategy back to draft</div>
+    </div>
+    <div class="text-end">
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('strategies.view', configuration_id=c.id) }}">Back to the strategy</a>
+        <form method="post" class="d-inline"><input type="hidden" name="part" value="validate">
+            <button class="btn btn-sm btn-info">Validate</button></form>
+    </div>
+</div>
+
+<datalist id="frequencies">{% for f in ['1m', '5m', '10m', '15m', '30m', '1h', '1d', '1w', '1mo'] %}<option value="{{ f }}">{% endfor %}</datalist>
+<datalist id="bar_sizes">{% for b in ['1 min', '5 mins', '10 mins', '15 mins', '30 mins', '1 hour', '1 day', '1 week', '1 month'] %}<option value="{{ b }}">{% endfor %}</datalist>
+<div class="row">
+<div class="col-lg-6">
+    {% if has_schema %}
+    <div class="card mb-3" id="definition">
+        <div class="card-header">Trading, model and training</div>
+        <div class="card-body small">
+            <div class="muted mb-2">This strategy type has a project form: the model (TFT, LSTM, MLP, SLP, convolution),
+                windows and frequencies are its parameters.</div>
+            <div>Model <b>{{ c.model_type or '—' }}</b> · bar {{ c.bar_frequency or c.bar_size or '—' }} ·
+                training window {{ c.training_window if c.training_window is not none else '—' }} · retrain every
+                {{ c.retrain_every_days if c.retrain_every_days is not none else '—' }} days</div>
+            <a class="btn btn-sm btn-primary mt-2" href="{{ url_for('strategies.edit', configuration_id=c.id) }}">Edit model and parameters</a>
+        </div>
+    </div>
+    {% else %}
+    <form class="card mb-3" method="post" id="definition">
+        <input type="hidden" name="part" value="definition">
+        <div class="card-header">Trading, model and training</div>
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-6"><label class="form-label small muted">Model</label>
+                    <select class="form-select form-select-sm" name="model_type">
+                        {% for value, label in models %}<option value="{{ value }}" {% if value == c.model_type %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select>
+                    <div class="small muted">switching keeps only the settings the new model takes</div></div>
+                {% if decision_minutes is not none %}
+                <div class="col-6"><label class="form-label small muted">Trading decision every (minutes)</label>
+                    <input class="form-control form-control-sm" name="decision_minutes" type="number" min="1" value="{{ decision_minutes }}"></div>
+                {% else %}<div class="col-6"></div>{% endif %}
+                <div class="col-6"><label class="form-label small muted">Data bar frequency</label>
+                    <input class="form-control form-control-sm" name="bar_frequency" list="frequencies" value="{{ c.bar_frequency or '' }}"></div>
+                <div class="col-6"><label class="form-label small muted">Bar size (IBKR)</label>
+                    <input class="form-control form-control-sm" name="bar_size" list="bar_sizes" value="{{ c.bar_size or '' }}"></div>
+                <div class="col-6"><label class="form-label small muted">Prediction horizon (rows)</label>
+                    <input class="form-control form-control-sm" name="prediction_horizon" type="number" min="0" value="{{ c.prediction_horizon if c.prediction_horizon is not none else '' }}"></div>
+                <div class="col-6"><label class="form-label small muted">Training window (rows)</label>
+                    <input class="form-control form-control-sm" name="training_window" type="number" min="0" value="{{ c.training_window if c.training_window is not none else '' }}"></div>
+                <div class="col-6"><label class="form-label small muted">Retrain every (days)</label>
+                    <input class="form-control form-control-sm" name="retrain_every_days" type="number" min="0" value="{{ c.retrain_every_days if c.retrain_every_days is not none else '' }}"></div>
+                <div class="col-12"><label class="form-label small muted">Description</label>
+                    <input class="form-control form-control-sm" name="description" value="{{ c.description or '' }}"></div>
+            </div>
+            <button class="btn btn-sm btn-primary mt-3">Save trading, model and training</button>
+        </div>
+    </form>
+    {% endif %}
+
+    {% if has_schema %}
+    <div class="card mb-3" id="assets"><div class="card-header">Financial-asset universe</div>
+        <div class="card-body small"><div class="muted mb-2">This strategy type lists its constituents in its project form.</div>
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('strategies.edit', configuration_id=c.id) }}">Edit constituents</a></div></div>
+    {% else %}
+    <form class="card mb-3" method="post" id="assets">
+        <input type="hidden" name="part" value="assets">
+        <div class="card-header">Financial-asset universe
+            {% if detail.universe %}<span class="muted small">#{{ detail.universe.id }} {{ detail.universe.name }} v{{ detail.universe.version }} ·
+                {{ detail.universe.financial_asset_ids()|length }} stored</span>{% endif %}</div>
+        <div class="card-body">
+            <div class="small muted mb-2">One line per asset type: <code>CompanyShare: JPM, BAC, GS</code> (a line without a type is
+                CompanyShare). Symbols are matched with the stored financial assets; the others stay listed and are added
+                when a run creates them.</div>
+            <textarea class="form-control form-control-sm font-monospace" name="instruments" rows="8">{{ detail.instruments_text }}</textarea>
+            {% if detail.missing %}<div class="small text-warning mt-2">Not stored yet:
+                {% for t, s in detail.missing.items() %}{{ t }} {{ s|join(', ') }}{% if not loop.last %}; {% endif %}{% endfor %}</div>{% endif %}
+            {% if detail.shared_with %}<div class="small muted mt-2">This universe is also used by
+                {% for s in detail.shared_with %}{{ s.name }} v{{ s.version }}{% if not loop.last %}, {% endif %}{% endfor %}:
+                saving gives this strategy its own copy.</div>{% endif %}
+            <button class="btn btn-sm btn-primary mt-2">Save financial assets</button>
+        </div>
+    </form>
+    {% endif %}
+
+    <div class="card mb-3" id="section">
+        <div class="card-header">Project parameters</div>
+        <div class="card-body small">
+            {% if has_schema %}
+            <div class="muted mb-2">This strategy type has a project form: every parameter it supports, with its bounds.</div>
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('strategies.edit', configuration_id=c.id) }}">Edit project parameters</a>
+            {% else %}
+            <div class="muted mb-2">The parameters this project's config defines, by section (JSON). Run and deployment settings
+                (window, capital, account, broker connection) are not part of a strategy.</div>
+            {% for name in sections %}{% set values = c.section(name) %}
+            <form method="post" class="mb-2">
+                <input type="hidden" name="part" value="section"><input type="hidden" name="section" value="{{ name }}">
+                <details {% if values %}open{% endif %}><summary><b>{{ name }}</b> <span class="muted">({{ values|length }} keys)</span></summary>
+                    <textarea class="form-control form-control-sm font-monospace mt-1" name="json" rows="{{ [4, (values|tojson(indent=2)).count('\n') + 2]|max if values else 3 }}" style="max-height:360px">{{ values|tojson(indent=2) if values else '{}' }}</textarea>
+                    <button class="btn btn-sm btn-outline-primary mt-1">Save {{ name }}</button></details>
+            </form>
+            {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="col-lg-6">
+    <form class="card mb-3" method="post" id="factors">
+        <input type="hidden" name="part" value="factors">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Factor universe <span class="muted small" id="factor-count"></span></span>
+            <button class="btn btn-sm btn-primary">Save factors</button>
+        </div>
+        <div class="card-body">
+            <div class="d-flex gap-2 mb-2">
+                <input class="form-control form-control-sm" id="factor-filter" placeholder="filter: name, group, subgroup, source">
+                <div class="form-check text-nowrap small mt-1"><input class="form-check-input" type="checkbox" id="selected-only">
+                    <label class="form-check-label" for="selected-only">selected only</label></div>
+            </div>
+            {% set chosen = detail.factors|map(attribute='id')|list %}
+            <div style="max-height:620px;overflow:auto">
+                <table class="table table-sm mb-0">
+                    <thead><tr><th></th><th>Name</th><th>Group / subgroup</th><th>Freq.</th><th>Source</th></tr></thead>
+                    <tbody>
+                    {% for f in catalog %}
+                    <tr class="factor-row" data-key="{{ (f.name ~ ' ' ~ f.group ~ ' ' ~ f.subgroup ~ ' ' ~ f.source ~ ' ' ~ f.factor_type)|lower }}">
+                        <td><input class="form-check-input factor-box" type="checkbox" name="factor_id" value="{{ f.id }}" {% if f.id in chosen %}checked{% endif %}></td>
+                        <td><code>{{ f.name }}</code></td>
+                        <td class="small">{{ f.group }} / {{ f.subgroup }}</td>
+                        <td class="small">{{ f.frequency }}</td>
+                        <td class="small muted">{{ f.source }}</td>
+                    </tr>
+                    {% else %}<tr><td colspan="5" class="muted">No factor stored.</td></tr>{% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </form>
+</div>
+</div>
+
+<script>
+(function () {
+    const filter = document.getElementById('factor-filter'), only = document.getElementById('selected-only');
+    const count = document.getElementById('factor-count');
+    function refresh() {
+        const q = (filter.value || '').toLowerCase();
+        let n = 0;
+        document.querySelectorAll('tr.factor-row').forEach(r => {
+            const box = r.querySelector('.factor-box');
+            if (box.checked) n++;
+            r.style.display = (r.dataset.key.includes(q) && (!only.checked || box.checked)) ? '' : 'none';
+        });
+        count.textContent = '— ' + n + ' selected';
+    }
+    filter.addEventListener('input', refresh);
+    only.addEventListener('change', refresh);
+    document.querySelectorAll('.factor-box').forEach(b => b.addEventListener('change', refresh));
+    refresh();
+})();
+</script>
+{% endblock %}

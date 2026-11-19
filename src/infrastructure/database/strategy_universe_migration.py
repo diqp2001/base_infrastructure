@@ -12,6 +12,10 @@ Brings a database created before the Strategy / Universe models to the new shape
                             content hash); the old table is left in place, unused;
 4. ``strategy_experiments`` configuration_id / configuration_hash / project_key -> strategy_id / strategy_hash /
                             strategy_type (same ids).
+5. strategy parameters      the strategy's parameters leave the strategies row (JSON ``sections`` + typed columns
+                            bar_frequency, bar_size, model_type, training_window, retrain_every_days,
+                            prediction_horizon): one strategy_parameter_values row per parameter (catalog
+                            strategy_parameters), then those columns are dropped.
 New tables (universe_financial_assets, universe_factors, strategies) are created by ``create_all``.
 
 It is NOT run automatically (``BaseFactory._migrate_schema`` only warns): it rebuilds tables, so on SQL Server it is
@@ -75,6 +79,11 @@ def plan(engine: Engine) -> MigrationReport:
             report.steps.append(f"strategies: {old} strategy configuration version(s) copied (same ids)")
     if "strategy_experiments" in tables and "configuration_id" in _columns(inspector, "strategy_experiments"):
         report.steps.append("strategy_experiments: configuration_id -> strategy_id (same ids)")
+    if "strategies" in tables and "sections" in _columns(inspector, "strategies"):
+        with engine.connect() as conn:
+            n = conn.execute(text("SELECT COUNT(*) FROM strategies")).scalar() or 0
+        report.steps.append(f"strategy parameters: {n} strategy version(s) -> strategy_parameter_values rows "
+                            f"(sections / typed columns dropped from strategies)")
     return report
 
 
@@ -190,12 +199,76 @@ def _migrate_investment_universes(conn: Connection, metadata) -> None:
     _restore_references(conn, "investment_universes", references)
 
 
-def _migrate_strategies(conn: Connection) -> None:
+TYPED_COLUMNS = ("bar_frequency", "bar_size", "model_type", "training_window", "retrain_every_days",
+                 "prediction_horizon")
+
+
+def _write_parameter_rows(conn: Connection, metadata, strategy_id: int, sections: Dict, definition: Dict,
+                          catalog: Dict) -> None:
+    """One strategy_parameter_values row per parameter of the strategy (catalog rows created when missing)."""
+    from src.infrastructure.repositories.mappers.strategy import strategy_parameter_codec as codec
+    parameters = metadata.tables["strategy_parameters"]
+    values = metadata.tables["strategy_parameter_values"]
+    for section, name, value in codec.flatten(sections, definition):
+        key = (section, name)
+        if key not in catalog:
+            found = conn.execute(parameters.select().where(parameters.c.section == section,
+                                                            parameters.c.name == name)).first()
+            catalog[key] = found.id if found else conn.execute(
+                parameters.insert().values(section=section, name=name)).inserted_primary_key[0]
+        value_type, value_text, numeric = codec.encode(value)
+        conn.execute(values.insert().values(strategy_id=strategy_id, parameter_id=catalog[key], value=value_text,
+                                            value_type=value_type, value_numeric=numeric))
+
+
+def _ensure_parameter_tables(conn: Connection, metadata) -> None:
+    existing = set(inspect(conn).get_table_names())
+    for name in ("strategy_parameters", "strategy_parameter_values"):
+        if name not in existing:
+            _recreate(conn, metadata, name)
+
+
+def _migrate_strategy_parameters(conn: Connection, metadata) -> None:
+    """strategies.sections (JSON) + typed columns -> parameter rows; then the columns are dropped."""
+    import json
+    _ensure_parameter_tables(conn, metadata)
+    columns = _columns(inspect(conn), "strategies")
+    typed = [c for c in TYPED_COLUMNS if c in columns]
+    rows = _rows(conn, f"SELECT id, sections{''.join(', ' + c for c in typed)} FROM strategies ORDER BY id")
+    catalog: Dict = {}
+    for r in rows:
+        if conn.execute(text("SELECT COUNT(*) FROM strategy_parameter_values WHERE strategy_id = :i"),
+                        {"i": r["id"]}).scalar():
+            continue                                    # already has its rows
+        try:
+            sections = json.loads(r["sections"] or "{}")
+        except ValueError:
+            sections = {}
+        _write_parameter_rows(conn, metadata, r["id"], sections if isinstance(sections, dict) else {},
+                              {c: r[c] for c in typed}, catalog)
+    for column in ["sections"] + typed:
+        conn.execute(text(f"ALTER TABLE strategies DROP COLUMN {column}"))
+
+
+def _migrate_strategies(conn: Connection, metadata) -> None:
+    import json
     rows = _rows(conn, "SELECT id, name, version, parent_id, project_key, description, status, content_hash, "
                        "sections, created_at, validated_at, locked_at FROM strategy_configurations ORDER BY id")
+    sections = {}
+    has_sections_column = "sections" in _columns(inspect(conn), "strategies")
     for r in rows:
         r["strategy_type"] = r.pop("project_key")
+        text_sections = r["sections"] if has_sections_column else r.pop("sections")
+        try:
+            sections[r["id"]] = json.loads(text_sections or "{}")
+        except ValueError:
+            sections[r["id"]] = {}
     _insert(conn, "strategies", rows)
+    if not has_sections_column:                         # the parameter-row shape: write the rows now
+        _ensure_parameter_tables(conn, metadata)
+        catalog: Dict = {}
+        for r in rows:
+            _write_parameter_rows(conn, metadata, r["id"], sections[r["id"]], {}, catalog)
 
 
 def _migrate_experiments(conn: Connection, metadata) -> None:
@@ -256,7 +329,8 @@ def migrate(engine: Engine, apply: bool = False, backup: bool = True) -> Migrati
         recreate = []
         if legacy_universes:
             recreate = _drop_empty_new_tables(conn, metadata,
-                                              ["universe_financial_assets", "universe_factors", "strategies"])
+                                              ["universe_financial_assets", "universe_factors",
+                                               "strategy_parameter_values", "strategies"])
             _migrate_universes(conn, metadata)
         for name in ("universes", "strategies"):
             if name not in inspect(conn).get_table_names():
@@ -267,10 +341,12 @@ def migrate(engine: Engine, apply: bool = False, backup: bool = True) -> Migrati
         existing = set(inspect(conn).get_table_names())
         if "strategy_configurations" in existing and _count(conn, "strategy_configurations") \
                 and not _count(conn, "strategies"):
-            _migrate_strategies(conn)
+            _migrate_strategies(conn, metadata)
         if "strategy_experiments" in existing and "configuration_id" in _columns(inspect(conn), "strategy_experiments"):
             _migrate_experiments(conn, metadata)
-        for name in recreate:
+        if "sections" in _columns(inspect(conn), "strategies"):
+            _migrate_strategy_parameters(conn, metadata)
+        for name in reversed(recreate):                 # parents first (strategies before its values)
             if name not in inspect(conn).get_table_names():
                 _recreate(conn, metadata, name)
     metadata.create_all(engine)

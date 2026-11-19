@@ -56,6 +56,17 @@ def summarise(report) -> Dict[str, Any]:
     return out
 
 
+def results_summary(results) -> Dict[str, Any]:
+    """Headline of a project run without a report object: its scalar results (run id / status, metrics...)."""
+    if not isinstance(results, dict):
+        return {}
+    out: Dict[str, Any] = {k: v for k, v in results.items() if isinstance(v, (str, int, float, bool))}
+    metrics = results.get("performance_metrics") or results.get("metrics")
+    if isinstance(metrics, dict):
+        out["metrics"] = {str(k): float(v) for k, v in metrics.items() if isinstance(v, (int, float))}
+    return out
+
+
 def provenance_of(manager, results: Dict[str, Any], native_config: Dict[str, Any]) -> Dict[str, Any]:
     """What the run used: model artifacts, universe membership per decision, preload coverage, native config."""
     algorithm = getattr(getattr(manager, "runner", None), "algorithm_instance", None)
@@ -143,10 +154,13 @@ def run_experiment(experiment_id: int, experiments, configurations, beat_reposit
             manager = manager_factory(adapter, native, database_service)
         results = manager.run()
         report = results.get("report") if isinstance(results, dict) else None
-        if report is None:
+        if report is None and getattr(adapter, "requires_report", True):
             raise RuntimeError("the run produced no report (no model was trained during the backtest)")
+        if isinstance(results, dict) and results.get("success") is False:
+            raise RuntimeError(f"the project run failed: {results.get('error')}")
+        summary = summarise(report) if report is not None else results_summary(results)
         experiment = experiments.get_by_id(experiment_id)
-        experiment.succeed(clock(), summary=summarise(report), provenance=provenance_of(manager, results, native))
+        experiment.succeed(clock(), summary=summary, provenance=provenance_of(manager, results, native))
         if recorder is not None:
             recorder.finish(True)
     except BaseException as e:                           # KeyboardInterrupt too: never leave it RUNNING

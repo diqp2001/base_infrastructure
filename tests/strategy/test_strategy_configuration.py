@@ -110,8 +110,12 @@ def test_each_project_declares_what_it_supports_and_what_it_does_not():
     assert caps["stm_reference"].supports_rule("vol_scaled_signal")
     for c in caps.values():
         assert c.long_short and not c.long_only and c.unsupported
+    # a project folder resolves to the strategy-driven folder adapter (no web form); unknown names do not
+    from src.application.services.strategy.project_adapters import ProjectFolderAdapter
+    assert isinstance(REGISTRY.get("cross_sectionnal_project"), ProjectFolderAdapter)
+    assert "cross_sectionnal_project" not in REGISTRY.keys()
     with pytest.raises(KeyError):
-        REGISTRY.get("cross_sectionnal_project")
+        REGISTRY.get("no_such_project")
 
 
 def test_cross_sectional_settings_reach_the_projects_own_configuration():
@@ -186,7 +190,11 @@ def test_stm_inconsistent_model_settings_are_refused():
     fields = {i.field for i in issues if i.severity == "error"}
     assert {"encoder_length", "macd_combinations"} <= fields
     s = adapter.default_sections()
-    s["model"]["model_type"] = "lstm"                              # forward-tested only: not offered
+    s["model"]["model_type"] = "lstm"           # every STM network is offered (owner 2026-11-19), trained in tests
+    s["model"].update(lookback=10, encoder_length=10)            # the encoder length is a TFT setting only
+    _, issues = adapter.validate(s)
+    assert not any(i.field in ("model_type", "encoder_length") for i in issues if i.severity == "error")
+    s["model"]["model_type"] = "transformer_xl"
     _, issues = adapter.validate(s)
     assert any(i.field == "model_type" for i in issues)
 

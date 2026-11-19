@@ -1,13 +1,19 @@
 """
 SQLAlchemy ORM models of the strategy domain.
 
-Tables: strategies (one row per strategy VERSION, replaces strategy_configurations since 2026-11-19),
-strategy_experiments (one row per run of a locked strategy). Sections, provenance and summary are JSON text; their
-structure is owned by the domain / project schemas. Migration of databases holding the former tables:
-src/infrastructure/database/strategy_universe_migration.py.
+Tables (2026-11-19):
+  strategies                  one row per strategy VERSION: identity, status, content hash, universe (replaces
+                              strategy_configurations)
+  strategy_parameters         one row per distinct parameter: (section, name) - name = the parameter's path inside
+                              its section ('stm.model/params/hidden_dim'); section 'definition' holds the shared
+                              typed fields (bar_frequency, bar_size, model_type, training_window, ...)
+  strategy_parameter_values   one row per (strategy, parameter): the value as text, its type, a numeric copy
+  strategy_experiments        one row per run of a locked strategy
+Codec: src/infrastructure/repositories/mappers/strategy/strategy_parameter_codec.py. Migration of databases holding
+the former shapes: src/infrastructure/database/strategy_universe_migration.py.
 """
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 
 from src.infrastructure.models import ModelBase as Base
 
@@ -25,19 +31,40 @@ class StrategyModel(Base):
     status = Column(String(20), nullable=False, default="draft")
     content_hash = Column(String(64), nullable=False, index=True)
     universe_id = Column(Integer, ForeignKey("universes.id"), nullable=True, index=True)
-    bar_frequency = Column(String(20), nullable=True)
-    bar_size = Column(String(30), nullable=True)
-    model_type = Column(String(50), nullable=True)
-    training_window = Column(Integer, nullable=True)
-    retrain_every_days = Column(Integer, nullable=True)
-    prediction_horizon = Column(Integer, nullable=True)
-    sections = Column(Text, nullable=False)                    # JSON {section: {field: value}}
     created_at = Column(DateTime, nullable=True)
     validated_at = Column(DateTime, nullable=True)
     locked_at = Column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
         return f"<StrategyModel(id={self.id}, name={self.name!r}, v{self.version}, {self.status})>"
+
+
+class StrategyParameterModel(Base):
+    __tablename__ = "strategy_parameters"
+    __table_args__ = (UniqueConstraint("section", "name", name="uq_strategy_parameter"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    section = Column(String(50), nullable=False, index=True)
+    name = Column(String(400), nullable=False)
+    description = Column(Text, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<StrategyParameterModel(id={self.id}, {self.section}.{self.name})>"
+
+
+class StrategyParameterValueModel(Base):
+    __tablename__ = "strategy_parameter_values"
+    __table_args__ = (UniqueConstraint("strategy_id", "parameter_id", name="uq_strategy_parameter_value"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    strategy_id = Column(Integer, ForeignKey("strategies.id"), nullable=False, index=True)
+    parameter_id = Column(Integer, ForeignKey("strategy_parameters.id"), nullable=False, index=True)
+    value = Column(Text, nullable=True)                        # the value as text (JSON for lists / dicts)
+    value_type = Column(String(10), nullable=False)            # null | bool | int | float | str | json
+    value_numeric = Column(Float, nullable=True)               # int / float values, for filtering in SQL
+
+    def __repr__(self) -> str:
+        return f"<StrategyParameterValueModel(strategy={self.strategy_id}, parameter={self.parameter_id})>"
 
 
 class StrategyExperimentModel(Base):

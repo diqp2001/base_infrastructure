@@ -116,8 +116,11 @@ def test_a_strategy_is_persisted_retrieved_and_updated(env):
     assert again.to_dict() == s.to_dict()
     validated, issues = env.service.validate(s.id)
     assert validated.status == "validated" and not [i for i in issues if i.severity == "error"]
-    stored = env.session.execute(text("SELECT strategy_type, model_type, content_hash FROM strategies WHERE id = :i"),
-                                 {"i": s.id}).one()
+    stored = env.session.execute(text(
+        "SELECT s.strategy_type, v.value, s.content_hash FROM strategies s "
+        "JOIN strategy_parameter_values v ON v.strategy_id = s.id "
+        "JOIN strategy_parameters p ON p.id = v.parameter_id "
+        "WHERE s.id = :i AND p.section = 'definition' AND p.name = 'model_type'"), {"i": s.id}).one()
     assert stored == ("cross_sectional", validated.model_type, validated.content_hash)
     with pytest.raises(ValueError):
         env.service.create("", "cross_sectional")

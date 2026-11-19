@@ -190,6 +190,11 @@ class ExperimentService:
     def launch(self, configuration_id: int, kind: str = BACKTEST) -> StrategyExperiment:
         if kind != BACKTEST:
             raise ValueError(f"only backtests can be launched from the strategy interface (not '{kind}')")
+        strategy = self.configurations.get(configuration_id)
+        adapter = self.configurations.registry.get(strategy.strategy_type)
+        if getattr(adapter, "launchable", True) is False:
+            raise ValueError(f"project {strategy.strategy_type} cannot be launched as a backtest from this interface "
+                             f"(live trading / not a backtest project)")
         self.recover()
         running = self.active()
         if running:

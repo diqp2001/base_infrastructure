@@ -50,39 +50,10 @@ def _bdays(start, end) -> int:
     return max(0, len(pd.bdate_range(pd.Timestamp(start).normalize(), pd.Timestamp(end).normalize())) - 1)
 
 
-_BAR_UNITS = {"sec": "s", "secs": "s", "min": "m", "mins": "m", "hour": "h", "hours": "h", "day": "d",
-              "days": "d", "week": "w", "weeks": "w", "month": "mo", "months": "mo"}
-
-
-def bar_frequency(bar_size: Optional[str], bar_minutes: Optional[int] = None) -> Optional[str]:
-    """'10 mins' -> '10m', '1 day' -> '1d' (bar_minutes, when the project states it, wins)."""
-    if bar_minutes:
-        return f"{int(bar_minutes)}m"
-    parts = (bar_size or "").split()
-    if len(parts) == 2 and parts[0].isdigit() and parts[1].lower() in _BAR_UNITS:
-        return f"{int(parts[0])}{_BAR_UNITS[parts[1].lower()]}"
-    return None
-
-
-def strategy_definition(native: Dict[str, Any]) -> Dict[str, Any]:
-    """Typed Strategy definition from a project's native config dict (keys the projects already use; a project
-    that does not state one leaves it None). Deployment settings ('live': account, host, port, client id, ...)
-    are never part of it."""
-    stm = native.get("stm") or {}
-    model = stm.get("model") or {}
-
-    def first(*values):
-        return next((v for v in values if v is not None), None)
-
-    bar_size = native.get("bar_size_setting")
-    return {
-        "bar_size": bar_size,
-        "bar_frequency": bar_frequency(bar_size, stm.get("bar_minutes")),
-        "model_type": first(native.get("model_type"), model.get("model_type")),
-        "training_window": first(native.get("training_window"), (stm.get("training") or {}).get("rolling_window_rows")),
-        "retrain_every_days": native.get("retrain_every_days"),
-        "prediction_horizon": first(native.get("prediction_horizon"), stm.get("prediction_horizon")),
-    }
+from src.application.services.strategy.strategy_definition import (  # noqa: E402,F401  re-exported
+    bar_frequency,
+    strategy_definition,
+)
 
 
 class ProjectAdapter:
@@ -396,8 +367,10 @@ class STMAdapter(ProjectAdapter):
                 FieldSpec("winsorise_threshold", "float", f["winsorise_threshold"], "Winsorisation threshold (sd)",
                           minimum=0.5),
             )),
-            SectionSchema("model", label="Temporal Fusion Transformer", fields=(
-                FieldSpec("model_type", "choice", mdl["model_type"], "Model", choices=("tft",)),
+            SectionSchema("model", label="Model (TFT parameters apply to the TFT only)", fields=(
+                FieldSpec("model_type", "choice", mdl["model_type"], "Model", choices=_stm_model_choices(),
+                          help="tft = Temporal Fusion Transformer, lstm, mlp, slp = single-layer perceptron, "
+                               "conv = temporal convolution"),
                 FieldSpec("lookback", "int", mdl["lookback"], "Input window (sessions)", minimum=2),
                 FieldSpec("encoder_length", "int", mdl["encoder_length"], "Encoder steps", minimum=1),
                 FieldSpec("emb_dim", "int", p["emb_dim"], "Embedding size", minimum=1),
@@ -470,7 +443,7 @@ class STMAdapter(ProjectAdapter):
                 u["mode"] == "sector_sample" and (u["n_per_sector"], u["seed"]) != (default["n_per_sector"],
                                                                                     default["seed"]))):
             issues.append(ValidationIssue("universe", "name", "a different universe definition needs its own name"))
-        if not m["encoder_length"] < m["lookback"]:
+        if m["model_type"] == "tft" and not m["encoder_length"] < m["lookback"]:
             issues.append(ValidationIssue("model", "encoder_length", "must be smaller than the input window"))
         if m["lookback"] > t["training_window"]:
             issues.append(ValidationIssue("model", "lookback", "cannot exceed the training window"))
@@ -522,6 +495,9 @@ class STMAdapter(ProjectAdapter):
         stm["model"].update(model_type=m["model_type"], lookback=m["lookback"], encoder_length=m["encoder_length"])
         stm["model"]["params"] = {**stm["model"]["params"], **{k: m[k] for k in (
             "emb_dim", "prescale_dim", "hidden_dim", "n_heads", "dropout")}}
+        from src.application.services.strategy.model_catalog import stm_model_parameters
+        accepted = stm_model_parameters(m["model_type"])         # only what the chosen network takes
+        stm["model"]["params"] = {k: v for k, v in stm["model"]["params"].items() if k in accepted}
         t = s["training"]
         for k in ("val_days", "purge_days", "n_epochs", "early_stopping_rounds", "batch_size", "lr", "weight_decay",
                   "scaling", "apply_l1_reg", "apply_turnover_reg", "seed"):
@@ -531,6 +507,121 @@ class STMAdapter(ProjectAdapter):
         c["training_window"] = t["training_window"]
         c["retrain_every_days"] = t["retrain_every_days"]
         c["gross_exposure_cap"] = s["portfolio"]["gross_exposure_cap"]
+
+
+def _stm_model_choices() -> Tuple[str, ...]:
+    from src.application.services.strategy.model_catalog import model_choices
+    return tuple(model_choices({"stm": {}}))
+
+
+PROJECTS_PACKAGE = "src.application.managers.project_managers"
+# never launched from the web interface (live trading / not a backtest)
+NOT_LAUNCHABLE = ("spatio_temporal_momentum_project_10m_live", "etf_dispersion_screener_project")
+
+
+class ProjectFolderAdapter(ProjectAdapter):
+    """Any project folder, driven by a Strategy (no web form of its own): the strategy is applied onto the
+    project's own config (``strategy_project_config.apply_strategy``) and the project's manager runs it.
+    Launchable when the manager takes ``config`` and ``database_service`` and the project is a backtest."""
+
+    requires_report = False                     # its run returns the project's own results (no report object)
+
+    def __init__(self, folder: str):
+        self.key = folder
+        self.folder = folder
+        self.config_module = f"{PROJECTS_PACKAGE}.{folder}.config"
+
+    def base_config(self) -> Dict[str, Any]:
+        module = self.module()                  # deep: get_config() copies are shallow
+        return copy.deepcopy(module.get_config() if hasattr(module, "get_config") else module.DEFAULT_CONFIG)
+
+    def manager_class(self):
+        import inspect
+        module = importlib.import_module(f"{PROJECTS_PACKAGE}.{self.folder}.project_manager")
+        classes = [c for name, c in inspect.getmembers(module, inspect.isclass)   # by name: no import of the
+                   if c.__module__ == module.__name__ and name.endswith("ProjectManager")   # managers package
+                   and callable(getattr(c, "run", None))]
+        if not classes:
+            raise LookupError(f"project {self.folder} has no project manager class")
+        return classes[0]
+
+    @property
+    def launchable(self) -> bool:
+        import inspect
+        if self.folder in NOT_LAUNCHABLE:
+            return False
+        try:
+            params = inspect.signature(self.manager_class().__init__).parameters
+        except Exception:
+            return False
+        return "config" in params and "database_service" in params
+
+    def renderer(self):
+        raise LookupError(f"project {self.folder} has no report renderer: see its results folder")
+
+    def capabilities(self) -> ProjectCapabilities:
+        from src.application.services.strategy.model_catalog import model_choices
+        config = self.base_config()
+        return ProjectCapabilities(
+            key=self.key, label=f"project {self.folder}", strategy_type=self.folder,
+            description="registered from the project's own config; designed strategies are applied onto it",
+            folder=self.folder, model_families=tuple(model_choices(config)), output_contract=POSITION_SIGNAL,
+            portfolio_rules=(), long_short=True, long_only=False,
+            decision_frequencies=(str(config.get("bar_size_setting") or ""),), universe_modes=("explicit",),
+            lifecycle=("backtest",) if self.launchable else (), trains_inside_backtest=True)
+
+    def schema(self) -> ConfigurationSchema:
+        return ConfigurationSchema(self.key, ())
+
+    def default_sections(self) -> Sections:
+        from src.application.services.strategy.project_strategy_registration import strategy_sections
+        return strategy_sections(self.base_config())
+
+    def validate(self, sections: Sections) -> Tuple[Sections, List[ValidationIssue]]:
+        """No schema: the sections are the project's own config values (checked by the project when it runs)."""
+        return copy.deepcopy(sections), []
+
+    def validate_strategy(self, strategy) -> Tuple[Sections, List[ValidationIssue]]:
+        """The strategy as the project would run it: it must apply onto the project's config."""
+        from src.application.services.strategy.model_catalog import model_choices
+        issues: List[ValidationIssue] = []
+        choices = model_choices(self.base_config())
+        if strategy.model_type and choices and strategy.model_type not in choices:
+            issues.append(ValidationIssue("model", "model_type", f"'{strategy.model_type}' is not available for "
+                                                                 f"this project (choices: {', '.join(choices)})"))
+        if not issues:
+            try:
+                self.native_config_for(strategy, strategy.sections)
+            except Exception as e:
+                issues.append(ValidationIssue("strategy", None, f"cannot be applied to the project's config: {e}"))
+        return copy.deepcopy(strategy.sections), issues
+
+    def definition(self, sections: Sections) -> Dict[str, Any]:
+        return {}                               # the strategy's typed fields are authoritative (set in the design)
+
+    def native_config_for(self, strategy, sections: Sections, results_dir: Optional[str] = None,
+                          portfolio_name: Optional[str] = None) -> Dict[str, Any]:
+        from src.application.services.strategy.strategy_project_config import apply_strategy
+        config = apply_strategy(self.base_config(), strategy)
+        if results_dir:
+            config["results_dir"] = results_dir
+        if portfolio_name and isinstance(config.get("Portfolio"), dict):
+            config["Portfolio"]["name"] = portfolio_name
+        return config
+
+    def native_config(self, sections: Sections, results_dir: Optional[str] = None,
+                      portfolio_name: Optional[str] = None) -> Dict[str, Any]:
+        raise TypeError("a project-folder strategy translates with native_config_for(strategy, ...)")
+
+
+def is_project_folder(key: str) -> bool:
+    if not key or not key.replace("_", "").isalnum():
+        return False
+    try:
+        importlib.import_module(f"{PROJECTS_PACKAGE}.{key}.config")
+        return True
+    except ImportError:
+        return False
 
 
 def default_adapters() -> List[ProjectAdapter]:
@@ -548,6 +639,7 @@ class ProjectRegistry:
 
     def __init__(self, adapters: Optional[List[ProjectAdapter]] = None):
         self._adapters: Dict[str, ProjectAdapter] = {}
+        self._folders: Dict[str, ProjectAdapter] = {}            # project folders driven by a Strategy (lazy)
         for adapter in adapters if adapters is not None else default_adapters():
             self.register(adapter)
 
@@ -560,10 +652,19 @@ class ProjectRegistry:
         try:
             return self._adapters[key]
         except KeyError:
-            raise KeyError(f"unknown project '{key}' (registered: {sorted(self._adapters)})") from None
+            pass
+        if key not in self._folders and is_project_folder(key):
+            self._folders[key] = ProjectFolderAdapter(key)
+        if key in self._folders:
+            return self._folders[key]
+        raise KeyError(f"unknown project '{key}' (registered: {sorted(self._adapters)})")
 
     def keys(self) -> List[str]:
+        """The projects with a web form (schema). Any project folder is also reachable through get()."""
         return list(self._adapters)
+
+    def has_form(self, key: str) -> bool:
+        return key in self._adapters
 
     def capabilities(self) -> List[ProjectCapabilities]:
         return [a.capabilities() for a in self._adapters.values()]

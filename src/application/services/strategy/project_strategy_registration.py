@@ -30,7 +30,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from src.application.services.backtest_registry.run_identity import _jsonable, _redact
-from src.application.services.strategy.project_adapters import strategy_definition
+from src.application.services.strategy.strategy_definition import strategy_definition
 from src.domain.entities.strategy.strategy import Strategy, content_hash
 from src.domain.entities.universe.universe import Universe
 
@@ -87,17 +87,27 @@ def _factor_entry(entry: Any) -> Any:
     return _jsonable(entry)
 
 
+def _ordered(symbols) -> List[str]:
+    """Distinct symbols in the config's order (the order is the model's asset order)."""
+    out: List[str] = []
+    for s in symbols:
+        if s and str(s) not in out:
+            out.append(str(s))
+    return out
+
+
 def universe_request(config: Dict[str, Any]) -> Dict[str, List[str]]:
-    """{asset class name: sorted symbols} the config's ``universe`` asks for ([symbols] -> 'FinancialAsset')."""
+    """{asset class name: symbols, in order} the config's ``universe`` asks for ([symbols] -> 'FinancialAsset')."""
     universe = config.get("universe")
     if isinstance(universe, dict):
         out = {}
         for cls, symbols in universe.items():
             if isinstance(symbols, (list, tuple, set)):
-                out[getattr(cls, "__name__", str(cls))] = sorted({str(s) for s in symbols if s})
+                out[getattr(cls, "__name__", str(cls))] = _ordered(sorted(symbols) if isinstance(symbols, set)
+                                                                   else symbols)
         return {k: v for k, v in out.items() if v}
     if isinstance(universe, (list, tuple, set)):
-        symbols = sorted({str(s) for s in universe if s})
+        symbols = _ordered(sorted(universe) if isinstance(universe, set) else universe)
         return {"FinancialAsset": symbols} if symbols else {}
     return {}
 

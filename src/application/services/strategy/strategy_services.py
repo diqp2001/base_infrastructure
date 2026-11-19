@@ -32,6 +32,18 @@ class StrategyServices:
         self.experiment_repository = StrategyExperimentRepository(session)
         self.strategies = StrategyService(self.strategy_repository, self.registry)
         self.configurations = self.strategies                          # former name
+        from types import SimpleNamespace
+
+        from src.application.services.strategy.strategy_design_service import StrategyDesignService
+        from src.infrastructure.repositories.local_repo.universe.universe_membership_repositories import (
+            UniverseFactorRepository,
+        )
+        from src.infrastructure.repositories.local_repo.universe.universe_repository import UniverseRepository
+        self.design = StrategyDesignService(
+            SimpleNamespace(strategy_local_repo=self.strategy_repository,
+                            universe_local_repo=UniverseRepository(session),
+                            universe_factor_local_repo=UniverseFactorRepository(session)),
+            strategy_service=self.strategies)
         self.experiments = ExperimentService(self.experiment_repository, self.strategies, runner=runner,
                                              artifact_repository=ModelArtifactRepository(session),
                                              **experiment_kwargs)
