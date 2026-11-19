@@ -111,8 +111,10 @@ class LiveRunner(BaseBacktestRunner):
     def run_live(self, config: Dict[str, Any], broker, clock) -> Dict[str, Any]:
         """Run the engine from config['backtest_start'] to config['backtest_end'] on the wall clock."""
         self.config, self.broker = config, broker
+        self._ensure_strategy(config)                  # the live strategy is registered like a backtest's
         if not self.setup_components(config):
             raise RuntimeError("Component setup failed")
+        self._sync_strategy_universe()
         algorithm = self.create_algorithm_instance()
         launcher_config = LauncherConfiguration(
             mode=LauncherMode.LIVE_TRADING,
@@ -157,6 +159,7 @@ class LiveRunner(BaseBacktestRunner):
             raise
         finally:
             self.is_running = False
+            self._sync_strategy_universe()
             stack = getattr(algorithm, "live_stack", None)
             if stack is not None:
                 self.shutdown_report = stack.shutdown(

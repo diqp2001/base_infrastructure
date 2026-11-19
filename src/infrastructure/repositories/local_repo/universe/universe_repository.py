@@ -10,7 +10,7 @@ repository it raises on failure (after rolling back): a universe that was not sa
 """
 
 from datetime import date, datetime
-from typing import List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -150,6 +150,28 @@ class UniverseRepository(UniversePort):
         fields = {k: kwargs[k] for k in ("description", "universe_type", "version", "entity_type", "currency_id")
                   if k in kwargs}
         return self.add(cls(name=primary_key, **fields))
+
+    def resolve_financial_assets(self, symbols: Iterable[str], asset_type: Optional[str] = None) -> Dict[str, int]:
+        """{symbol: financial asset id} of the stored assets with these symbols. ``asset_type`` (a domain class name,
+        e.g. 'CompanyShare') keeps the assets of that type (discriminators compared without case / underscores);
+        a symbol stored for several assets and no type given resolves to none (ambiguous)."""
+        from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
+        wanted = sorted({s for s in symbols if s})
+        if not wanted:
+            return {}
+
+        def norm(value) -> str:
+            return str(value or "").replace("_", "").lower()
+
+        found: Dict[str, List[int]] = {}
+        for start in range(0, len(wanted), 500):
+            rows = (self.session.query(FinancialAssetModel.id, FinancialAssetModel.symbol,
+                                       FinancialAssetModel.entity_type)
+                    .filter(FinancialAssetModel.symbol.in_(wanted[start:start + 500])).all())
+            for id_, symbol, entity_type in rows:
+                if asset_type is None or norm(entity_type) == norm(asset_type):
+                    found.setdefault(symbol, []).append(id_)
+        return {symbol: ids[0] for symbol, ids in found.items() if len(ids) == 1}
 
     # -- membership use cases (rules applied by the entity) -------------------------------------------------------
     def _load(self, universe_id: int) -> Universe:

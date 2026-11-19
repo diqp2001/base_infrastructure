@@ -48,7 +48,7 @@
             {% for f in section.fields %}
             {% set v = values.get(f.name, f.default) %}
             <tr><td class="muted" style="width:45%">{{ f.label or f.name }}</td>
-                <td>{% if v is iterable and v is not string %}{{ v|join(', ') if v else '—' }}{% else %}{{ v }}{% endif %}
+                <td>{% if v is mapping %}<code>{{ v|tojson }}</code>{% elif v is iterable and v is not string %}{{ v|join(', ') if v else '—' }}{% else %}{{ v }}{% endif %}
                     {% if v != f.default %}<span class="badge bg-info ms-1" title="default: {{ f.default }}">changed</span>{% endif %}</td></tr>
             {% endfor %}
         </table></div>

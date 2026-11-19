@@ -79,6 +79,43 @@ equals the former configuration hash, so migrated experiments still match their 
 | migration | `src/infrastructure/database/strategy_universe_migration.py` |
 | tests | `tests/universe/`, `tests/strategy/test_strategy_entity.py` |
 
+## Every project registers its Strategy when it runs
+
+Each project under `src/application/managers/project_managers` registers its Strategy when it runs, through
+`ProjectStrategyRegistrar` (`src/application/services/strategy/project_strategy_registration.py`):
+
+| how the project runs | where it registers |
+|---|---|
+| `BaseBacktestRunner.run_backtest`: cross_sectional (+10m), etf_dispersion_stm, market_making_SPX (+v2, and `base_project`, its template), stm (+10m, 10m_hourly, full), stm_monthly_deciles | `_ensure_strategy` before the run is registered; `_sync_strategy_universe` after setup and at the end |
+| `LiveRunner.run_live` (stm 10m_live) | the same hooks |
+| `MarketMakingBacktestRunner.run_backtest` (market_making_project), test_base_project `BacktestRunner.run_backtest` | `register_with_database` at the start, sync at the end |
+| etf_dispersion_screener_project `run` | `_register_strategy`. It opens the database when the screener has none. Its sections are the screen's parameters. Its instruments are listed only when ETF tickers are given explicitly, because the screened list changes every day. |
+
+How a registration works:
+
+- **Name and type.** Both are the project folder. The folder is unique, whereas two projects share the
+  `project_name` 'market_making_spx_call_spread'.
+- **Sections.** They hold the config's strategy parameters, grouped. The run settings are excluded (backtest window,
+  capital, results folder, run name, the Portfolio's name and cash) and so is the deployment (`live`, supervisor,
+  web, MLflow, data folders, `ibkr`). Credentials are redacted.
+- **Typed definition.** It comes from `strategy_definition(config)`.
+- **Universe.** Each version gets a Universe named '<folder> universe'. Its members are the config's `universe`
+  instruments that are stored as financial assets. The symbol and asset type are matched, ignoring case and
+  underscores. Instruments the run creates are added at the end.
+- **Versions.** A config whose definition is unchanged reuses its version, so a re-run with another window or
+  capital is the same strategy. A changed config gets a new version, with parent = the latest. A new Universe
+  version is created only when the instruments change. Registered versions are locked, because they are what a run
+  used.
+- **Runs launched from /strategies.** Their config carries `strategy_experiment_id`, so they keep their own strategy
+  and only its universe is synchronised.
+- **Failures.** A registration failure is only logged and never fails a run. `register_strategy: False` in a config
+  turns registration off.
+- **Display.** On /strategies, these strategies are shown read-only. They have no web project adapter: to edit one
+  as a schema, create a strategy of an adapter type.
+
+Tests: `tests/strategy/test_project_strategy_registration.py` (every project folder is wired; every default config
+gives a valid strategy without run or deployment settings).
+
 ## Migrating an existing database
 
 The migration rebuilds tables, so `BaseFactory._migrate_schema` never applies it; it only prints a warning while

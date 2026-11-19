@@ -22,6 +22,7 @@ at once; only backtests can be launched (no paper / live trading from this inter
 from __future__ import annotations
 
 import io
+from types import SimpleNamespace
 
 from flask import (Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template, request, send_file,
                    url_for)
@@ -105,11 +106,26 @@ def new():
 def view(configuration_id: int):
     s = services()
     c = _configuration_or_404(configuration_id)
+    try:
+        adapter = s.registry.get(c.strategy_type)
+    except KeyError:                       # registered from a project's own config: shown as stored, read-only
+        return render_template("strategies/view.html", c=c, issues=[], schema=_stored_schema(c),
+                               capabilities=SimpleNamespace(label=f"project {c.strategy_type} (registered from its "
+                                                                  f"config when it ran)", unsupported=[]),
+                               versions=s.configurations.versions(c.name),
+                               experiments=s.experiments.list(configuration_id=c.id))
     _, issues = s.configurations.check(c)
-    adapter = s.registry.get(c.strategy_type)
     return render_template("strategies/view.html", c=c, issues=issues, schema=adapter.schema(),
                            capabilities=adapter.capabilities(), versions=s.configurations.versions(c.name),
                            experiments=s.experiments.list(configuration_id=c.id))
+
+
+def _stored_schema(c):
+    """A display schema of a strategy's stored sections (no project adapter: every value shown as stored)."""
+    from src.domain.entities.strategy.configuration_schema import ConfigurationSchema, FieldSpec, SectionSchema
+    sections = tuple(SectionSchema(name, tuple(FieldSpec(key, "str", default=value) for key, value in values.items()))
+                     for name, values in c.sections.items() if values)
+    return ConfigurationSchema(c.strategy_type, sections)
 
 
 @strategies_bp.route("/<int:configuration_id>/edit", methods=["GET", "POST"])

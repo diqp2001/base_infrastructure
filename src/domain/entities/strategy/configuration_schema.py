@@ -14,7 +14,7 @@ from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 SECTIONS: Tuple[str, ...] = ("universe", "factors", "model", "training", "portfolio", "trading", "risk",
-                             "evaluation", "data_policy")
+                             "evaluation", "data_policy", "strategy")   # strategy: other project parameters
 
 ERROR, WARNING = "error", "warning"
 

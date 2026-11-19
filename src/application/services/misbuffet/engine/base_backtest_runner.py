@@ -98,6 +98,7 @@ class BaseBacktestRunner(ABC):
         self.run_tracker = None
         self._registry_service = None
         self._registry_session = None
+        self.registered_strategy = None      # Strategy this project's config defines (strategies table)
 
     # ------------------------------------------------------------------
     # Abstract hooks — implemented by each project's BacktestRunner
@@ -136,6 +137,27 @@ class BaseBacktestRunner(ABC):
             # its own session: registry commits never commit (or roll back) the engine's pending work
             self._registry_session = sessionmaker(bind=self.database_service.session.get_bind())()
         return RepositoryFactory(self._registry_session)
+
+    def _ensure_strategy(self, config: Dict[str, Any]):
+        """The project's Strategy (and its Universe), created / versioned when missing. Never fatal."""
+        try:
+            from src.application.services.strategy.project_strategy_registration import register_project_strategy
+            self.registered_strategy = register_project_strategy(self._registry_factory(), self, config,
+                                                                 log=self.logger)
+        except Exception as e:
+            self.logger.warning(f"strategy registration unavailable: {e}")
+            self.registered_strategy = None
+        return self.registered_strategy
+
+    def _sync_strategy_universe(self) -> None:
+        """Add the instruments the run created (entities made during setup / the run) to the strategy's universe."""
+        if self.registered_strategy is None:
+            return
+        try:
+            from src.application.services.strategy.project_strategy_registration import sync_project_universe
+            sync_project_universe(self._registry_factory(), self.registered_strategy, log=self.logger)
+        except Exception as e:
+            self.logger.warning(f"strategy universe not synchronised: {e}")
 
     def _register_run(self, config: Dict[str, Any], start_date, end_date) -> Dict[str, Any]:
         """Register the run and give it its own portfolio name. Returns the config the run uses."""
@@ -181,6 +203,7 @@ class BaseBacktestRunner(ABC):
         algorithm.on_data = on_data
 
     def _finish_run(self, error: Optional[str] = None, cancelled: bool = False) -> None:
+        self._sync_strategy_universe()
         if self.run is None or self._registry_service is None:
             return
         service = self._registry_service
@@ -231,6 +254,7 @@ class BaseBacktestRunner(ABC):
 
             start_date = _parse_date(config.get('backtest_start', '2025-07-01'))
             end_date = _parse_date(config.get('backtest_end', '2025-12-31'))
+            self._ensure_strategy(config)
             config = self._register_run(config, start_date, end_date)
             initial_capital = config.get('initial_capital', 100000)
             universe = config.get('universe')
@@ -239,6 +263,7 @@ class BaseBacktestRunner(ABC):
 
             if not self.setup_components(config):
                 raise Exception("Component setup failed")
+            self._sync_strategy_universe()
 
             self.is_running = True
             self.progress = 0.0
@@ -307,6 +332,8 @@ class BaseBacktestRunner(ABC):
             if 'Backtest failed' in summary_text:
                 engine_error = summary_text.split('failed:', 1)[-1].strip() or summary_text
             self._finish_run(error=engine_error)
+            if self.registered_strategy is not None:
+                backtest_summary['strategy_id'] = self.registered_strategy.id
             if self.run is not None:
                 backtest_summary['run_id'] = self.run.id
                 backtest_summary['run_status'] = self.run.status

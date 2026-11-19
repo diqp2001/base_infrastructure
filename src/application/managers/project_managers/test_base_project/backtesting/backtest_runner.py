@@ -251,9 +251,19 @@ class BacktestRunner:
             config['BACKTEST']['START_DATE'] = start_date.strftime('%Y-%m-%d')
             config['BACKTEST']['END_DATE'] = end_date.strftime('%Y-%m-%d')
             config['BACKTEST']['INITIAL_CAPITAL'] = initial_capital
-            
+
+            # the project's Strategy (strategies table) and its Universe: created / versioned when missing
+            from src.application.services.strategy.project_strategy_registration import (
+                register_with_database,
+                sync_project_universe,
+            )
+            self.registered_strategy, strategy_factory = register_with_database(
+                self.database_service, self, {**config, 'universe': list(tickers), 'model_type': model_type},
+                log=self.logger)
+
             if not self.setup_components(config):
                 raise Exception("Component setup failed")
+            sync_project_universe(strategy_factory, self.registered_strategy, log=self.logger)
             
             # Step 2:  factor system setup 
             #self.setup_factor_system(tickers)
@@ -338,6 +348,9 @@ class BacktestRunner:
                 self.logger.info(f"📈 Result summary: {result.summary()}")
             
             self.results = backtest_summary
+            sync_project_universe(strategy_factory, self.registered_strategy, log=self.logger)
+            if self.registered_strategy is not None:
+                backtest_summary['strategy_id'] = self.registered_strategy.id
             return backtest_summary
             
         except Exception as e:

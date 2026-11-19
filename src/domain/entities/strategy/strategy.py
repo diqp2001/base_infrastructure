@@ -44,7 +44,7 @@ DEFINITION_FIELDS = ("bar_frequency", "bar_size", "model_type", "training_window
                      "prediction_horizon")
 _INT_FIELDS = ("training_window", "retrain_every_days", "prediction_horizon")
 # how the project sections group into the strategy's parameter families
-PARAMETER_SECTIONS = ("model", "training", "trading", "evaluation", "data_policy")
+PARAMETER_SECTIONS = ("model", "training", "trading", "evaluation", "data_policy", "strategy")
 
 
 class StrategyLocked(Exception):

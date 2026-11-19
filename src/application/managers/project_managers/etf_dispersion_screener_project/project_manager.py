@@ -83,8 +83,29 @@ class EtfDispersionScreenerProjectManager(ProjectManager):
             print(f"validation {v.etf}: {v.check.legs_filled}/{len(v.check.legs)} legs would fill, net premium "
                   f"{v.screened_net_premium:,.2f} -> {v.requoted_net_premium}", flush=True)
 
+    def _register_strategy(self, tickers=None):
+        """The screener's Strategy (strategies table): its screen parameters; its universe = the ETFs given
+        explicitly (the screened list itself changes every day, so it is not part of the definition). Best effort:
+        no database, no registration (config 'register_strategy': False turns it off)."""
+        if self.config.get('register_strategy', True) is False:
+            return None
+        try:
+            from src.application.services.strategy.project_strategy_registration import register_with_database
+            if self.database_service is None:
+                from src.application.services.database_service.database_service import DatabaseService
+                self.database_service = DatabaseService(self.config.get('db_type', 'sql_server'))
+            config = {**self.config, 'screen': asdict(self.screen)}
+            if tickers:
+                config['universe'] = {'ETFShare': list(tickers)}
+            strategy, _ = register_with_database(self.database_service, self, config)
+            return strategy
+        except Exception as e:
+            print(f"strategy of the screener not registered: {e}", flush=True)
+            return None
+
     def run(self, screening_date: Optional[date] = None, tickers=None):
         screening_date = screening_date or date.today()
+        self.registered_strategy = self._register_strategy(tickers)
         out_dir = os.path.join(self.config['results_dir'], screening_date.isoformat())
         manifest = run_manifest.build_manifest('screen', 'ETF dispersion screener',
                                                {**self.config, 'screen': asdict(self.screen)}, (screening_date,))

@@ -230,7 +230,16 @@ class MarketMakingBacktestRunner:
         end_date = end_date or datetime(2023, 1, 1)
         initial_capital = initial_capital or Decimal('1000000')
         asset_classes = asset_classes or ['equity']
-        
+
+        # the project's Strategy (strategies table) and its Universe: created / versioned when missing
+        from src.application.services.strategy.project_strategy_registration import (
+            register_with_database,
+            sync_project_universe,
+        )
+        self.registered_strategy, strategy_factory = register_with_database(
+            self.database_service, self, {**self.config, 'universe': list(universe), 'asset_classes': asset_classes},
+            log=self.logger)
+
         try:
             # Step 1: Validate pricing models
             self.logger.info("🔍 Validating pricing models...")
@@ -294,6 +303,9 @@ class MarketMakingBacktestRunner:
                 self.logger.info(f"   Sharpe Ratio: {sharpe_ratio}")
                 self.logger.info(f"   Max Drawdown: {max_drawdown}")
             
+            sync_project_universe(strategy_factory, self.registered_strategy, log=self.logger)
+            if self.registered_strategy is not None:
+                backtest_summary['strategy_id'] = self.registered_strategy.id
             self.results = backtest_summary
             return backtest_summary
             
