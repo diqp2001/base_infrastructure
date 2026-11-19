@@ -73,15 +73,17 @@ from src.infrastructure.models.factor.factor_value_provenance import FactorValue
 from src.infrastructure.models.factor.factor_dependency import FactorDependencyModel
 
 # Investment Universe and ML models (must come after FactorModel for FK resolution)
-from src.infrastructure.models.universe.universe import UniverseModel
+from src.infrastructure.models.universe.universe import UniverseModel, InvestmentUniverseModel
+from src.infrastructure.models.universe.universe_financial_asset import UniverseFinancialAssetModel
+from src.infrastructure.models.universe.universe_factor import UniverseFactorModel
 from src.infrastructure.models.universe.universe_constituent import UniverseConstituentModel
 from src.infrastructure.models.ml.ml_model import MLModelModel
 from src.infrastructure.models.ml.model_feature import ModelFeatureModel
 from src.infrastructure.models.ml.model_training import ModelTrainingModel
 from src.infrastructure.models.ml.training_metric import TrainingMetricModel
 from src.infrastructure.models.ml.model_artifact import ModelArtifactModel
-# Strategy configurations and experiments
-from src.infrastructure.models.strategy.strategy_configuration import StrategyConfigurationModel, StrategyExperimentModel
+# Strategies (one row per version) and their experiments
+from src.infrastructure.models.strategy.strategy import StrategyModel, StrategyExperimentModel
 # Swap instruments
 from src.infrastructure.models.finance.financial_assets.derivative.swap.swap import SwapModel
 from src.infrastructure.models.finance.financial_assets.derivative.swap.swap_leg import SwapLegModel
@@ -129,7 +131,6 @@ from src.infrastructure.models.finance.transaction.transaction import Transactio
 from src.infrastructure.models.backtest.backtest import BacktestModel
 from src.infrastructure.models.backtest.backtest_factor_backtest import BacktestFactorBacktestModel
 from src.infrastructure.models.backtest.model import ModelModel
-from src.infrastructure.models.backtest.universe import UniverseModel
 import src.infrastructure.models.backtest.backtest_run  # noqa: F401  run registry tables (2026-11-18)
 from src.infrastructure.models.time_series.time_series import TimeSeriesModel
 from src.infrastructure.models.time_series.finance.financial_asset_time_series import FinancialAssetTimeSeriesModel
@@ -197,9 +198,10 @@ __all__ = [
     'MarketDataModel', 'InstrumentModel',
     'HoldingModel', 'PortfolioHoldingsModel', 'CompanySharePortfolioHoldingModel', 'CompanyShareOptionPortfolioHoldingModel', 'CompanySharePortfolioOptionPortfolioHoldingModel', 'CompanySharePortfolioPortfolioHoldingModel', 'CompanyShareOptionPortfolioPortfolioHoldingModel', 'DerivativePortfolioHoldingModel','PositionModel','FactorModel','FactorValueModel','FactorValueProvenanceModel','FactorValueLineageModel','FactorDependencyModel',
     'AccountModel', 'OrderModel', 'BrokerOrderModel', 'BrokerExecutionModel', 'TradingDiscrepancyModel', 'TradingControlModel', 'TransactionModel',
-    'UniverseModel', 'UniverseConstituentModel',
+    'UniverseModel', 'InvestmentUniverseModel', 'UniverseFinancialAssetModel', 'UniverseFactorModel',
+    'UniverseConstituentModel',
     'MLModelModel', 'ModelFeatureModel', 'ModelTrainingModel', 'TrainingMetricModel', 'ModelArtifactModel',
-    'StrategyConfigurationModel', 'StrategyExperimentModel',
+    'StrategyModel', 'StrategyExperimentModel',
     'ETFShareOptionPortfolioModel', 'ETFShareOptionPortfolioHoldingModel', 'ETFShareOptionPortfolioPortfolioHoldingModel',
     'ensure_models_registered'
 ]

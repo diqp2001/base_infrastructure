@@ -1,8 +1,8 @@
 """
-StrategyExperiment — one run of a locked StrategyConfiguration (a backtest today).
+StrategyExperiment — one run of a locked Strategy version (a backtest today).
 
 It records what the run used and produced, so a result can always be traced back and reproduced:
-the configuration id and its content hash at launch, the job that ran it (process, host, heartbeat, log), the
+the strategy id and its content hash at launch, the job that ran it (process, host, heartbeat, log), the
 results folder (one per experiment, never shared), and ``provenance`` (model artifacts, universe membership
 used per decision, data coverage of the preload) and ``summary`` (headline metrics of the report).
 
@@ -26,7 +26,7 @@ FINISHED = (SUCCEEDED, FAILED, INTERRUPTED)
 
 class StrategyExperiment(Entity):
 
-    def __init__(self, configuration_id: int, configuration_hash: str, project_key: str, id: Optional[int] = None,
+    def __init__(self, strategy_id: int, strategy_hash: str, strategy_type: str, id: Optional[int] = None,
                  kind: str = BACKTEST, status: str = QUEUED, results_dir: Optional[str] = None,
                  log_path: Optional[str] = None, pid: Optional[int] = None, host: Optional[str] = None,
                  created_at: Optional[datetime] = None, started_at: Optional[datetime] = None,
@@ -38,9 +38,9 @@ class StrategyExperiment(Entity):
             raise ValueError(f"unknown experiment kind '{kind}'")
         if status not in STATUSES:
             raise ValueError(f"unknown experiment status '{status}'")
-        self.configuration_id = configuration_id
-        self.configuration_hash = configuration_hash
-        self.project_key = project_key
+        self.strategy_id = strategy_id
+        self.strategy_hash = strategy_hash
+        self.strategy_type = strategy_type
         self.kind = kind
         self.status = status
         self.results_dir = results_dir
@@ -54,6 +54,19 @@ class StrategyExperiment(Entity):
         self.error = error
         self.provenance: Dict[str, Any] = dict(provenance or {})
         self.summary: Dict[str, Any] = dict(summary or {})
+
+    # former StrategyConfiguration names (read-only aliases)
+    @property
+    def configuration_id(self) -> int:
+        return self.strategy_id
+
+    @property
+    def configuration_hash(self) -> str:
+        return self.strategy_hash
+
+    @property
+    def project_key(self) -> str:
+        return self.strategy_type
 
     @property
     def is_finished(self) -> bool:
@@ -88,9 +101,9 @@ class StrategyExperiment(Entity):
 
     def to_dict(self) -> Dict[str, Any]:
         return {k: getattr(self, k) for k in (
-            "id", "configuration_id", "configuration_hash", "project_key", "kind", "status", "results_dir",
+            "id", "strategy_id", "strategy_hash", "strategy_type", "kind", "status", "results_dir",
             "log_path", "pid", "host", "created_at", "started_at", "finished_at", "heartbeat_at", "error",
             "provenance", "summary")}
 
     def __repr__(self) -> str:
-        return f"<StrategyExperiment(id={self.id}, configuration={self.configuration_id}, {self.kind}, {self.status})>"
+        return f"<StrategyExperiment(id={self.id}, strategy={self.strategy_id}, {self.kind}, {self.status})>"

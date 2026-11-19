@@ -16,7 +16,7 @@ from src.infrastructure.models import ModelBase
 # Explicit imports register the backtest tables with ModelBase.metadata.
 from src.infrastructure.models.backtest.model import ModelModel              # noqa: F401
 from src.infrastructure.models.backtest.backtest import BacktestModel        # noqa: F401
-from src.infrastructure.models.backtest.universe import UniverseModel        # noqa: F401
+from src.infrastructure.models.universe.universe import UniverseModel        # noqa: F401
 from src.infrastructure.models.backtest.backtest_factor_backtest import (    # noqa: F401
     BacktestFactorBacktestModel,
 )
@@ -27,11 +27,11 @@ from src.infrastructure.repositories.local_repo.backtest.model_repository import
 from src.infrastructure.repositories.local_repo.backtest.backtest_repository import (
     BacktestRepository,
 )
-from src.infrastructure.repositories.local_repo.backtest.universe_repository import (
+from src.infrastructure.repositories.local_repo.universe.universe_repository import (
     UniverseRepository,
 )
 from src.domain.entities.backtest.backtest import Backtest
-from src.domain.entities.backtest.universe import Universe
+from src.domain.entities.universe.universe import Universe
 
 
 class TestBacktestRepositoryIntegration(unittest.TestCase):
@@ -115,8 +115,8 @@ class TestBacktestRepositoryIntegration(unittest.TestCase):
         Calling UniverseRepository._create_or_get with the same name twice
         returns the same entity (same id) on both calls.
         """
-        first = self.universe_repo._create_or_get(name="univ1")
-        second = self.universe_repo._create_or_get(name="univ1")
+        first = self.universe_repo._create_or_get(primary_key="univ1")
+        second = self.universe_repo._create_or_get(primary_key="univ1")
         self.assertIsNotNone(first)
         self.assertIsNotNone(second)
         self.assertIsInstance(first, Universe)

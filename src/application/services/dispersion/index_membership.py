@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
-from src.domain.entities.universe.universe import Universe
+from src.domain.entities.universe.investment_universe import InvestmentUniverse
 from src.domain.entities.universe.universe_constituent import UniverseConstituent
 
 ETF_ENTITY_TYPE = "ETFShare"
@@ -49,7 +49,7 @@ class IndexMembership:
         self.etf = etf
         self.base_date = base_date
         self.splits = list(splits)
-        self.universe = Universe(name=universe_name or f"{etf} point-in-time constituents", id=1,
+        self.universe = InvestmentUniverse(name=universe_name or f"{etf} point-in-time constituents", id=1,
                                  description=f"{etf} and its constituents from {base_date} (dated changes applied)",
                                  entity_type=SHARE_ENTITY_TYPE)
         self.symbols: List[str] = [etf]

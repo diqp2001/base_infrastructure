@@ -176,7 +176,7 @@ class FactorWorld:
         if getattr(self, "_etf", None):
             return self._etf
         from src.domain.entities.finance.financial_assets.share.etf_share.etf_share import ETFShare
-        from src.domain.entities.universe.universe import Universe
+        from src.domain.entities.universe.investment_universe import InvestmentUniverse as Universe
         from src.domain.entities.universe.universe_constituent import UniverseConstituent
         from src.infrastructure.models.factor.factor import ETFShareFactorModel
         repo = self.f.get_local_repository("ETFShare")

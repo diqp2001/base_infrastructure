@@ -403,13 +403,17 @@ from src.infrastructure.repositories.local_repo.backtest.research_result_reposit
     ResearchSeriesRepository,
     RunMetricRepository,
 )
-from src.infrastructure.repositories.local_repo.backtest.universe_repository import UniverseRepository
 from src.infrastructure.repositories.local_repo.backtest.backtest_factor_backtest_repository import BacktestFactorBacktestRepository
 from src.infrastructure.repositories.local_repo.factor.backtest.backtest_factor_repository import BacktestFactorRepository
 from src.infrastructure.repositories.ibkr_repo.factor.backtest.ibkr_backtest_factor_repository import IBKRBacktestFactorRepository
 
-# Investment Universe repositories
-from src.infrastructure.repositories.local_repo.universe.universe_repository import UniverseRepository as InvestmentUniverseRepository
+# Universe repositories (Universe with its members; InvestmentUniverse is a child type of Universe)
+from src.infrastructure.repositories.local_repo.universe.universe_repository import UniverseRepository
+from src.infrastructure.repositories.local_repo.universe.investment_universe_repository import InvestmentUniverseRepository
+from src.infrastructure.repositories.local_repo.universe.universe_membership_repositories import (
+    UniverseFactorRepository,
+    UniverseFinancialAssetRepository,
+)
 from src.infrastructure.repositories.local_repo.universe.universe_constituent_repository import UniverseConstituentRepository
 
 # ML repositories
@@ -425,8 +429,8 @@ from src.infrastructure.repositories.local_repo.finance.order.broker_order_repos
     TradingDecisionRepository,
 )
 from src.infrastructure.repositories.local_repo.strategy.strategy_repositories import (
-    StrategyConfigurationRepository,
     StrategyExperimentRepository,
+    StrategyRepository,
 )
 from src.infrastructure.repositories.local_repo.ml.training_metric_repository import TrainingMetricRepository
 from src.infrastructure.repositories.local_repo.ml.model_artifact_repository import ModelArtifactRepository
@@ -708,11 +712,13 @@ class RepositoryFactory:
                 'BacktestRunModelLink': BacktestRunModelLinkRepository(self.session, factory=self),
                 'ResearchSeries': ResearchSeriesRepository(self.session, factory=self),
                 'RunMetric': RunMetricRepository(self.session, factory=self),
-                'Universe': UniverseRepository(self.session, factory=self),
                 'BacktestFactorBacktest': BacktestFactorBacktestRepository(self.session, factory=self),
                 'BacktestFactor': BacktestFactorRepository(self.session, factory=self),
 
-                # Investment Universe repositories
+                # Universe repositories
+                'Universe': UniverseRepository(self.session, factory=self),
+                'UniverseFinancialAsset': UniverseFinancialAssetRepository(self.session, factory=self),
+                'UniverseFactor': UniverseFactorRepository(self.session, factory=self),
                 'InvestmentUniverse': InvestmentUniverseRepository(self.session, factory=self),
                 'UniverseConstituent': UniverseConstituentRepository(self.session, factory=self),
 
@@ -723,8 +729,8 @@ class RepositoryFactory:
                 'TrainingMetric': TrainingMetricRepository(self.session, factory=self),
                 'ModelArtifact': ModelArtifactRepository(self.session, factory=self),
 
-                # Strategy configurations and experiments
-                'StrategyConfiguration': StrategyConfigurationRepository(self.session, factory=self),
+                # Strategies (one row per version) and their experiments
+                'Strategy': StrategyRepository(self.session, factory=self),
                 'StrategyExperiment': StrategyExperimentRepository(self.session, factory=self),
 
                 # ConstituentScoreFactor
@@ -2318,7 +2324,19 @@ class RepositoryFactory:
         """Get company_share_vpt_52w_20d_lag_factor repository for dependency injection."""
         return self.get_ibkr_repository('CompanyShareVpt52w20dLagFactor')
 
-    # Investment Universe properties
+    # Universe properties
+    @property
+    def universe_local_repo(self):
+        return self.get_local_repository('Universe')
+
+    @property
+    def universe_financial_asset_local_repo(self):
+        return self.get_local_repository('UniverseFinancialAsset')
+
+    @property
+    def universe_factor_local_repo(self):
+        return self.get_local_repository('UniverseFactor')
+
     @property
     def investment_universe_local_repo(self):
         return self.get_local_repository('InvestmentUniverse')
@@ -2385,8 +2403,13 @@ class RepositoryFactory:
         return self.get_local_repository('CashSnapshot')
 
     @property
+    def strategy_local_repo(self):
+        return self.get_local_repository('Strategy')
+
+    @property
     def strategy_configuration_local_repo(self):
-        return self.get_local_repository('StrategyConfiguration')
+        """Former name of strategy_local_repo."""
+        return self.get_local_repository('Strategy')
 
     @property
     def strategy_experiment_local_repo(self):

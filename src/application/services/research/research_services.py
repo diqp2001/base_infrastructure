@@ -54,7 +54,7 @@ class ResearchServices:
             return []
         out = []
         for e in repo.get_by_status("succeeded"):
-            kind = "csm" if e.project_key.startswith("cross_sectional") else "stm"
-            out.append(ResultSource(f"experiment:{e.id}", f"Strategy experiment #{e.id} ({e.project_key})", kind,
+            kind = "csm" if e.strategy_type.startswith("cross_sectional") else "stm"
+            out.append(ResultSource(f"experiment:{e.id}", f"Strategy experiment #{e.id} ({e.strategy_type})", kind,
                                     (lambda d=e.results_dir: d)))
         return out

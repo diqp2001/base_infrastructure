@@ -24,7 +24,7 @@ class UniverseConstituentModel(Base):
     updated_at  = Column(DateTime, nullable=True)
 
     universe = relationship(
-        "src.infrastructure.models.universe.universe.UniverseModel",
+        "src.infrastructure.models.universe.universe.InvestmentUniverseModel",
         foreign_keys=[universe_id],
     )
 

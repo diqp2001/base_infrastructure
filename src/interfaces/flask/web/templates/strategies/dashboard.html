@@ -32,7 +32,7 @@
                 <tr>
                     <td><a href="{{ url_for('strategies.view', configuration_id=c.id) }}">{{ c.name }}</a></td>
                     <td>v{{ c.version }}{% if c.parent_id %} <span class="muted small">(from #{{ c.parent_id }})</span>{% endif %}</td>
-                    <td><code>{{ c.project_key }}</code></td>
+                    <td><code>{{ c.strategy_type }}</code></td>
                     <td><span class="badge badge-{{ c.status }}">{{ c.status }}</span></td>
                     <td class="muted small">{{ c.content_hash[:12] }}</td>
                     <td class="muted small">{{ c.created_at }}</td>
@@ -60,7 +60,7 @@
                 <tr>
                     <td><input type="checkbox" name="pick" value="{{ e.id }}" {% if e.status != 'succeeded' %}disabled{% endif %}></td>
                     <td><a href="{{ url_for('strategies.experiment', experiment_id=e.id) }}">{{ e.id }}</a></td>
-                    <td>{{ names.get(e.configuration_id, e.configuration_id) }}</td>
+                    <td>{{ names.get(e.strategy_id, e.strategy_id) }}</td>
                     <td>{{ e.kind }}</td>
                     <td><span class="badge badge-{{ e.status }}">{{ e.status }}</span></td>
                     <td>{% if e.summary.metrics and e.summary.metrics.Sharpe is not none %}{{ '%.2f'|format(e.summary.metrics.Sharpe) }}{% endif %}</td>

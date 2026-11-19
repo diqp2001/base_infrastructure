@@ -1,7 +1,7 @@
 """
-ExperimentService — launching, following and recovering strategy experiments (backtests of locked configurations).
+ExperimentService — launching, following and recovering strategy experiments (backtests of locked strategies).
 
-launch   locks the configuration (it never changes again), records a QUEUED experiment with its own results
+launch   locks the strategy (it never changes again), records a QUEUED experiment with its own results
          folder and portfolio name, then starts a separate worker process (JobRunner). The web request returns
          at once; the worker marks the experiment RUNNING, beats every 30 s, and ends it SUCCEEDED or FAILED.
 recover  an experiment marked RUNNING / QUEUED whose worker process is gone (crash, reboot, killed) becomes
@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Callable, List, Optional
 
 from src.application.services.backtest_registry.run_identity import pid_alive  # noqa: F401  (re-exported)
-from src.application.services.strategy.configuration_service import StrategyConfigurationService
+from src.application.services.strategy.strategy_service import StrategyService
 from src.domain.entities.strategy.strategy_experiment import (
     BACKTEST,
     QUEUED,
@@ -64,7 +64,7 @@ class JobRunner:
 
 class ExperimentService:
 
-    def __init__(self, repository, configurations: StrategyConfigurationService, runner: Optional[JobRunner] = None,
+    def __init__(self, repository, configurations: StrategyService, runner: Optional[JobRunner] = None,
                  results_root: Path = DEFAULT_RESULTS_ROOT, clock: Callable[[], datetime] = datetime.utcnow,
                  is_alive: Callable[[Optional[int]], bool] = pid_alive, host: Optional[str] = None,
                  artifact_repository=None):
@@ -87,7 +87,7 @@ class ExperimentService:
     def list(self, configuration_id: Optional[int] = None) -> List[StrategyExperiment]:
         self.recover()
         if configuration_id is not None:
-            return self.repository.get_by_configuration(configuration_id)
+            return self.repository.get_by_strategy(configuration_id)
         return self.repository.get_all()
 
     def active(self) -> List[StrategyExperiment]:
@@ -108,7 +108,7 @@ class ExperimentService:
         """(experiment, stored report or None, renderer module) — the project's own report of the run."""
         from src.application.services.data.entities.factor.spatio_temporal_momentum import stm_report_store as store
         experiment = self.get(experiment_id)
-        renderer = self.configurations.registry.get(experiment.project_key).renderer()
+        renderer = self.configurations.registry.get(experiment.strategy_type).renderer()
         report = None
         if experiment.results_dir and store.report_mtime(experiment.results_dir) is not None:
             report = store.load_report(experiment.results_dir)
@@ -141,11 +141,11 @@ class ExperimentService:
         rows, warnings = [], []
         for experiment_id in experiment_ids:
             e = self.get(experiment_id)
-            c = self.configurations.get(e.configuration_id)
+            c = self.configurations.get(e.strategy_id)
             ev, universe = c.section("evaluation"), c.section("universe")
             rows.append({
                 "experiment": e.id, "status": e.status, "configuration": f"{c.name} v{c.version}",
-                "project": c.project_key, "period": f"{ev.get('backtest_start')} .. {ev.get('backtest_end')}",
+                "project": c.strategy_type, "period": f"{ev.get('backtest_start')} .. {ev.get('backtest_end')}",
                 "universe": universe.get("name"), "capital": ev.get("initial_capital"),
                 "decisions": e.summary.get("decisions"), "metrics": e.summary.get("metrics", {}),
                 "benchmarks": e.summary.get("benchmarks", {}), "sections": c.sections,
@@ -197,8 +197,8 @@ class ExperimentService:
                                      f"(shared IBKR client)")
         configuration = self.configurations.lock(configuration_id)          # validates; raises when invalid
         experiment = self.repository.add(StrategyExperiment(
-            configuration_id=configuration.id, configuration_hash=configuration.content_hash,
-            project_key=configuration.project_key, kind=kind, status=QUEUED, created_at=self.clock(), host=self.host,
+            strategy_id=configuration.id, strategy_hash=configuration.content_hash,
+            strategy_type=configuration.strategy_type, kind=kind, status=QUEUED, created_at=self.clock(), host=self.host,
             provenance={"configuration": {"name": configuration.name, "version": configuration.version}}))
         folder = self.results_root / f"experiment_{experiment.id}"
         experiment.results_dir = str(folder)

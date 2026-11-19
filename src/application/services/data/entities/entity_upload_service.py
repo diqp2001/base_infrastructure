@@ -715,13 +715,12 @@ def _build_handlers(factory, session) -> dict:  # noqa: C901
         if existing:
             return existing
 
-        from src.domain.entities.backtest.universe import Universe
+        from datetime import datetime as _datetime
 
-        entity = Universe(id=_next_id(repo), name=name, creation_date=creation_date, description=description)
-        orm_model = repo._to_model(entity)
-        session.add(orm_model)
-        session.commit()
-        return repo._to_entity(orm_model)
+        from src.domain.entities.universe.universe import Universe
+
+        created = _datetime.combine(creation_date, _datetime.min.time())
+        return repo.add(Universe(name=name, description=description, created_at=created, updated_at=created))
 
     # ── BacktestFactor ───────────────────────────────────────────────────
     def _backtest_factor(row):

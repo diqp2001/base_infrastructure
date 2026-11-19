@@ -1,5 +1,9 @@
 # Configurable strategy projects: audit and proposed architecture
 
+> **2026-11-19:** `StrategyConfiguration` was replaced by the `Strategy` domain entity (table `strategies`) and
+> universes became first-class (`Universe` / `UniverseFinancialAsset` / `UniverseFactor`). The versions, lifecycle
+> and sections described below are unchanged; see [STRATEGY_AND_UNIVERSE.md](STRATEGY_AND_UNIVERSE.md).
+
 Phase 1 deliverable (2026-10-26) for the task "Implement Configurable Investment Strategy Projects Through the
 Flask Web Application". Part 1 is the audit of the three projects named by the task, part 2 the architecture
 proposed for review before any code is written.

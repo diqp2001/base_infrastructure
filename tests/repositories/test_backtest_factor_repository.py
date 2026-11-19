@@ -19,7 +19,7 @@ from src.infrastructure.models.factor.factor import FactorModel, BacktestFactorM
 from src.infrastructure.models.factor.factor_value import FactorValueModel            # noqa: F401
 from src.infrastructure.models.backtest.model import ModelModel                        # noqa: F401
 from src.infrastructure.models.backtest.backtest import BacktestModel                  # noqa: F401
-from src.infrastructure.models.backtest.universe import UniverseModel                  # noqa: F401
+from src.infrastructure.models.universe.universe import UniverseModel                  # noqa: F401
 from src.infrastructure.models.backtest.backtest_factor_backtest import (              # noqa: F401
     BacktestFactorBacktestModel,
 )

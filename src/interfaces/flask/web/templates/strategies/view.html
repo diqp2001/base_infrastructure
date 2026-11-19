@@ -28,6 +28,18 @@
 
 <div class="row">
 <div class="col-lg-8">
+    <div class="card mb-3">
+        <div class="card-header">Strategy definition</div>
+        <div class="card-body p-0"><table class="table mb-0">
+            <tr><td class="muted" style="width:45%">Strategy type</td><td><code>{{ c.strategy_type }}</code></td></tr>
+            <tr><td class="muted">Universe</td><td>{% if c.universe_id %}#{{ c.universe_id }}{% else %}— (not linked yet){% endif %}</td></tr>
+            {% for key, label in [('bar_frequency', 'Bar frequency'), ('bar_size', 'Bar size'), ('model_type', 'Model type'),
+                                  ('training_window', 'Training window (rows)'), ('retrain_every_days', 'Retrain every (days)'),
+                                  ('prediction_horizon', 'Prediction horizon (rows)')] %}
+            <tr><td class="muted">{{ label }}</td><td>{{ c[key] if c[key] is not none else '—' }}</td></tr>
+            {% endfor %}
+        </table></div>
+    </div>
     {% for section in schema.sections %}
     {% set values = c.section(section.name) %}
     <div class="card mb-3">

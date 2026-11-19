@@ -106,7 +106,7 @@ def view(configuration_id: int):
     s = services()
     c = _configuration_or_404(configuration_id)
     _, issues = s.configurations.check(c)
-    adapter = s.registry.get(c.project_key)
+    adapter = s.registry.get(c.strategy_type)
     return render_template("strategies/view.html", c=c, issues=issues, schema=adapter.schema(),
                            capabilities=adapter.capabilities(), versions=s.configurations.versions(c.name),
                            experiments=s.experiments.list(configuration_id=c.id))
@@ -114,10 +114,10 @@ def view(configuration_id: int):
 
 @strategies_bp.route("/<int:configuration_id>/edit", methods=["GET", "POST"])
 def edit(configuration_id: int):
-    from src.domain.entities.strategy.strategy_configuration import ConfigurationLocked
+    from src.domain.entities.strategy.strategy import StrategyLocked as ConfigurationLocked
     s = services()
     c = _configuration_or_404(configuration_id)
-    adapter = s.registry.get(c.project_key)
+    adapter = s.registry.get(c.strategy_type)
     issues = []
     if request.method == "POST":
         form = {k: (request.form.getlist(k) if len(request.form.getlist(k)) > 1 or k.startswith("factors.exclude")
@@ -143,7 +143,7 @@ def edit(configuration_id: int):
 
 @strategies_bp.route("/<int:configuration_id>/<action>", methods=["POST"])
 def act(configuration_id: int, action: str):
-    from src.application.services.strategy.configuration_service import ConfigurationInvalid
+    from src.application.services.strategy.strategy_service import ConfigurationInvalid
     from src.application.services.strategy.experiment_service import ExperimentConflict
     s = services()
     c = _configuration_or_404(configuration_id)
@@ -211,7 +211,7 @@ def experiment(experiment_id: int):
     s = services()
     s.experiments.recover()
     e = _experiment_or_404(experiment_id)
-    c = s.configurations.get(e.configuration_id)
+    c = s.configurations.get(e.strategy_id)
     return render_template("strategies/experiment.html", e=e, c=c, log=s.experiments.log_tail(experiment_id),
                            artifacts=s.experiments.artifacts(experiment_id))
 

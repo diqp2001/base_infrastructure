@@ -1,9 +1,9 @@
 """
 Worker process of one strategy experiment:  python -m src.application.services.strategy.experiment_worker <id>
 
-1. load the experiment and its LOCKED configuration; check the configuration did not change since launch (hash)
+1. load the experiment and its LOCKED strategy; check the strategy did not change since launch (hash)
 2. mark it RUNNING (pid, host), beat every 30 s from a thread with its OWN database session
-3. translate the configuration into the project's native config, with the experiment's own results folder and
+3. translate the strategy into the project's native config, with the experiment's own results folder and
    portfolio name, and run the project's own manager (its cycle, model and portfolio rule, unchanged)
 4. record what the run used and produced: model artifacts, universe membership, data coverage, headline metrics
 5. SUCCEEDED, or FAILED with the error; the monitoring dashboard sees it through the existing JobRecorder
@@ -102,13 +102,13 @@ def run_experiment(experiment_id: int, experiments, configurations, beat_reposit
                    manager_factory: Optional[Callable] = None) -> StrategyExperiment:
     """``experiments`` / ``configurations``: repositories. ``manager_factory(adapter, native_config,
     database_service)`` builds the project manager (default: the adapter's manager class)."""
-    from src.application.services.strategy.configuration_service import StrategyConfigurationService
+    from src.application.services.strategy.strategy_service import StrategyService
 
     experiment = experiments.get_by_id(experiment_id)
     if experiment is None:
         raise LookupError(f"experiment {experiment_id} does not exist")
-    service = StrategyConfigurationService(configurations)
-    configuration = service.get(experiment.configuration_id)
+    service = StrategyService(configurations)
+    configuration = service.get(experiment.strategy_id)
     experiment.start(pid or os.getpid(), host or socket.gethostname(), clock())
     experiment = experiments.update(experiment)
     heartbeat = None
@@ -126,13 +126,13 @@ def run_experiment(experiment_id: int, experiments, configurations, beat_reposit
     try:
         from src.application.services.monitoring.job_tracker import JobRecorder
         recorder = JobRecorder("strategy_experiment", f"{configuration.name} v{configuration.version}",
-                               details={"experiment_id": experiment_id, "project": configuration.project_key}).start()
+                               details={"experiment_id": experiment_id, "project": configuration.strategy_type}).start()
     except Exception:
         recorder = None
     try:
-        if configuration.status != "locked" or configuration.content_hash != experiment.configuration_hash:
-            raise RuntimeError("the configuration changed after the experiment was launched")
-        adapter = service.registry.get(configuration.project_key)
+        if configuration.status != "locked" or configuration.content_hash != experiment.strategy_hash:
+            raise RuntimeError("the strategy changed after the experiment was launched")
+        adapter = service.registry.get(configuration.strategy_type)
         base = adapter.base_config()["Portfolio"]["name"]
         native = service.native_config(configuration, results_dir=experiment.results_dir,
                                        portfolio_name=portfolio_name(base, experiment_id))

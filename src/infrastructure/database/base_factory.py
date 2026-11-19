@@ -81,6 +81,12 @@ class BaseFactory:
                         conn.execute(text(sql))
                         conn.commit()
                     print("Migrated: added selection to factor_value_provenance")
+            # Strategy / Universe domain (2026-11-19): rebuilds tables, so it is never applied here - only reported
+            from src.infrastructure.database.strategy_universe_migration import plan
+            pending = plan(self.engine)
+            if pending.pending:
+                print(f"Schema migration warning: {pending.summary()}\n  -> back up, then run "
+                      f"'python -m src.infrastructure.database.strategy_universe_migration --apply'")
         except Exception as e:
             print(f"Schema migration warning: {e}")
 

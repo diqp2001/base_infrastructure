@@ -1,36 +1,42 @@
 """
-Ports of the strategy configuration domain: where configurations and experiments are kept.
+Ports of the strategy domain: where strategies (one row per version) and their experiments are kept.
 """
 
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from src.domain.entities.strategy.strategy_configuration import StrategyConfiguration
+from src.domain.entities.strategy.strategy import Strategy
 from src.domain.entities.strategy.strategy_experiment import StrategyExperiment
 
 
-class StrategyConfigurationPort(ABC):
+class StrategyPort(ABC):
 
     @abstractmethod
-    def get_by_id(self, id: int) -> Optional[StrategyConfiguration]: ...
+    def get_by_id(self, id: int) -> Optional[Strategy]: ...
 
     @abstractmethod
-    def get_version(self, name: str, version: int) -> Optional[StrategyConfiguration]: ...
+    def get_version(self, name: str, version: int) -> Optional[Strategy]: ...
 
     @abstractmethod
-    def get_versions(self, name: str) -> List[StrategyConfiguration]: ...
+    def get_versions(self, name: str) -> List[Strategy]: ...
 
     @abstractmethod
     def latest_version_number(self, name: str) -> int: ...
 
     @abstractmethod
-    def get_all(self) -> List[StrategyConfiguration]: ...
+    def get_by_universe(self, universe_id: int) -> List[Strategy]: ...
 
     @abstractmethod
-    def add(self, entity: StrategyConfiguration) -> StrategyConfiguration: ...
+    def get_all(self) -> List[Strategy]: ...
 
     @abstractmethod
-    def update(self, entity: StrategyConfiguration) -> StrategyConfiguration: ...
+    def add(self, entity: Strategy) -> Strategy: ...
+
+    @abstractmethod
+    def update(self, entity: Strategy) -> Strategy: ...
+
+
+StrategyConfigurationPort = StrategyPort          # former name
 
 
 class StrategyExperimentPort(ABC):
@@ -39,7 +45,7 @@ class StrategyExperimentPort(ABC):
     def get_by_id(self, id: int) -> Optional[StrategyExperiment]: ...
 
     @abstractmethod
-    def get_by_configuration(self, configuration_id: int) -> List[StrategyExperiment]: ...
+    def get_by_strategy(self, strategy_id: int) -> List[StrategyExperiment]: ...
 
     @abstractmethod
     def get_by_status(self, status: str) -> List[StrategyExperiment]: ...

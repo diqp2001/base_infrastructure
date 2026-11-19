@@ -18,7 +18,7 @@ from src.infrastructure.models import ModelBase
 # They are NOT imported by src/infrastructure/models/__init__.py.
 from src.infrastructure.models.backtest.model import ModelModel              # noqa: F401
 from src.infrastructure.models.backtest.backtest import BacktestModel        # noqa: F401
-from src.infrastructure.models.backtest.universe import UniverseModel        # noqa: F401
+from src.infrastructure.models.universe.universe import UniverseModel        # noqa: F401
 from src.infrastructure.models.backtest.backtest_factor_backtest import (    # noqa: F401
     BacktestFactorBacktestModel,
 )

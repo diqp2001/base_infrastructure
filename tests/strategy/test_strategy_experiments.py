@@ -159,7 +159,7 @@ def test_a_configuration_changed_after_launch_is_not_run(env):
     c = _configuration(s)
     e = s.experiments.launch(c.id)
     row = s.experiment_repository.get_by_id(e.id)
-    row.configuration_hash = "0" * 64                                          # what was launched is not this
+    row.strategy_hash = "0" * 64                                          # what was launched is not this
     s.experiment_repository.update(row)
     done = run_experiment(e.id, s.experiment_repository, s.configuration_repository, clock=env.clock,
                           manager_factory=lambda a, n, d: FakeManager(n))

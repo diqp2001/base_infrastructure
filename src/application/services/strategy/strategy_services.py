@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-from src.application.services.strategy.configuration_service import StrategyConfigurationService
+from src.application.services.strategy.strategy_service import StrategyService
 from src.application.services.strategy.experiment_service import ExperimentService, JobRunner
 from src.application.services.strategy.project_adapters import ProjectRegistry
 
@@ -20,17 +20,19 @@ class StrategyServices:
                  runner: Optional[JobRunner] = None, session_factory: Optional[Callable] = None, **experiment_kwargs):
         from src.infrastructure.repositories.local_repo.ml.model_artifact_repository import ModelArtifactRepository
         from src.infrastructure.repositories.local_repo.strategy.strategy_repositories import (
-            StrategyConfigurationRepository,
             StrategyExperimentRepository,
+            StrategyRepository,
         )
         self.session = session
         self.database_service = database_service
         self.session_factory = session_factory
         self.registry = registry or ProjectRegistry()
-        self.configuration_repository = StrategyConfigurationRepository(session)
+        self.strategy_repository = StrategyRepository(session)
+        self.configuration_repository = self.strategy_repository      # former name
         self.experiment_repository = StrategyExperimentRepository(session)
-        self.configurations = StrategyConfigurationService(self.configuration_repository, self.registry)
-        self.experiments = ExperimentService(self.experiment_repository, self.configurations, runner=runner,
+        self.strategies = StrategyService(self.strategy_repository, self.registry)
+        self.configurations = self.strategies                          # former name
+        self.experiments = ExperimentService(self.experiment_repository, self.strategies, runner=runner,
                                              artifact_repository=ModelArtifactRepository(session),
                                              **experiment_kwargs)
 
