@@ -73,6 +73,8 @@ class StrategyService:
         """The typed definition the project's native config gives for these sections ({} when it cannot be built:
         invalid sections are reported by validate)."""
         try:
+            if hasattr(adapter, "initial_definition"):          # a project folder: its own config's definition
+                return adapter.initial_definition()
             normalised, issues = adapter.validate(sections)
             if any(i.severity == ERROR for i in issues):
                 return {}

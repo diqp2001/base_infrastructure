@@ -57,13 +57,20 @@ def _asset_class(name: str, base_universe: Any):
         for key in base_universe:
             if getattr(key, "__name__", None) == name:
                 return key
-    from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
-    known = {"CompanyShare": CompanyShare}
-    try:
-        from src.domain.entities.finance.financial_assets.share.etf_share.etf_share import ETFShare
-        known["ETFShare"] = ETFShare
-    except ImportError:                                        # pragma: no cover
-        pass
+    import importlib
+    known = {}
+    base = "src.domain.entities.finance.financial_assets"
+    for type_name, module in (("CompanyShare", "share.company_share.company_share"),
+                              ("ETFShare", "share.etf_share.etf_share"),
+                              ("CompanyShareOption", "derivatives.option.company_share_option"),
+                              ("ETFShareOption", "derivatives.option.etf_share_option"),
+                              ("Future", "derivatives.future.future"),
+                              ("Index", "index.index"),
+                              ("Currency", "currency")):
+        try:
+            known[type_name] = getattr(importlib.import_module(f"{base}.{module}"), type_name)
+        except (ImportError, AttributeError):                  # pragma: no cover
+            pass
     if name not in known:
         raise ValueError(f"asset type '{name}' cannot be written into a project config")
     return known[name]

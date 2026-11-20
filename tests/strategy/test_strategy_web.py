@@ -81,6 +81,31 @@ def test_the_dashboard_lists_the_three_projects_and_what_they_do_not_support(web
     assert "Not supported" in html
 
 
+def test_a_strategy_can_start_from_the_stm_monthly_decile_project(web):
+    """Project folders without a web form are offered too, and their draft opens in the strategy designer."""
+    html = web.client.get("/strategies/new").get_data(as_text=True)
+    assert 'value="stm_monthly_decile_project"' in html and "Other projects" in html
+    assert 'value="cross_sectionnal_project"' not in html            # covered by the cross_sectional form
+    assert 'value="spatio_temporal_momentum_project_10m_live"' not in html   # live trading: never offered
+    r = web.client.post("/strategies/new", data={"name": "deciles web", "project_key": "stm_monthly_decile_project"})
+    assert r.status_code == 302 and re.search(r"/strategies/\d+/design$", r.headers["Location"])
+    strategy = web.services().configurations.get(int(r.headers["Location"].split("/")[-2]))
+    assert strategy.strategy_type == "stm_monthly_decile_project" and strategy.model_type in (
+        "tft", "conv", "lstm", "mlp", "slp")
+    page = web.client.get(r.headers["Location"]).get_data(as_text=True)
+    assert 'name="training_unit"' in page and "Trading frequency" in page and 'value="weeks"' in page
+    # trade every 2 weeks, retrain every 2 months (21 x 2 / (5 x 2) trading days -> 4 rebalances)
+    design = r.headers["Location"]
+    web.client.post(design, data={"part": "definition", "trading_unit": "weeks", "trading_count": "2",
+                                  "training_unit": "months", "training_count": "2"})
+    deciles = web.services().configurations.get(strategy.id).section("portfolio")["deciles"]
+    assert deciles["rebalance_every"] == "2w" and deciles["retrain_every_rebalances"] == 4
+    html = web.client.post(design, data={"part": "definition", "trading_unit": "weeks", "trading_count": "2",
+                                         "training_unit": "days", "training_count": "1"},
+                           follow_redirects=True).get_data(as_text=True)
+    assert "more often than trading" in html
+
+
 def test_each_project_shows_only_its_own_parameters(web):
     csm = web.client.get(f"/strategies/{_create(web)}/edit").get_data(as_text=True)
     stm = web.client.get(f"/strategies/{_create(web, 'stm web', 'stm_reference')}/edit").get_data(as_text=True)

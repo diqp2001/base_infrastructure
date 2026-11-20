@@ -25,6 +25,8 @@ from src.application.services.backtest_registry.run_identity import pid_alive  #
 from src.application.services.strategy.strategy_service import StrategyService
 from src.domain.entities.strategy.strategy_experiment import (
     BACKTEST,
+    FAILED,
+    INTERRUPTED,
     QUEUED,
     RUNNING,
     StrategyExperiment,
@@ -217,6 +219,18 @@ class ExperimentService:
         if errors:
             from src.application.services.strategy.strategy_service import ConfigurationInvalid
             raise ConfigurationInvalid(errors)
+
+    def retry(self, experiment_id: int) -> StrategyExperiment:
+        """A failed or interrupted experiment run again: a NEW experiment of the same strategy over the same window
+        and starting capital (the failed one is kept as it is, with its log)."""
+        from src.application.services.strategy.backtest_window import window_of
+        previous = self.get(experiment_id)
+        if previous.status not in (FAILED, INTERRUPTED):
+            raise ValueError(f"experiment {experiment_id} is {previous.status}: only a failed or interrupted "
+                             f"experiment can be retried")
+        experiment = self.launch(previous.strategy_id, kind=previous.kind, window=window_of(previous))
+        experiment.provenance = {**(experiment.provenance or {}), "retry_of": previous.id}
+        return self.repository.update(experiment)
 
     def launch(self, configuration_id: int, kind: str = BACKTEST, window=None) -> StrategyExperiment:
         """A backtest of the strategy over ``window`` (BacktestWindow: start, end, starting capital; default: the

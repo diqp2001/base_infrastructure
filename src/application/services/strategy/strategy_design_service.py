@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from src.domain.entities.strategy.configuration_schema import ERROR
 from src.domain.entities.strategy.strategy import DEFINITION_FIELDS, Strategy, StrategyLocked
@@ -31,6 +31,22 @@ from src.domain.entities.universe.universe import Universe
 
 DEFAULT_ASSET_TYPE = "CompanyShare"
 _INT_FIELDS = ("training_window", "retrain_every_days", "prediction_horizon")
+
+
+# factor_type prefixes -> the entity type the factor describes (longest first)
+_FACTOR_ENTITIES = ("company_share_portfolio_portfolio_holding", "currency_portfolio_portfolio_holding",
+                    "company_share_portfolio_holding", "currency_portfolio_holding", "company_share_portfolio",
+                    "currency_portfolio", "company_share_option", "etf_share_option", "company_share", "etf_share",
+                    "portfolio", "index", "currency", "future")
+
+
+def factor_entity(factor_type: Optional[str]) -> str:
+    """'company_share_option_factor' -> 'CompanyShareOption', 'index_factor' -> 'Index'; else 'Other'."""
+    t = str(factor_type or "").lower()
+    for prefix in _FACTOR_ENTITIES:
+        if t == prefix or t.startswith(prefix + "_"):
+            return "".join("ETF" if w == "etf" else w.capitalize() for w in prefix.split("_"))
+    return "Other"
 
 
 def parse_instruments(text: str, default_type: str = DEFAULT_ASSET_TYPE) -> Dict[str, List[str]]:
@@ -107,8 +123,88 @@ class StrategyDesignService:
                 "shared_with": [s for s in self.strategies.get_by_universe(universe.id) if s.id != strategy.id]
                 if universe else []}
 
+    def asset_choices(self, strategy: Strategy, registry=None) -> Dict[str, Any]:
+        """What the financial-asset universe is ticked from:
+        groups     [{type, symbols: [(symbol, chosen, stored, sector)], chosen}] one per asset type: every stored
+                   type, the strategy's and its project's default types (a universe can mix types)
+        sectors    the sectors company shares can be ticked by
+        universes  [{id, label, members: ['Type:SYMBOL', ...]}] saved universes whose members can be ticked"""
+        request = strategy.section("universe").get("instruments") or {}
+        defaults: Dict[str, List[str]] = {}
+        if registry is not None:
+            try:
+                defaults = registry.get(strategy.strategy_type).default_sections().get("universe", {}).get(
+                    "instruments") or {}
+            except Exception:
+                defaults = {}
+        stored = self.universes.stored_assets() if hasattr(self.universes, "stored_assets") else {}
+        sectors = self._sectors()
+        types = list(dict.fromkeys([*request, *defaults, *stored])) or [DEFAULT_ASSET_TYPE]
+        types.sort(key=lambda t: (t not in request, t != DEFAULT_ASSET_TYPE, t))     # used types first
+        groups = []
+        for asset_type in types:
+            chosen = set(request.get(asset_type) or [])
+            in_store = set(stored.get(asset_type, []))
+            symbols = sorted(in_store | chosen | set(defaults.get(asset_type) or []))
+            rows = [(s, s in chosen, s in in_store, sectors.get(s, "") if asset_type == DEFAULT_ASSET_TYPE else "")
+                    for s in symbols]
+            groups.append({"type": asset_type, "chosen": len(chosen), "symbols": rows,
+                           "has_sectors": any(r[3] for r in rows)})
+        saved = self.universes.saved_universes() if hasattr(self.universes, "saved_universes") else []
+        universes = [{"id": u["id"], "label": f"{u['name']} v{u['version']} "
+                                              f"({sum(len(v) for v in u['assets'].values())})",
+                      "members": [f"{t}:{s}" for t, symbols in u["assets"].items() for s in symbols]}
+                     for u in saved if u["assets"]]
+        return {"groups": groups, "sectors": sorted({v for v in sectors.values()}), "universes": universes}
+
+    def factor_universes(self) -> List[Dict[str, Any]]:
+        """Saved universes that list factors: [{id, label, factor_ids}] (the factor universe can load one)."""
+        saved = self.universes.saved_universes() if hasattr(self.universes, "saved_universes") else []
+        return [{"id": u["id"], "label": f"{u['name']} v{u['version']} ({len(u['factor_ids'])} factors)",
+                 "factor_ids": u["factor_ids"]} for u in saved if u["factor_ids"]]
+
+    def save_factor_universe(self, name: str, factor_ids: Iterable[Any]) -> Universe:
+        """The ticked factors saved as a universe of their own (a new version when the name exists)."""
+        name = (name or "").strip()
+        if not name:
+            raise ValueError("a factor universe needs a name")
+        ids = sorted({int(i) for i in factor_ids})
+        if not ids:
+            raise ValueError("tick at least one factor to save a factor universe")
+        universe = Universe(name=name, version=self.universes.latest_version_number(name) + 1,
+                            description=f"factor universe ({len(ids)} factors)", created_at=self.clock())
+        for factor_id in ids:
+            universe.add_factor(factor_id)
+        return self.universes.add(universe)
+
+    def _sectors(self) -> Dict[str, str]:
+        """{symbol: sector} of company shares: GICS of the Dow members, then the S&P 500 sector lists the STM
+        projects use, then the sector stored with the company (through its industry)."""
+        out: Dict[str, str] = {}
+        if hasattr(self.universes, "company_share_sectors"):
+            try:
+                out.update(self.universes.company_share_sectors())
+            except Exception:
+                pass
+        try:      # reference data kept with the STM project (GICS sector -> S&P 500 constituents), loaded as the
+            import importlib       # project adapters load project folders (no static import of the managers)
+
+            from src.application.services.strategy.project_adapters import PROJECTS_PACKAGE
+            constituents = importlib.import_module(
+                f"{PROJECTS_PACKAGE}.spatio_temporal_momentum_project.data.sector_constituents").SECTOR_CONSTITUENTS
+            out.update({s: sector for sector, symbols in constituents.items() for s in symbols})
+        except Exception:
+            pass
+        try:
+            from src.application.services.universe.djia_membership import SECTORS
+            out.update(SECTORS)
+        except Exception:
+            pass
+        return out
+
     def factor_catalog(self) -> List[Dict[str, Any]]:
-        return self.universe_factors.factor_catalog()
+        """Every stored factor, with the entity type it describes ('company_share_option_factor' -> CompanyShareOption)."""
+        return [{**f, "entity": factor_entity(f.get("factor_type"))} for f in self.universe_factors.factor_catalog()]
 
     # -- derive -----------------------------------------------------------------------------------------------------
     def derive(self, source_id: int, name: Optional[str] = None, description: Optional[str] = None) -> Strategy:
@@ -187,6 +283,18 @@ class StrategyDesignService:
             interval = dict(trading.get("config_interval") or {})
             interval["custom_interval_minutes"] = minutes
             sections = {"trading": {**trading, "config_interval": interval}}
+        # the two schedules picked as category + count (strategy_schedule: stored where the project reads them)
+        from src.application.services.strategy.strategy_schedule import schedule_changes
+        from src.domain.entities.strategy.frequency import Frequency
+
+        def picked(prefix):
+            unit, count = values.get(f"{prefix}_unit"), values.get(f"{prefix}_count")
+            return Frequency.of(unit, count) if unit not in (None, "") and count not in (None, "") else None
+        schedule_sections, schedule_typed = schedule_changes(strategy, trading=picked("trading"),
+                                                             training=picked("training"), horizon=picked("horizon"))
+        if schedule_sections:
+            sections = {**(sections or {}), **schedule_sections}
+        parsed.update(schedule_typed)
         strategy.update(sections=sections, description=description, **parsed)
         return self.strategies.update(strategy)
 

@@ -16,8 +16,58 @@
     </div>
 </div>
 
-<datalist id="frequencies">{% for f in ['1m', '5m', '10m', '15m', '30m', '1h', '1d', '1w', '1mo'] %}<option value="{{ f }}">{% endfor %}</datalist>
-<datalist id="bar_sizes">{% for b in ['1 min', '5 mins', '10 mins', '15 mins', '30 mins', '1 hour', '1 day', '1 week', '1 month'] %}<option value="{{ b }}">{% endfor %}</datalist>
+{% macro choice(name, title, options, current) %}
+<div class="col-6"><label class="form-label small muted">{{ title }}</label>
+    <select class="form-select form-select-sm" name="{{ name }}">
+        <option value="" {% if current is none or current == '' %}selected{% endif %}>— not set</option>
+        {% for o in options %}<option value="{{ o }}" {% if current is not none and o|string == current|string %}selected{% endif %}>{{ o }}</option>{% endfor %}
+    </select></div>
+{% endmacro %}
+{% macro param_rows(fields, depth=0) %}
+{% for f in fields %}
+    {% if f.kind == 'group' %}
+    <div class="mt-2 {% if depth %}ms-3{% endif %}"><div class="fw-semibold">{{ f.label }}</div>{{ param_rows(f.children, depth + 1) }}</div>
+    {% else %}
+    <div class="row g-1 align-items-center py-1 {% if depth %}ms-3{% endif %}" style="border-bottom:1px solid var(--hub-line)">
+        <div class="col-5 col-md-4">{{ f.label }}</div>
+        <div class="col-7 col-md-8">
+        {% if f.kind == 'select' %}
+            <select class="form-select form-select-sm" name="{{ f.name }}" aria-label="{{ f.label }}">
+                {% for value, label in f.options %}<option value="{{ value }}" {% if value in f.selected %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        {% elif f.kind == 'multi' %}
+            <input type="hidden" name="present:{{ f.name }}" value="1">
+            <div class="border rounded px-2 py-1" style="max-height:160px;overflow:auto;columns:{{ '200px' if f.options|length > 12 else '90px' }}">
+                {% for value, label in f.options %}<label class="d-block small text-nowrap"><input class="form-check-input me-1" type="checkbox" name="{{ f.name }}" value="{{ value }}" {% if value in f.selected %}checked{% endif %}>{{ label }}</label>{% endfor %}
+            </div>
+        {% else %}
+            <span class="muted">{{ f.value }}{% if f.note %} — {{ f.note }}{% endif %}</span>
+        {% endif %}
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
+{% endmacro %}
+{% macro picker(prefix, title, slot) %}
+<div class="col-md-6 schedule-picker" data-prefix="{{ prefix }}" data-follows="{{ slot.follows or '' }}" data-floor="{{ slot.floor or '' }}" data-counts='{{ slot.counts|tojson }}'>
+    <label class="form-label small muted">{{ title }}</label>
+    {% if slot.units %}
+    <div class="input-group input-group-sm">
+        <select class="form-select form-select-sm sched-unit" name="{{ prefix }}_unit" {% if slot.fixed %}disabled{% endif %}
+                aria-label="{{ title }}: category">
+            {% for unit, label in slot.units %}<option value="{{ unit }}" {% if slot.current and slot.current.unit == unit %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <span class="input-group-text">{{ 'of' if prefix == 'horizon' else 'every' }}</span>
+        <select class="form-select form-select-sm sched-count" name="{{ prefix }}_count" {% if slot.fixed %}disabled{% endif %}
+                aria-label="{{ title }}: how many" data-current="{{ slot.current.count if slot.current else 1 }}"></select>
+        <span class="input-group-text sched-noun"></span>
+    </div>
+    <div class="small muted">{% if slot.fixed %}Monthly — {% endif %}{{ slot.note }}</div>
+    {% else %}
+    <div class="small muted">{{ slot.note }}</div>
+    {% endif %}
+</div>
+{% endmacro %}
 <div class="row">
 <div class="col-lg-6">
     {% if has_schema %}
@@ -26,9 +76,10 @@
         <div class="card-body small">
             <div class="muted mb-2">This strategy type has a project form: the model (TFT, LSTM, MLP, SLP, convolution),
                 windows and frequencies are its parameters.</div>
-            <div>Model <b>{{ c.model_type or '—' }}</b> · bar {{ c.bar_frequency or c.bar_size or '—' }} ·
-                training window {{ c.training_window if c.training_window is not none else '—' }} · retrain every
-                {{ c.retrain_every_days if c.retrain_every_days is not none else '—' }} days</div>
+            <div>Model <b>{{ c.model_type or '—' }}</b> · trades {{ schedule.trading.current.label if schedule.trading.current else '—' }} ·
+                retrains {{ schedule.training.current.label if schedule.training.current else '—' }} ·
+                bar {{ c.bar_frequency or c.bar_size or '—' }} ·
+                training window {{ c.training_window if c.training_window is not none else '—' }}</div>
             <a class="btn btn-sm btn-primary mt-2" href="{{ url_for('strategies.edit', configuration_id=c.id) }}">Edit model and parameters</a>
         </div>
     </div>
@@ -43,20 +94,16 @@
                         {% for value, label in models %}<option value="{{ value }}" {% if value == c.model_type %}selected{% endif %}>{{ label }}</option>{% endfor %}
                     </select>
                     <div class="small muted">switching keeps only the settings the new model takes</div></div>
-                {% if decision_minutes is not none %}
-                <div class="col-6"><label class="form-label small muted">Trading decision every (minutes)</label>
-                    <input class="form-control form-control-sm" name="decision_minutes" type="number" min="1" value="{{ decision_minutes }}"></div>
-                {% else %}<div class="col-6"></div>{% endif %}
-                <div class="col-6"><label class="form-label small muted">Data bar frequency</label>
-                    <input class="form-control form-control-sm" name="bar_frequency" list="frequencies" value="{{ c.bar_frequency or '' }}"></div>
-                <div class="col-6"><label class="form-label small muted">Bar size (IBKR)</label>
-                    <input class="form-control form-control-sm" name="bar_size" list="bar_sizes" value="{{ c.bar_size or '' }}"></div>
-                <div class="col-6"><label class="form-label small muted">Prediction horizon (rows)</label>
-                    <input class="form-control form-control-sm" name="prediction_horizon" type="number" min="0" value="{{ c.prediction_horizon if c.prediction_horizon is not none else '' }}"></div>
-                <div class="col-6"><label class="form-label small muted">Training window (rows)</label>
-                    <input class="form-control form-control-sm" name="training_window" type="number" min="0" value="{{ c.training_window if c.training_window is not none else '' }}"></div>
-                <div class="col-6"><label class="form-label small muted">Retrain every (days)</label>
-                    <input class="form-control form-control-sm" name="retrain_every_days" type="number" min="0" value="{{ c.retrain_every_days if c.retrain_every_days is not none else '' }}"></div>
+                <div class="col-6"></div>
+                {{ picker('trading', 'Trading frequency', schedule.trading) }}
+                {{ picker('training', 'Training frequency (retrain)', schedule.training) }}
+                {% if schedule.horizon.units %}{{ picker('horizon', 'Prediction horizon', schedule.horizon) }}
+                {% else %}{{ choice('prediction_horizon', 'Prediction horizon (rows)', choices.prediction_horizon, c.prediction_horizon) }}{% endif %}
+                <div class="col-md-6"></div>
+                <div class="col-12 small muted mt-2">Data bars (advanced): what is imported and fed to the model</div>
+                {{ choice('bar_frequency', 'Data bar frequency', choices.bar_frequency, c.bar_frequency) }}
+                {{ choice('bar_size', 'Bar size (IBKR)', choices.bar_size, c.bar_size) }}
+                {{ choice('training_window', 'Training window (rows)', choices.training_window, c.training_window) }}
                 <div class="col-12"><label class="form-label small muted">Description</label>
                     <input class="form-control form-control-sm" name="description" value="{{ c.description or '' }}"></div>
             </div>
@@ -76,10 +123,44 @@
             {% if detail.universe %}<span class="muted small">#{{ detail.universe.id }} {{ detail.universe.name }} v{{ detail.universe.version }} ·
                 {{ detail.universe.financial_asset_ids()|length }} stored</span>{% endif %}</div>
         <div class="card-body">
-            <div class="small muted mb-2">One line per asset type: <code>CompanyShare: JPM, BAC, GS</code> (a line without a type is
-                CompanyShare). Symbols are matched with the stored financial assets; the others stay listed and are added
-                when a run creates them.</div>
-            <textarea class="form-control form-control-sm font-monospace" name="instruments" rows="8">{{ detail.instruments_text }}</textarea>
+            <div class="small muted mb-2">Tick the instruments, of one or several asset types. Each list holds the stored
+                financial assets, the strategy's and its project's own; one not stored yet (<i>italic</i>) is added when a
+                run creates it.</div>
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-2 small">
+                <select class="form-select form-select-sm" id="pick-sector" style="width:auto" aria-label="Sector">
+                    <option value="">sector…</option>{% for s in assets.sectors %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bulk="sector" data-on="1">tick sector</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bulk="sector" data-on="0">untick</button>
+                <select class="form-select form-select-sm ms-md-2" id="pick-universe" style="width:auto;max-width:260px" aria-label="Saved universe">
+                    <option value="">saved universe…</option>{% for u in assets.universes %}<option value="{{ u.id }}">{{ u.label }}</option>{% endfor %}</select>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bulk="universe" data-on="1">tick universe</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bulk="universe" data-on="0">untick</button>
+                <button type="button" class="btn btn-sm btn-outline-danger ms-auto" data-bulk="everything" data-on="0">untick everything</button>
+            </div>
+            <script type="application/json" id="universe-members">{{ assets.universes|tojson }}</script>
+            {% for group in assets.groups %}
+            <details class="asset-group mb-2" {% if group.chosen or loop.first %}open{% endif %}>
+                <summary class="d-flex flex-wrap align-items-center gap-2">
+                    <b>{{ group.type }}</b> <span class="muted small"><span class="asset-count">{{ group.chosen }}</span> of {{ group.symbols|length }} ticked</span>
+                </summary>
+                <div class="d-flex flex-wrap align-items-center gap-2 my-1">
+                    <button type="button" class="btn btn-sm btn-outline-primary asset-all">tick all shown</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary asset-none">untick all shown</button>
+                    <select class="form-select form-select-sm asset-show" style="width:auto" aria-label="Show">
+                        <option value="all">show all</option><option value="ticked">ticked only</option><option value="unticked">unticked only</option></select>
+                    {% if group.has_sectors %}
+                    <select class="form-select form-select-sm asset-sector" style="width:auto" aria-label="Show sector">
+                        <option value="">every sector</option>{% for s in assets.sectors %}<option value="{{ s }}">{{ s }}</option>{% endfor %}<option value="-">no sector known</option></select>
+                    {% endif %}
+                </div>
+                <div class="asset-list border rounded p-2" style="max-height:220px;overflow:auto;columns:{{ '200px' if group.type.endswith('Option') else '110px' }}">
+                    {% for sym, chosen, stored, sector in group.symbols %}
+                    <label class="d-block small text-nowrap asset-item" data-sector="{{ sector }}" title="{{ sector }}"><input class="form-check-input me-1" type="checkbox" name="asset"
+                        value="{{ group.type }}:{{ sym }}" {% if chosen %}checked{% endif %}>{% if stored %}{{ sym }}{% else %}<i>{{ sym }}</i>{% endif %}</label>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endfor %}
             {% if detail.missing %}<div class="small text-warning mt-2">Not stored yet:
                 {% for t, s in detail.missing.items() %}{{ t }} {{ s|join(', ') }}{% if not loop.last %}; {% endif %}{% endfor %}</div>{% endif %}
             {% if detail.shared_with %}<div class="small muted mt-2">This universe is also used by
@@ -97,15 +178,17 @@
             <div class="muted mb-2">This strategy type has a project form: every parameter it supports, with its bounds.</div>
             <a class="btn btn-sm btn-outline-primary" href="{{ url_for('strategies.edit', configuration_id=c.id) }}">Edit project parameters</a>
             {% else %}
-            <div class="muted mb-2">The parameters this project's config defines, by section (JSON). Run and deployment settings
-                (window, capital, account, broker connection) are not part of a strategy.</div>
-            {% for name in sections %}{% set values = c.section(name) %}
+            <div class="muted mb-2">The parameters this project's config defines, by section: pick each value. Run and
+                deployment settings (window, capital, account, broker connection) are not part of a strategy.</div>
+            {% for name in sections %}{% set fields = param_fields[name] %}
+            {% if fields %}
             <form method="post" class="mb-2">
-                <input type="hidden" name="part" value="section"><input type="hidden" name="section" value="{{ name }}">
-                <details {% if values %}open{% endif %}><summary><b>{{ name }}</b> <span class="muted">({{ values|length }} keys)</span></summary>
-                    <textarea class="form-control form-control-sm font-monospace mt-1" name="json" rows="{{ [4, (values|tojson(indent=2)).count('\n') + 2]|max if values else 3 }}" style="max-height:360px">{{ values|tojson(indent=2) if values else '{}' }}</textarea>
+                <input type="hidden" name="part" value="params"><input type="hidden" name="section" value="{{ name }}">
+                <details open><summary><b>{{ name }}</b> <span class="muted">({{ fields|length }} keys)</span></summary>
+                    <div class="mt-1">{{ param_rows(fields) }}</div>
                     <button class="btn btn-sm btn-outline-primary mt-1">Save {{ name }}</button></details>
             </form>
+            {% endif %}
             {% endfor %}
             {% endif %}
         </div>
@@ -114,31 +197,62 @@
 
 <div class="col-lg-6">
     <form class="card mb-3" method="post" id="factors">
-        <input type="hidden" name="part" value="factors">
         <div class="card-header d-flex justify-content-between align-items-center">
             <span>Factor universe <span class="muted small" id="factor-count"></span></span>
-            <button class="btn btn-sm btn-primary">Save factors</button>
+            <button class="btn btn-sm btn-primary" name="part" value="factors">Save factors</button>
         </div>
         <div class="card-body">
-            <div class="d-flex gap-2 mb-2">
-                <input class="form-control form-control-sm" id="factor-filter" placeholder="filter: name, group, subgroup, source">
-                <div class="form-check text-nowrap small mt-1"><input class="form-check-input" type="checkbox" id="selected-only">
-                    <label class="form-check-label" for="selected-only">selected only</label></div>
+            {% macro facet(title, key, values) %}
+            <details class="facet" data-facet="{{ key }}">
+                <summary class="small"><b>{{ title }}</b> <span class="muted facet-state">all</span></summary>
+                <div class="border rounded px-2 py-1 mt-1" style="max-height:150px;overflow:auto;columns:160px">
+                    {% for v in values %}<label class="d-block small text-nowrap"><input class="form-check-input me-1 facet-box" type="checkbox" value="{{ v }}">{{ v or '—' }}</label>{% endfor %}
+                </div>
+            </details>
+            {% endmacro %}
+            <div class="row g-2 mb-2">
+                <div class="col-sm-6">{{ facet('Entity type', 'entity', catalog|map(attribute='entity')|unique|sort) }}</div>
+                <div class="col-sm-6">{{ facet('Category', 'group', catalog|map(attribute='group')|map('string')|unique|sort) }}</div>
+                <div class="col-sm-6">{{ facet('Source', 'source', catalog|map(attribute='source')|map('string')|unique|sort) }}</div>
+                <div class="col-sm-6">{{ facet('Frequency', 'frequency', catalog|map(attribute='frequency')|map('string')|unique|sort) }}</div>
             </div>
+            <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
+                <input class="form-control form-control-sm" id="factor-filter" style="max-width:240px" placeholder="search name / subgroup"
+                       onkeydown="return event.key !== 'Enter'">
+                <select class="form-select form-select-sm" id="factor-show" style="width:auto" aria-label="Show">
+                    <option value="all">show all</option><option value="ticked">ticked only</option><option value="unticked">unticked only</option></select>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="factor-all">tick all shown</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="factor-none">untick all shown</button>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-2 align-items-center small">
+                <select class="form-select form-select-sm" id="factor-universe" style="width:auto;max-width:280px" aria-label="Saved factor universe">
+                    <option value="">saved factor universe…</option>
+                    {% for u in factor_universes %}<option value="{{ u.id }}">{{ u.label }}</option>{% else %}<option value="" disabled>none saved yet</option>{% endfor %}
+                </select>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-funiverse="1">tick its factors</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-funiverse="0">untick</button>
+                <span class="ms-md-auto d-flex gap-1">
+                    <input class="form-control form-control-sm" name="factor_universe_name" style="max-width:180px" placeholder="name to save as">
+                    <button class="btn btn-sm btn-outline-success text-nowrap" name="part" value="factor_universe">Save ticked as universe</button>
+                </span>
+            </div>
+            <script type="application/json" id="factor-universes">{{ factor_universes|tojson }}</script>
             {% set chosen = detail.factors|map(attribute='id')|list %}
             <div style="max-height:620px;overflow:auto">
                 <table class="table table-sm mb-0">
-                    <thead><tr><th></th><th>Name</th><th>Group / subgroup</th><th>Freq.</th><th>Source</th></tr></thead>
+                    <thead><tr><th></th><th>Name</th><th>Entity</th><th>Category / subgroup</th><th>Freq.</th><th>Source</th></tr></thead>
                     <tbody>
                     {% for f in catalog %}
-                    <tr class="factor-row" data-key="{{ (f.name ~ ' ' ~ f.group ~ ' ' ~ f.subgroup ~ ' ' ~ f.source ~ ' ' ~ f.factor_type)|lower }}">
+                    <tr class="factor-row" data-entity="{{ f.entity }}" data-group="{{ f.group }}" data-source="{{ f.source }}"
+                        data-frequency="{{ f.frequency }}" data-key="{{ (f.name ~ ' ' ~ f.subgroup ~ ' ' ~ f.factor_type)|lower }}">
                         <td><input class="form-check-input factor-box" type="checkbox" name="factor_id" value="{{ f.id }}" {% if f.id in chosen %}checked{% endif %}></td>
                         <td><code>{{ f.name }}</code></td>
+                        <td class="small">{{ f.entity }}</td>
                         <td class="small">{{ f.group }} / {{ f.subgroup }}</td>
                         <td class="small">{{ f.frequency }}</td>
                         <td class="small muted">{{ f.source }}</td>
                     </tr>
-                    {% else %}<tr><td colspan="5" class="muted">No factor stored.</td></tr>{% endfor %}
+                    {% else %}<tr><td colspan="6" class="muted">No factor stored.</td></tr>{% endfor %}
                     </tbody>
                 </table>
             </div>
@@ -149,22 +263,135 @@
 
 <script>
 (function () {
-    const filter = document.getElementById('factor-filter'), only = document.getElementById('selected-only');
+    const filter = document.getElementById('factor-filter'), show = document.getElementById('factor-show');
     const count = document.getElementById('factor-count');
-    function refresh() {
+    const rows = [...document.querySelectorAll('tr.factor-row')];
+    const facets = [...document.querySelectorAll('.facet')];
+    const wanted = () => Object.fromEntries(facets.map(f => [f.dataset.facet,
+        new Set([...f.querySelectorAll('.facet-box:checked')].map(b => b.value))]));
+    let picked = wanted();
+    const visible = r => {
+        const box = r.querySelector('.factor-box');
         const q = (filter.value || '').toLowerCase();
-        let n = 0;
-        document.querySelectorAll('tr.factor-row').forEach(r => {
-            const box = r.querySelector('.factor-box');
-            if (box.checked) n++;
-            r.style.display = (r.dataset.key.includes(q) && (!only.checked || box.checked)) ? '' : 'none';
+        const mode = show.value;
+        return r.dataset.key.includes(q) && (mode === 'all' || (mode === 'ticked') === box.checked)
+            && Object.entries(picked).every(([k, set]) => !set.size || set.has(r.dataset[k]));
+    };
+    function refresh() {
+        picked = wanted();
+        facets.forEach(f => { const n = picked[f.dataset.facet].size; f.querySelector('.facet-state').textContent = n ? n + ' chosen' : 'all'; });
+        let n = 0, shown = 0;
+        rows.forEach(r => {
+            if (r.querySelector('.factor-box').checked) n++;
+            const v = visible(r);
+            if (v) shown++;
+            r.style.display = v ? '' : 'none';
         });
-        count.textContent = '— ' + n + ' selected';
+        count.textContent = '— ' + n + ' ticked · ' + shown + ' shown';
     }
     filter.addEventListener('input', refresh);
-    only.addEventListener('change', refresh);
-    document.querySelectorAll('.factor-box').forEach(b => b.addEventListener('change', refresh));
+    show.addEventListener('change', refresh);
+    document.querySelectorAll('.facet-box, .factor-box').forEach(b => b.addEventListener('change', refresh));
+    document.getElementById('factor-all').addEventListener('click', () => { rows.filter(visible).forEach(r => { r.querySelector('.factor-box').checked = true; }); refresh(); });
+    document.getElementById('factor-none').addEventListener('click', () => { rows.filter(visible).forEach(r => { r.querySelector('.factor-box').checked = false; }); refresh(); });
+    const universes = JSON.parse(document.getElementById('factor-universes').textContent || '[]');
+    document.querySelectorAll('[data-funiverse]').forEach(btn => btn.addEventListener('click', () => {
+        const u = universes.find(x => String(x.id) === document.getElementById('factor-universe').value);
+        if (!u) return;
+        const ids = new Set(u.factor_ids.map(String));
+        rows.forEach(r => { const b = r.querySelector('.factor-box'); if (ids.has(b.value)) b.checked = btn.dataset.funiverse === '1'; });
+        refresh();
+    }));
     refresh();
 })();
+</script>
+<script>
+// category first, then how many: the count list follows the category
+const NOUNS = {minutes: ['minute', 'minutes'], hours: ['hour', 'hours'], days: ['day', 'days'],
+               weeks: ['week', 'weeks'], months: ['month', 'months']};
+document.querySelectorAll('.schedule-picker').forEach(box => {
+    const counts = JSON.parse(box.dataset.counts || '{}');
+    const unit = box.querySelector('.sched-unit'), count = box.querySelector('.sched-count'),
+          noun = box.querySelector('.sched-noun');
+    if (!unit) return;
+    let keep = parseInt(count.dataset.current || '1', 10);
+    const fill = () => {
+        const choices = counts[unit.value] || [1];
+        const pick = choices.includes(keep) ? keep : choices[0];
+        count.innerHTML = choices.map(n => `<option value="${n}" ${n === pick ? 'selected' : ''}>${n}</option>`).join('');
+        const name = () => (NOUNS[unit.value] || ['', ''])[parseInt(count.value, 10) === 1 ? 0 : 1];
+        noun.textContent = name();
+        count.onchange = () => { keep = parseInt(count.value, 10); noun.textContent = name(); };
+    };
+    unit.addEventListener('change', fill);
+    box.refill = fill;
+    fill();
+});
+// a schedule that follows another (retraining never more often than trading) or has a floor (a horizon is never
+// shorter than one row): grey out the categories below it
+const ORDER = ['minutes', 'hours', 'days', 'weeks', 'months'];
+document.querySelectorAll('.schedule-picker').forEach(box => {
+    const follows = box.dataset.follows, fixedFloor = box.dataset.floor;
+    if (!follows && !fixedFloor) return;
+    const leader = follows ? document.querySelector(`.schedule-picker[data-prefix="${follows}"] .sched-unit`) : null;
+    const unit = box.querySelector('.sched-unit');
+    if (!unit || (follows && !leader)) return;
+    const sync = () => {
+        const floor = ORDER.indexOf(leader ? leader.value : fixedFloor);
+        [...unit.options].forEach(o => { o.disabled = ORDER.indexOf(o.value) < floor; });
+        if (unit.selectedOptions[0] && unit.selectedOptions[0].disabled) {
+            unit.value = leader ? leader.value : fixedFloor;
+            box.refill();
+        }
+    };
+    if (leader) leader.addEventListener('change', sync);
+    sync();
+});
+// the asset lists: per type tick / untick what is shown, show ticked / a sector; across types tick a sector or
+// a saved universe's members
+const assetRefreshers = [];
+document.querySelectorAll('.asset-group').forEach(g => {
+    const boxes = [...g.querySelectorAll('input[name="asset"]')], count = g.querySelector('.asset-count');
+    const show = g.querySelector('.asset-show'), sector = g.querySelector('.asset-sector');
+    const visible = b => {
+        const item = b.closest('.asset-item');
+        const s = sector ? sector.value : '';
+        const inSector = !s || (s === '-' ? !item.dataset.sector : item.dataset.sector === s);
+        const mode = show.value;
+        return inSector && (mode === 'all' || (mode === 'ticked') === b.checked);
+    };
+    const refresh = () => {
+        count.textContent = boxes.filter(b => b.checked).length;
+        boxes.forEach(b => { b.closest('.asset-item').style.display = visible(b) ? '' : 'none'; });
+    };
+    boxes.forEach(b => b.addEventListener('change', refresh));
+    show.addEventListener('change', refresh);
+    if (sector) sector.addEventListener('change', refresh);
+    g.querySelector('.asset-all').addEventListener('click', () => { boxes.filter(visible).forEach(b => { b.checked = true; }); refresh(); });
+    g.querySelector('.asset-none').addEventListener('click', () => { boxes.filter(visible).forEach(b => { b.checked = false; }); refresh(); });
+    assetRefreshers.push(refresh);
+});
+const universeMembers = JSON.parse((document.getElementById('universe-members') || {}).textContent || '[]');
+document.querySelectorAll('[data-bulk]').forEach(btn => btn.addEventListener('click', () => {
+    const on = btn.dataset.on === '1', kind = btn.dataset.bulk;
+    let match;
+    if (kind === 'sector') {
+        const s = document.getElementById('pick-sector').value;
+        if (!s) return;
+        match = b => b.closest('.asset-item').dataset.sector === s;
+    } else if (kind === 'universe') {
+        const u = universeMembers.find(x => String(x.id) === document.getElementById('pick-universe').value);
+        if (!u) return;
+        const members = new Set(u.members);
+        match = b => members.has(b.value);
+    } else {
+        match = () => true;
+    }
+    document.querySelectorAll('input[name="asset"]').forEach(b => { if (match(b)) b.checked = on; });
+    document.querySelectorAll('.asset-group').forEach(g => {
+        if (on && g.querySelector('input[name="asset"]:checked')) g.open = true;
+    });
+    assetRefreshers.forEach(f => f());
+}));
 </script>
 {% endblock %}

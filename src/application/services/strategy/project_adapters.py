@@ -10,6 +10,7 @@ the default configuration reproduces today's runs exactly.
 from __future__ import annotations
 
 import copy
+import dataclasses
 import importlib
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -599,6 +600,12 @@ class ProjectFolderAdapter(ProjectAdapter):
     def definition(self, sections: Sections) -> Dict[str, Any]:
         return {}                               # the strategy's typed fields are authoritative (set in the design)
 
+    def initial_definition(self) -> Dict[str, Any]:
+        """A new draft's typed fields (model, frequencies, training...): what the project's own config runs today,
+        as a project registers its strategy when it runs."""
+        from src.application.services.strategy.strategy_definition import strategy_definition
+        return {k: v for k, v in strategy_definition(self.base_config()).items() if v is not None and k != "universe_id"}
+
     def native_config_for(self, strategy, sections: Sections, results_dir: Optional[str] = None,
                           portfolio_name: Optional[str] = None) -> Dict[str, Any]:
         from src.application.services.strategy.strategy_project_config import apply_strategy
@@ -622,6 +629,24 @@ def is_project_folder(key: str) -> bool:
         return True
     except ImportError:
         return False
+
+
+def project_folders() -> List[str]:
+    """Every project folder under project_managers that has a config module (sorted)."""
+    import pkgutil
+    package = importlib.import_module(PROJECTS_PACKAGE)
+    return sorted(m.name for m in pkgutil.iter_modules(package.__path__) if m.ispkg and is_project_folder(m.name))
+
+
+def project_title(folder: str) -> str:
+    """A readable name for a project folder: the first sentence of its package docstring, else the folder name."""
+    try:
+        doc = (importlib.import_module(f"{PROJECTS_PACKAGE}.{folder}").__doc__ or "").strip()
+    except Exception:
+        doc = ""
+    first = doc.split("\n\n", 1)[0].replace("\n", " ").strip()
+    first = first.split(". ", 1)[0].rstrip(".:")
+    return f"{first} ({folder})" if first else folder
 
 
 def default_adapters() -> List[ProjectAdapter]:
@@ -668,6 +693,27 @@ class ProjectRegistry:
 
     def capabilities(self) -> List[ProjectCapabilities]:
         return [a.capabilities() for a in self._adapters.values()]
+
+    def folder_capabilities(self) -> List[ProjectCapabilities]:
+        """The project folders a strategy can also start from (no web form: designed in the strategy designer, then
+        applied onto the project's own config). Folders a registered adapter already covers are left out, and so are
+        projects that are not backtests (NOT_LAUNCHABLE) or whose config / manager cannot be loaded."""
+        covered = {str(a.capabilities().folder or "").rstrip("/").rsplit("/", 1)[-1] for a in self._adapters.values()}
+        out = []
+        for folder in project_folders():
+            if folder in covered or folder in self._adapters or folder in NOT_LAUNCHABLE:
+                continue
+            try:
+                adapter = self.get(folder)
+                if not getattr(adapter, "launchable", False):
+                    continue
+                caps = adapter.capabilities()
+            except Exception:                       # a broken project never hides the others
+                continue
+            out.append(dataclasses.replace(caps, label=project_title(folder), description=(
+                f"project folder {folder}: starts from the project's own config, then designed in the strategy "
+                f"designer")))
+        return out
 
 
 Factory = Callable[[], ProjectRegistry]

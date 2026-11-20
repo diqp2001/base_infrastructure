@@ -15,6 +15,15 @@
         <a class="btn btn-success btn-sm" href="{{ url_for('strategies.experiment_report', experiment_id=e.id) }}">Report</a>
         <a class="btn btn-outline-success btn-sm" href="{{ url_for('strategies.experiment_report_pdf', experiment_id=e.id) }}">PDF</a>
         {% endif %}
+        {% if e.status in ('failed', 'interrupted') %}
+        <form method="post" action="{{ url_for('strategies.experiment_retry', experiment_id=e.id) }}" class="d-inline"
+              onsubmit="return confirm('Run this backtest again as a new experiment (same strategy, window and capital)?')">
+            <button class="btn btn-warning btn-sm">Retry</button>
+        </form>
+        {% endif %}
+        {% if e.provenance and e.provenance.retry_of %}
+        <div class="small muted mt-1 text-end">retry of <a href="{{ url_for('strategies.experiment', experiment_id=e.provenance.retry_of) }}">experiment {{ e.provenance.retry_of }}</a></div>
+        {% endif %}
     </div>
 </div>
 

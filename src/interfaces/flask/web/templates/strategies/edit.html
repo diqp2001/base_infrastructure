@@ -36,12 +36,21 @@
                     <select class="form-select" id="{{ key }}" name="{{ key }}" multiple size="8">
                         {% for ch in f.choices %}<option value="{{ ch }}" {% if ch in (v or []) %}selected{% endif %}>{{ ch }}</option>{% endfor %}
                     </select>
-                {% elif f.kind == 'str_list' %}
-                    <textarea class="form-control" id="{{ key }}" name="{{ key }}" rows="3">{{ (v or [])|join(', ') }}</textarea>
-                {% elif f.kind == 'int_list' %}
-                    <input class="form-control" id="{{ key }}" name="{{ key }}" value="{{ (v or [])|join(', ') }}">
-                {% elif f.kind == 'int_pair_list' %}
-                    <input class="form-control" id="{{ key }}" name="{{ key }}" value="{% for p in (v or []) %}{{ p|join(',') }}{% if not loop.last %}; {% endif %}{% endfor %}">
+                {% elif f.kind in ('str_list', 'int_list', 'int_pair_list') %}
+                    {% set chosen = (v or [])|map('string')|list %}
+                    <input type="hidden" name="{{ key }}" value="">
+                    <div class="border rounded px-2 py-1" id="{{ key }}" style="max-height:180px;overflow:auto;columns:{{ '90px' if f.kind != 'int_pair_list' else '110px' }}">
+                    {% for o in options[key] %}
+                        {% set ov = o|join(',') if f.kind == 'int_pair_list' else o|string %}
+                        {% set on = (o in (v or [])|map('list')|list) if f.kind == 'int_pair_list' else (o|string in chosen) %}
+                        <label class="d-block small text-nowrap"><input class="form-check-input me-1" type="checkbox" name="{{ key }}" value="{{ ov }}" {% if on %}checked{% endif %}>{{ o|join(' / ') if f.kind == 'int_pair_list' else o }}</label>
+                    {% endfor %}
+                    </div>
+                {% elif f.kind in ('int', 'float') and key in options %}
+                    <select class="form-select" id="{{ key }}" name="{{ key }}">
+                        {% if v is none %}<option value="" selected>— not set</option>{% endif %}
+                        {% for o in options[key] %}<option value="{{ o }}" {% if v is not none and o == v %}selected{% endif %}>{{ o }}</option>{% endfor %}
+                    </select>
                 {% else %}
                     <input class="form-control" id="{{ key }}" name="{{ key }}" value="{{ '' if v is none else v }}"
                            {% if f.kind in ('int', 'float') %}inputmode="decimal"{% endif %}>

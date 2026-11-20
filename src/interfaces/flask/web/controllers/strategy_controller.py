@@ -22,6 +22,7 @@ at once; only backtests can be launched (no paper / live trading from this inter
 from __future__ import annotations
 
 import io
+import json
 from types import SimpleNamespace
 
 from flask import (Blueprint, abort, current_app, flash, g, jsonify, redirect, render_template, request, send_file,
@@ -117,7 +118,10 @@ def design(configuration_id: int):
                                            description=request.form.get("description"))
                 flash("Definition saved (draft).", "success")
             elif part == "assets":
-                _, unknown = s.design.set_financial_assets(configuration_id, request.form.get("instruments", ""))
+                text = request.form.get("instruments")
+                if text is None:                                   # ticked boxes 'Type:SYMBOL'
+                    text = _instruments_text(request.form.getlist("asset"))
+                _, unknown = s.design.set_financial_assets(configuration_id, text)
                 if unknown:
                     flash("Universe saved. Not stored as financial assets yet (kept in the request, added when a run "
                           "creates them): " + "; ".join(f"{t}: {', '.join(v)}" for t, v in unknown.items()), "warning")
@@ -126,6 +130,18 @@ def design(configuration_id: int):
             elif part == "factors":
                 s.design.set_factors(configuration_id, request.form.getlist("factor_id"))
                 flash("Factor universe saved.", "success")
+            elif part == "factor_universe":                       # the ticked factors as a reusable universe
+                u = s.design.save_factor_universe(request.form.get("factor_universe_name", ""),
+                                                  request.form.getlist("factor_id"))
+                flash(f"Factor universe '{u.name}' v{u.version} saved ({len(u.factor_ids())} factors): it can be "
+                      f"loaded in any strategy.", "success")
+                part = "factors"
+            elif part == "params":                                 # a section's dropdowns / checkboxes
+                from src.application.services.strategy.parameter_choices import apply_choices
+                name = request.form.get("section", "")
+                values = apply_choices(name, c.section(name), request.form, locked=_locked(c))
+                s.design.set_section(configuration_id, name, json.dumps(values))
+                flash(f"Section '{name}' saved.", "success")
             elif part == "section":
                 s.design.set_section(configuration_id, request.form.get("section", ""), request.form.get("json", ""))
                 flash(f"Section '{request.form.get('section')}' saved.", "success")
@@ -156,22 +172,75 @@ def design(configuration_id: int):
                            catalog=s.design.factor_catalog(), sections=[x for x in SECTIONS if x != "universe"],
                            has_schema=has_form, models=[(m, model_label(m)) for m in s.design.model_choices(c)],
                            decision_minutes=trading.get("custom_interval_minutes") if isinstance(trading, dict)
-                           else None)
+                           else None, schedule=_schedule(c), param_fields=_param_fields(c),
+                           choices=_definition_choices(c), assets=s.design.asset_choices(c, s.registry),
+                           factor_universes=s.design.factor_universes())
+
+
+def _schedule(strategy):
+    from src.application.services.strategy.strategy_schedule import schedule
+    return schedule(strategy)
+
+
+def _locked(strategy):
+    """Section keys the designer sets elsewhere (shown in the parameter lists, not editable there)."""
+    from src.application.services.strategy.strategy_schedule import schedule
+    locked = {"rebalance_every": "set with Trading frequency above",
+              "retrain_every_rebalances": "set with Training frequency above",
+              "custom_interval_minutes": "set with Trading frequency above",
+              "custom_interval_days": "set with Trading frequency above",
+              "model_type": "set with Model above"}
+    if "rebalance_every" in schedule(strategy)["trading"]["stored_in"]:
+        locked["annualisation"] = "follows the trading frequency (rebalances a year)"
+    return locked
+
+
+def _param_fields(strategy):
+    from src.application.services.strategy.parameter_choices import field_tree
+    from src.domain.entities.strategy.configuration_schema import SECTIONS
+    locked = _locked(strategy)
+    return {name: field_tree(name, strategy.section(name), locked) for name in SECTIONS if name != "universe"}
+
+
+def _definition_choices(strategy):
+    from src.application.services.strategy.parameter_choices import BAR_FREQUENCIES, IBKR_BAR_SIZES, int_choices
+
+    def with_current(options, current):
+        options = list(options)
+        return options if current in (None, "") or current in options else [current] + options
+    return {"bar_frequency": with_current(BAR_FREQUENCIES, strategy.bar_frequency),
+            "bar_size": with_current(IBKR_BAR_SIZES, strategy.bar_size),
+            "prediction_horizon": int_choices(strategy.prediction_horizon),
+            "training_window": int_choices(strategy.training_window)}
+
+
+def _instruments_text(ticked):
+    """'CompanyShare:AAPL' boxes -> the universe text ('CompanyShare: AAPL, MSFT' per type)."""
+    by_type = {}
+    for item in ticked:
+        asset_type, _, symbol = item.partition(":")
+        if symbol:
+            by_type.setdefault(asset_type, []).append(symbol)
+    return "\n".join(f"{t}: {', '.join(symbols)}" for t, symbols in by_type.items())
 
 
 @strategies_bp.route("/new", methods=["GET", "POST"])
 def new():
+    """A draft from a project's defaults: a project with a web form (edited in its form), or any other backtest
+    project folder (e.g. stm_monthly_decile_project: edited in the strategy designer)."""
     s = services()
+    projects, folders = s.registry.capabilities(), s.registry.folder_capabilities()
     if request.method == "POST":
         try:
             c = s.configurations.create(request.form.get("name", ""), request.form.get("project_key", ""),
                                         description=request.form.get("description", ""))
         except (ValueError, KeyError) as e:
             flash(str(e), "danger")
-            return render_template("strategies/new.html", projects=s.registry.capabilities(), form=request.form), 400
+            return render_template("strategies/new.html", projects=projects, folders=folders, form=request.form), 400
         flash(f"Draft '{c.name}' created from the project's defaults (today's configuration).", "success")
-        return redirect(url_for("strategies.edit", configuration_id=c.id))
-    return render_template("strategies/new.html", projects=s.registry.capabilities(), form={})
+        target = "strategies.edit" if s.registry.has_form(c.strategy_type) else "strategies.design"
+        return redirect(url_for(target, configuration_id=c.id))
+    return render_template("strategies/new.html", projects=projects, folders=folders, form={})
 
 
 @strategies_bp.route("/<int:configuration_id>")
@@ -213,8 +282,7 @@ def edit(configuration_id: int):
     adapter = s.registry.get(c.strategy_type)
     issues = []
     if request.method == "POST":
-        form = {k: (request.form.getlist(k) if len(request.form.getlist(k)) > 1 or k.startswith("factors.exclude")
-                    else request.form.get(k)) for k in request.form}
+        form = _project_form(adapter.schema(), request.form)
         try:
             c, issues = s.configurations.update_from_form(configuration_id, form,
                                                           description=request.form.get("description"))
@@ -231,7 +299,63 @@ def edit(configuration_id: int):
         flash(f"Version {c.version} is {c.status}: it cannot change. Create a new version to edit.", "warning")
         return redirect(url_for("strategies.view", configuration_id=configuration_id))
     return render_template("strategies/edit.html", c=c, schema=adapter.schema(), capabilities=adapter.capabilities(),
-                           issues=issues)
+                           issues=issues, options=_project_options(adapter.schema(), c))
+
+
+def _project_form(schema, posted):
+    """The project form as update_from_form reads it: ticked list boxes joined back into the field's text form
+    (an empty hidden value keeps a list present when nothing is ticked)."""
+    kinds = {f"{s.name}.{f.name}": f.kind for s in schema.sections for f in s.fields}
+    form = {}
+    for key in posted:
+        values = [v for v in posted.getlist(key) if v != ""]
+        kind = kinds.get(key)
+        if kind == "int_list":
+            form[key] = ",".join(values)
+        elif kind == "int_pair_list":
+            form[key] = ";".join(values)
+        elif kind == "str_list":                    # ticked boxes, or one 'A, B' text value
+            form[key] = [x.strip() for v in values for x in v.replace("\n", ",").split(",") if x.strip()]
+        elif kind == "choice_list" or key.startswith("factors.exclude"):
+            form[key] = values
+        else:
+            form[key] = values[0] if len(values) == 1 else (values or posted.get(key))
+    return form
+
+
+def _project_options(schema, strategy):
+    """{section.field: [choices]} of the project form's numbers and lists (the current value always included)."""
+    from src.application.services.strategy.parameter_choices import (
+        HORIZONS, MACD_PAIRS, float_choices, int_choices,
+    )
+    out = {}
+    for section in schema.sections:
+        values = strategy.section(section.name)
+        for f in section.fields:
+            key = f"{section.name}.{f.name}"
+            v = values.get(f.name, f.default)
+
+            def bounded(options):
+                return [o for o in options if (f.minimum is None or o >= f.minimum)
+                        and (f.maximum is None or o <= f.maximum)]
+            if f.kind == "int":
+                out[key] = sorted(set(bounded(int_choices(v if isinstance(v, int) else None)))
+                                  | ({v} if isinstance(v, int) else set()))
+            elif f.kind == "float":
+                out[key] = sorted(set(bounded(float_choices(float(v) if v is not None else 0.0)))
+                                  | ({float(v)} if v is not None else set()))
+            elif f.kind == "int_list":
+                out[key] = sorted(set(bounded(HORIZONS)) | set(v or []))
+            elif f.kind == "int_pair_list":
+                pairs = [list(p) for p in MACD_PAIRS]
+                out[key] = pairs + [list(p) for p in (v or []) if list(p) not in pairs]
+            elif f.kind == "str_list":
+                try:
+                    stored = services().design.universes.stored_symbols("CompanyShare")
+                except Exception:
+                    stored = []
+                out[key] = sorted(set(stored) | set(v or []) | set(f.default or []))
+    return out
 
 
 @strategies_bp.route("/<int:configuration_id>/<action>", methods=["POST"])
@@ -311,6 +435,27 @@ def experiment(experiment_id: int):
     c = s.configurations.get(e.strategy_id)
     return render_template("strategies/experiment.html", e=e, c=c, log=s.experiments.log_tail(experiment_id),
                            artifacts=s.experiments.artifacts(experiment_id))
+
+
+@strategies_bp.route("/experiments/<int:experiment_id>/retry", methods=["POST"])
+def experiment_retry(experiment_id: int):
+    """A failed / interrupted experiment launched again (same strategy, window and capital) as a new experiment."""
+    from src.application.services.strategy.experiment_service import ExperimentConflict
+    from src.application.services.strategy.strategy_service import ConfigurationInvalid
+    s = services()
+    _experiment_or_404(experiment_id)
+    try:
+        e = s.experiments.retry(experiment_id)
+    except ConfigurationInvalid as e:
+        flash("Cannot retry: " + "; ".join(str(i) for i in e.issues), "danger")
+    except ExperimentConflict as e:
+        flash(str(e), "warning")
+    except (ValueError, LookupError) as e:
+        flash(str(e), "danger")
+    else:
+        flash(f"Experiment {experiment_id} retried as experiment {e.id} (worker process {e.pid}).", "success")
+        return redirect(url_for("strategies.experiment", experiment_id=e.id))
+    return redirect(url_for("strategies.experiment", experiment_id=experiment_id))
 
 
 @strategies_bp.route("/experiments/<int:experiment_id>/status")
