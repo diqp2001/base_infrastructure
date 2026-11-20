@@ -99,7 +99,7 @@ HUB_SECTIONS = [
         ("/powerbuffet/generate", "Generate factors", "Compute factor values for a universe and window"),
         ("/powerbuffet/research", "Factor research", "Explore factor values and pairs"),
         ("/factor-analysis/", "Factor analysis", "CAPM / Fama-French analysis of results"),
-        ("/factor-analysis/factor-returns", "Factor returns", "Factor return series"),
+        ("/factor-analysis/factor-returns", "Factor returns (JSON)", "The available factor return series"),
     ]),
     ("Data", "fa-database", [
         ("/powerbuffet", "Database explorer", "Browse tables, run SQL, visualise"),

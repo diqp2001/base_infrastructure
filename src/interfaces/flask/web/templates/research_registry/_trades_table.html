@@ -4,7 +4,7 @@
     {% for t in trades.rows %}<tr>
         <td class="small">{{ (t.time or '')[:19] }}</td>
         <td><a href="{{ url_for('research_registry.backtest_asset', portfolio_id=book.portfolio_id, symbol=t.symbol) }}">{{ t.symbol }}</a></td>
-        <td class="small" style="color:{{ '#3fb950' if t.side == 'BUY' else '#f85149' }}">{{ t.side }}</td>
+        <td class="small" style="color:{{ '#13795b' if t.side == 'BUY' else '#b42318' }}">{{ t.side }}</td>
         <td class="num">{{ '{:,.2f}'.format(t.filled) }}</td>
         <td class="num">{{ '{:,.2f}'.format(t.price) if t.price is not none else '—' }}</td>
         <td class="num">{{ '{:,.0f}'.format(t.notional) if t.notional is not none else '—' }}</td>

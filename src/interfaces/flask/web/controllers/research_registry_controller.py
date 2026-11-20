@@ -34,8 +34,8 @@ from src.interfaces.flask.api.controllers.research_controller import (
 research_registry_bp = Blueprint("research_registry", __name__, url_prefix="/research")
 research_registry_bp.teardown_app_request(close_research_services)
 
-# categorical palette, dark steps, fixed order (validated: docs dataviz palette) - never cycled past 8
-SERIES_COLORS = ("#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#0ca30c", "#9085e9", "#e66767")
+# categorical palette, light steps (the hub theme is light), fixed order (validated: docs dataviz palette) - never cycled past 8
+SERIES_COLORS = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948")
 SINGLE_COLOR = SERIES_COLORS[0]
 STATUSES = ("PENDING", "RUNNING", "COMPLETED", "PARTIAL", "FAILED", "CANCELLED")
 PERCENT_METRICS = {"cumulative_return", "total_return", "annualized_return", "annualized_volatility", "volatility",

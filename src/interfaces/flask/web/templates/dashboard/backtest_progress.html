@@ -8,16 +8,16 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
-            background-color: #0d1117;
-            color: #c9d1d9;
+            background-color: #f4f5f7;
+            color: #212529;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         .progress-container {
             max-height: 70vh;
             overflow-y: auto;
-            background: #161b22;
-            border: 1px solid #30363d;
+            background: #ffffff;
+            border: 1px solid #e6e8eb;
             border-radius: 8px;
             padding: 20px;
         }
@@ -26,34 +26,34 @@
             padding: 8px 12px;
             margin-bottom: 4px;
             border-left: 3px solid #6e7681;
-            background: #21262d;
+            background: #f8f9fb;
             border-radius: 4px;
             font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
             font-size: 0.9em;
         }
         
         .log-entry.info {
-            border-left-color: #58a6ff;
+            border-left-color: #1f5fb4;
             background: rgba(88, 166, 255, 0.1);
         }
         
         .log-entry.success {
-            border-left-color: #3fb950;
+            border-left-color: #13795b;
             background: rgba(63, 185, 80, 0.1);
         }
         
         .log-entry.error {
-            border-left-color: #f85149;
+            border-left-color: #b42318;
             background: rgba(248, 81, 73, 0.1);
         }
         
         .log-entry.warning {
-            border-left-color: #d29922;
+            border-left-color: #9a6700;
             background: rgba(210, 153, 34, 0.1);
         }
         
         .timestamp {
-            color: #7d8590;
+            color: #6c757d;
             font-size: 0.8em;
         }
         
@@ -66,16 +66,16 @@
         }
         
         .status-running {
-            background: #58a6ff;
+            background: #1f5fb4;
             animation: pulse 1s infinite;
         }
         
         .status-success {
-            background: #3fb950;
+            background: #13795b;
         }
         
         .status-error {
-            background: #f85149;
+            background: #b42318;
         }
         
         @keyframes pulse {
@@ -85,16 +85,16 @@
         }
         
         .header-section {
-            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            background: #23272f;
             border-radius: 8px;
             padding: 20px;
             margin-bottom: 20px;
-            border: 1px solid #30363d;
+            border: 1px solid #e6e8eb;
         }
         
         .stats-card {
-            background: #21262d;
-            border: 1px solid #30363d;
+            background: #f8f9fb;
+            border: 1px solid #e6e8eb;
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 15px;
@@ -111,13 +111,13 @@
         }
         
         .card {
-            background: #161b22;
-            border: 1px solid #30363d;
+            background: #ffffff;
+            border: 1px solid #e6e8eb;
         }
         
         .card-header {
-            background: #21262d;
-            border-bottom: 1px solid #30363d;
+            background: #f8f9fb;
+            border-bottom: 1px solid #e6e8eb;
         }
         
         #connection-status {
@@ -132,16 +132,17 @@
         
         .connected {
             background: rgba(63, 185, 80, 0.2);
-            border: 1px solid #3fb950;
-            color: #3fb950;
+            border: 1px solid #13795b;
+            color: #13795b;
         }
         
         .disconnected {
             background: rgba(248, 81, 73, 0.2);
-            border: 1px solid #f85149;
-            color: #f85149;
+            border: 1px solid #b42318;
+            color: #b42318;
         }
     </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
 </head>
 <body>
     <div id="connection-status" class="disconnected">
@@ -215,7 +216,7 @@
                         </div>
                     </div>
                     <div class="card-body">
-                        <div id="chart-container" style="height: 400px; display: flex; align-items: center; justify-content: center; color: #7d8590;">
+                        <div id="chart-container" style="height: 400px; display: flex; align-items: center; justify-content: center; color: #6c757d;">
                             <div class="text-center">
                                 <i class="fas fa-chart-line fa-3x mb-3"></i>
                                 <p>Charts will appear here during backtest execution</p>
@@ -900,7 +901,7 @@
             const latest = chartData.portfolioValues[chartData.portfolioValues.length - 1];
             const initial = chartData.portfolioValues[0];
             const change = ((latest - initial) / initial * 100).toFixed(2);
-            const changeColor = change >= 0 ? '#3fb950' : '#f85149';
+            const changeColor = change >= 0 ? '#13795b' : '#b42318';
             
             return `
                 <div class="text-center">

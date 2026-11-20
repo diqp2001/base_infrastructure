@@ -22,8 +22,7 @@ PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="refresh" content="30"><title>STM monthly deciles</title>
 <style>
-:root{--bg:#fff;--fg:#1d1d1f;--mut:#6b6b70;--line:#e3e3e6;--card:#f6f6f8;--a:#5b6ee1;--pos:#2e7d32;--neg:#c62828}
-@media (prefers-color-scheme:dark){:root{--bg:#141416;--fg:#ececef;--mut:#9a9aa2;--line:#2b2b30;--card:#1c1c20;--pos:#66bb6a;--neg:#ef5350}}
+:root{--bg:#f4f5f7;--fg:#212529;--mut:#6c757d;--line:#e6e8eb;--card:#ffffff;--a:#2a78d6;--pos:#13795b;--neg:#b42318}
 body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 main{max-width:1100px;margin:0 auto;padding:16px}
 h1{font-size:20px;margin:0 0 4px} h2{font-size:16px;margin:20px 0 8px} .mut{color:var(--mut)}
@@ -39,7 +38,7 @@ th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white
 th:first-child,td:first-child{text-align:left} th{color:var(--mut);font-weight:600}
 .pos{color:var(--pos)}.neg{color:var(--neg)} img{max-width:100%;border:1px solid var(--line);border-radius:10px;background:#fff}
 pre{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;overflow-x:auto;font-size:12px;white-space:pre-wrap}
-</style></head><body><main>
+.hub-bar{background:#23272f;padding:10px 16px}.hub-bar a{color:#fff;text-decoration:none;font-weight:600}</style></head><body><div class="hub-bar"><a href="/dashboard">Trading Hub</a></div><main>
 <h1>STM monthly deciles on the Dow: model A (prices) vs B (+ Eulerpool fundamentals)</h1>
 <div class="mut">Monthly retrained STM ranks the point-in-time members into D1..D10; the engine trades D10 &minus; D1.
 Refreshes every 30 s.</div>

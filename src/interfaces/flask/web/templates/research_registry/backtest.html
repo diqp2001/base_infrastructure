@@ -31,7 +31,7 @@
     <div class="card mt-3"><div class="card-header">Monthly returns</div>
         <div style="max-height:260px;overflow:auto"><table class="table table-sm mb-0"><tbody>
         {% for m in perf.monthly|reverse %}<tr><td class="small">{{ m.month }}</td>
-            <td class="num" style="color:{{ '#3fb950' if m['return'] >= 0 else '#f85149' }}">{{ '{:+.2f}%'.format(m['return'] * 100) }}</td></tr>
+            <td class="num" style="color:{{ '#13795b' if m['return'] >= 0 else '#b42318' }}">{{ '{:+.2f}%'.format(m['return'] * 100) }}</td></tr>
         {% else %}<tr><td class="muted">—</td></tr>{% endfor %}
         </tbody></table></div></div>
 </div>
@@ -75,7 +75,7 @@
         <tbody>
         {% for h in holdings.history %}<tr>
             <td><a href="{{ url_for('research_registry.backtest_asset', portfolio_id=book.portfolio_id, symbol=h.symbol) }}">{{ h.symbol }}</a></td>
-            {% for q in h.cells %}<td class="num small" style="{% if q > 0 %}color:#3fb950{% elif q < 0 %}color:#f85149{% else %}color:var(--muted, #8b949e){% endif %}">{{ '{:,.0f}'.format(q) if q else '·' }}</td>{% endfor %}
+            {% for q in h.cells %}<td class="num small" style="{% if q > 0 %}color:#13795b{% elif q < 0 %}color:#b42318{% else %}color:var(--muted, #6c757d){% endif %}">{{ '{:,.0f}'.format(q) if q else '·' }}</td>{% endfor %}
         </tr>{% endfor %}
         </tbody></table></div></div>
 {% endif %}

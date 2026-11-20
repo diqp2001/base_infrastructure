@@ -1,7 +1,8 @@
 /* Read-only monitoring dashboard - mobile first, no external resources. */
 :root {
-  --bg: #f4f6f9; --panel: #ffffff; --text: #1d2430; --muted: #5d6878; --border: #dde3ea;
-  --accent: #2f5fd0;
+  --bg: #f4f5f7; --panel: #ffffff; --text: #212529; --muted: #6c757d; --border: #e6e8eb;
+  --accent: #1f5fb4;
+  --nav: #23272f; --nav-text: #c5cad3; --nav-muted: #8b93a1; --nav-hover: #343a46;   /* the hub's colours */
   --healthy: #1f8a4c; --healthy-bg: #e3f4ea;
   --degraded: #a86800; --degraded-bg: #fff1d6;
   --disconnected: #b4232a; --disconnected-bg: #fde4e5;
@@ -10,25 +11,18 @@
   --stale: #7a4fb8; --stale-bg: #efe6fb;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #11151c; --panel: #1a2029; --text: #e4e9f0; --muted: #98a3b3; --border: #2b3340; --accent: #7aa2ff;
-    --healthy: #5fd38d; --healthy-bg: #173526; --degraded: #ffbe55; --degraded-bg: #3b2d12;
-    --disconnected: #ff7b81; --disconnected-bg: #401a1d; --error: #ff7b81; --error-bg: #401a1d;
-    --unknown: #98a3b3; --unknown-bg: #262d38; --stale: #c3a1ff; --stale-bg: #2e2342;
-  }
-}
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-header.top { position: sticky; top: 0; z-index: 10; background: var(--panel); border-bottom: 1px solid var(--border); }
+header.top { position: sticky; top: 0; z-index: 10; background: var(--nav); color: #ffffff; }
 .top-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 8px; padding: 10px 16px; max-width: 1280px; margin: 0 auto; }
 .brand { font-weight: 650; font-size: 16px; min-width: 0; overflow-wrap: anywhere; }
-.brand small { color: var(--muted); font-weight: 400; margin-left: 6px; }
-.ro-badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.brand small { color: var(--nav-muted); font-weight: 400; margin-left: 6px; }
+.ro-badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--nav-hover); color: var(--nav-text); white-space: nowrap; }
 nav.tabs { display: flex; gap: 4px; overflow-x: auto; padding: 0 12px 8px; max-width: 1280px; margin: 0 auto; scrollbar-width: none; }
-nav.tabs a { flex: 0 0 auto; padding: 6px 12px; border-radius: 8px; color: var(--muted); text-decoration: none; font-size: 14px; }
-nav.tabs a.active { background: var(--bg); color: var(--text); font-weight: 600; }
+nav.tabs a { flex: 0 0 auto; padding: 6px 12px; border-radius: 8px; color: var(--nav-text); text-decoration: none; font-size: 14px; }
+nav.tabs a:hover { color: #ffffff; background: var(--nav-hover); }
+nav.tabs a.active { background: var(--nav-hover); color: #ffffff; font-weight: 600; }
 main { max-width: 1280px; margin: 0 auto; padding: 16px; min-width: 0; }
 .panel .panel { padding: 12px; }
 h1 { font-size: 20px; margin: 4px 0 12px; }

@@ -17,7 +17,8 @@ SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 
 def create_app(services_factory=None) -> Flask:
     here = os.path.dirname(os.path.abspath(__file__))
-    app = Flask(__name__, template_folder=os.path.join(here, "web", "templates"), static_folder=None)
+    app = Flask(__name__, template_folder=os.path.join(here, "web", "templates"),
+                static_folder=os.path.join(here, "web", "static"))      # the shared theme (css/theme.css)
     if services_factory is not None:
         app.config["RESEARCH_SERVICES_FACTORY"] = services_factory
 
