@@ -12,6 +12,7 @@ from src.application.managers.project_managers.stm_monthly_decile_project.backte
 from src.application.managers.project_managers.stm_monthly_decile_project.models.model_trainer import (
     DecileModelTrainer,
 )
+from src.application.managers.project_managers.stm_monthly_decile_project.config import rebalance_labels
 from src.application.services.misbuffet.engine.base_backtest_runner import BaseBacktestRunner
 
 logger = logging.getLogger(__name__)
@@ -59,5 +60,5 @@ class BacktestRunner(BaseBacktestRunner):
                 "fundamental_scaling": config["deciles"].get("fundamental_scaling"),
                 "variants": ["A", "B"] if config["deciles"].get("use_eulerpool_fundamentals") else ["A"],
                 "traded_variant": config["deciles"].get("traded_variant"),
-                "rebalance": "monthly", "holding_period": "1 month", "retraining": "monthly"},
+                **{k: v for k, v in rebalance_labels(config).items() if k != "token"}},
         }

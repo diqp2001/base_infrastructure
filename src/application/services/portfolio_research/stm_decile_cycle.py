@@ -3,12 +3,14 @@ STMDecileTradingCycle - monthly cross-sectional deciles of the spatio-temporal m
 at a time (the decile counterpart of STMTradingCycle). The Misbuffet algorithm calls ``step(t)`` every bar and sends
 the returned weights to set_holdings.
 
-Monthly bars: the model's rows are MONTH-END closes (the last trading day of each month), its target the next
-month's return (STMConfiguration.prediction_horizon = 1 row = 1 month) - the existing STM target, configured.
+Period bars: the model's rows are PERIOD-END closes - by default the month end (the last trading day of each month),
+its target the next period's return (STMConfiguration.prediction_horizon = 1 row = 1 period) - the existing STM
+target, configured. ``period`` is a pandas period alias ('D' every trading day, 'W' weeks, 'M' months) and
+``every`` the number of periods between two rebalances (default: every month, as before).
 
 At a step, with the daily closes KNOWN at t only (KnownClosesReader: a close dated D is known from D+1 00:00):
-  when t's calendar month is later than the last rebalance's, every close of the previous month is known and its
-  last trading day T is the rebalance:
+  when a period has completed since the last rebalance (``every`` periods), every close of the latest completed
+  period is known and its last trading day T is the rebalance:
     1. the open month of every variant is settled: member returns from the previous T's close to this T's close;
     2. the members in force at T (membership.members_at) and their month-end close panel up to T;
     3. each model VARIANT (e.g. 'A' price features, 'B' + fundamentals) retrains / scores the members
@@ -32,13 +34,22 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
 from src.application.services.portfolio_research.decile_portfolios import DecileConfig, DecilePeriod, DecileResearch
 
 
-def month_end_panel(daily: pd.DataFrame, through: pd.Timestamp) -> pd.DataFrame:
-    """The close of each month's last trading day (rows: those dates), closes dated <= ``through`` only."""
+PERIODS = {"days": "D", "weeks": "W", "months": "M"}           # Frequency unit -> pandas period alias
+PERIODS_PER_YEAR = {"D": 252, "W": 52, "M": 12}
+
+
+def period_end_panel(daily: pd.DataFrame, through: pd.Timestamp, period: str = "M") -> pd.DataFrame:
+    """The close of each period's last trading day (rows: those dates), closes dated <= ``through`` only."""
     d = daily.loc[:through].dropna(how="all")
     if d.empty:
         return d
-    last_days = d.index.to_series().groupby(d.index.to_period("M")).max()
+    last_days = d.index.to_series().groupby(d.index.to_period(period)).max()
     return d.loc[pd.DatetimeIndex(last_days.values)]
+
+
+def month_end_panel(daily: pd.DataFrame, through: pd.Timestamp) -> pd.DataFrame:
+    """The close of each month's last trading day (rows: those dates), closes dated <= ``through`` only."""
+    return period_end_panel(daily, through, "M")
 
 
 @dataclass
@@ -68,9 +79,15 @@ class STMDecileTradingCycle:
 
     def __init__(self, membership, reader, variants: Mapping[str, STMConstituentScorer],
                  decile_config: DecileConfig, start: date, end: date, traded: str,
-                 long_short_gross: float = 1.0, log: Optional[Callable[[str], None]] = None):
+                 long_short_gross: float = 1.0, log: Optional[Callable[[str], None]] = None,
+                 period: str = "M", every: int = 1):
         if traded not in variants:
             raise ValueError(f"the traded variant {traded!r} is not one of {list(variants)}")
+        if period not in PERIODS_PER_YEAR:
+            raise ValueError(f"period must be one of {sorted(PERIODS_PER_YEAR)}, got {period!r}")
+        if int(every) < 1:
+            raise ValueError(f"every must be >= 1 period, got {every!r}")
+        self.period, self.every = period, int(every)
         self.membership = membership
         self.reader = reader
         self.variants = dict(variants)
@@ -93,14 +110,18 @@ class STMDecileTradingCycle:
         if daily.empty:
             result.note = "no close known yet"
             return result
-        previous_month = (now.to_period("M") - 1)
-        in_month = daily.index[daily.index.to_period("M") == previous_month]
-        if len(in_month) == 0:
-            result.note = "no close of the previous month known"
+        # the latest COMPLETED period (before now's period) with a known close; T = its last trading day
+        completed = daily.index[daily.index.to_period(self.period) < now.to_period(self.period)]
+        if len(completed) == 0:
+            result.note = "no close of a completed period known"
             return result
-        T = in_month.max()
+        T = completed.max()
         if self._last is not None and T <= self._last:
-            result.note = "rebalanced already this month"
+            result.note = "rebalanced already this period"
+            return result
+        if (self._last is not None
+                and T.to_period(self.period).ordinal - self._last.to_period(self.period).ordinal < self.every):
+            result.note = f"next rebalance after {self.every} periods"
             return result
         if not (self.start <= T.date() <= self.end):
             result.note = f"{T.date()} outside the backtest window"
@@ -109,9 +130,9 @@ class STMDecileTradingCycle:
         self._last = T
         result.rebalance = T
         members = self.membership.members_at(T.date())
-        panel = month_end_panel(daily[[s for s in members if s in daily.columns]], T)
+        panel = period_end_panel(daily[[s for s in members if s in daily.columns]], T, self.period)
         if T not in panel.index:
-            result.note = f"{T.date()}: no month-end close panel"
+            result.note = f"{T.date()}: no period-end close panel"
             return result
         for name, scorer in self.variants.items():
             scores = scorer.score(panel, members, T)

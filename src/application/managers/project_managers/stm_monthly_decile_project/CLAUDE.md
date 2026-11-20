@@ -20,6 +20,23 @@ lower ones over the next month, and do Eulerpool fundamentals widen the D10 − 
 - **Model A** uses the price features. **Model B** adds Eulerpool point-in-time fundamentals
   (`deciles.use_eulerpool_fundamentals`). Both use the same members, dates, target, deciles and weighting.
 
+## Rebalance period (since 2026-11-20, owner's request)
+
+Monthly is the project's design and default. `deciles.rebalance_every` can also be every N trading days, weeks or
+months (`'5d'`, `'1w'`, `'2w'`, `'3mo'`); the strategy designer's Trading frequency sets it.
+
+- One model row is one period-end close (`period_end_panel(daily, T, 'D' | 'W' | 'M')`). The cycle rebalances at
+  the last trading day of the latest completed period, every N periods.
+- `stm.features.annualisation` and the decile statistics' `periods_per_year` follow the period: 252, 52 or 12,
+  divided by N (`config.periods_per_year`).
+- `retrain_every_rebalances` counts rebalances. The designer's Training frequency converts to it, counting a week
+  as 5 trading days and a month as 21.
+- The other row counts keep their numbers but now mean periods: `return_horizons`, `lookback`,
+  `rolling_window_rows`, `prediction_horizon` and the MACD windows. Weekly with the monthly defaults is
+  1/3/6/12-week horizons and a 120-week training window. Set them for the period you choose.
+- A non-monthly run registers its models as `stm_decile_<token>_<variant>`; monthly keeps `stm_monthly_decile_*`.
+- The report still says "month" in its labels (best / worst month): read it as "period".
+
 ## Flow (inside the Misbuffet engine, one daily bar at a time)
 
 ```

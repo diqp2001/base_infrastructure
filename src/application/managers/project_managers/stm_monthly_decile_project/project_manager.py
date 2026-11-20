@@ -53,7 +53,8 @@ class STMMonthlyDecileProjectManager(ProjectManager):
         status = decile_status(self.results_dir, "backtest",
                                on_month=lambda cycle: (write_report(cycle, folder, settings), self._publish(cycle)))
         start, end = project_config.backtest_window(self.config)
-        months_total = (end.year - start.year) * 12 + end.month - start.month   # rebalances: one per month after the first
+        # rebalances planned (one per rebalance period after the first; 'months_*' keys kept for the progress page)
+        months_total = max(1, int(round((end - start).days / 365.25 * project_config.periods_per_year(self.config))))
         status.update(run_folder=folder, start=str(start), end=str(end), months_total=months_total,
                       variants=project_config.variants(self.config),
                       message="Misbuffet backtest (monthly deciles)")
@@ -114,17 +115,21 @@ class STMMonthlyDecileProjectManager(ProjectManager):
             price_features = list(stm.features.feature_names())
             for variant in project_config.variants(self.config):
                 features = price_features + (list(section["fundamentals"]) if variant == "B" else [])
+                labels = project_config.rebalance_labels(self.config)
+                bars = "monthly" if labels["token"] == "1mo" else labels["holding_period"]
                 model = models.register_model(
-                    f"stm_monthly_decile_{variant}", algorithm=stm.model.model_type,
-                    description=("STM model on monthly bars, price features" if variant == "A" else
-                                 "STM model on monthly bars, price features + Eulerpool point-in-time fundamentals "
+                    f"stm_monthly_decile_{variant}" if labels["token"] == "1mo"
+                    else f"stm_decile_{labels['token']}_{variant}", algorithm=stm.model.model_type,
+                    description=(f"STM model on {bars} bars, price features" if variant == "A" else
+                                 f"STM model on {bars} bars, price features + Eulerpool point-in-time fundamentals "
                                  f"({section.get('fundamental_scaling', 'sector_neutral')})"),
                     configuration={"features": features, "hyperparameters": dict(stm.model.params or {}),
                                    "lookback": stm.model.lookback,
                                    "training": {"rolling_window_rows": stm.training.rolling_window_rows,
                                                 "val_days": stm.training.val_days,
                                                 "n_epochs": stm.training.n_epochs},
-                                   "training_frequency": "monthly", "prediction_frequency": "monthly",
+                                   "training_frequency": labels["retraining"],
+                                   "prediction_frequency": labels["rebalance"],
                                    "prediction_horizon": stm.prediction_horizon,
                                    "version": str(self.config.get("version", "1"))})
                 role = f"{variant} (traded)" if variant == section.get("traded_variant") else variant

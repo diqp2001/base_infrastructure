@@ -27,6 +27,7 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
     STMUniverseConfig,
 )
 from src.application.services.portfolio_research.decile_portfolios import DecileConfig
+from src.application.services.portfolio_research.stm_decile_cycle import PERIODS, PERIODS_PER_YEAR
 from src.application.services.universe.djia_membership import BASE_MEMBERS, CHANGES, build_membership
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.finance.holding.portfolio_holding import PortfolioHolding
@@ -85,7 +86,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         'transaction_cost_bps': 5.0,          # research net returns: traded notional x bps (gross reported too)
         'long_short_gross': 1.0,              # engine book: +0.5 over D10, -0.5 over D1
         'traded_variant': 'A',
-        'retrain_every_rebalances': 1,        # monthly
+        # how often the deciles are re-formed: 'Nd' trading days, 'Nw' weeks, 'Nmo' months (one model row = one
+        # period-end close; the annualisation follows the period). Default: every month (the project's design).
+        'rebalance_every': '1mo',
+        'retrain_every_rebalances': 1,        # retrain at every rebalance
         'use_eulerpool_fundamentals': True,   # also run model B (needs the Eulerpool key)
         'fundamentals': FUNDAMENTAL_FEATURES,
         # model B's fundamentals: z-scored within each GICS sector (djia_membership.SECTORS; a name alone in its
@@ -150,18 +154,47 @@ def backtest_window(config: Optional[Dict[str, Any]] = None):
     return (date.fromisoformat(str(config['backtest_start'])[:10]), date.fromisoformat(str(config['backtest_end'])[:10]))
 
 
+def rebalance_schedule(config: Optional[Dict[str, Any]] = None):
+    """(pandas period alias, every N periods) of deciles.rebalance_every ('1mo' when the config has none)."""
+    from src.domain.entities.strategy.frequency import Frequency
+    token = (config or DEFAULT_CONFIG)['deciles'].get('rebalance_every') or '1mo'
+    frequency = Frequency.parse(token)
+    if frequency is None or frequency.unit not in PERIODS:
+        raise ValueError(f"deciles.rebalance_every must be days, weeks or months ('5d', '1w', '1mo'), got {token!r}")
+    return PERIODS[frequency.unit], frequency.count
+
+
+def rebalance_labels(config: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+    """How often the deciles are re-formed and the model retrained, in words ('every month', 'every 2 weeks')."""
+    from src.domain.entities.strategy.frequency import Frequency
+    d = (config or DEFAULT_CONFIG)['deciles']
+    rebalance = Frequency.parse(d.get('rebalance_every') or '1mo')
+    n = int(d.get('retrain_every_rebalances') or 1)
+    retrain = Frequency(rebalance.unit, rebalance.count * n)
+    return {'rebalance': rebalance.label, 'holding_period': rebalance.label.replace('every ', ''),
+            'retraining': retrain.label, 'token': rebalance.token}
+
+
+def periods_per_year(config: Optional[Dict[str, Any]] = None) -> float:
+    """Rebalances a year: 12 monthly, 52 weekly, 252 daily, divided by the count (every 2 weeks -> 26)."""
+    period, every = rebalance_schedule(config)
+    return PERIODS_PER_YEAR[period] / every
+
+
 def build_decile_config(config: Optional[Dict[str, Any]] = None) -> DecileConfig:
     d = (config or DEFAULT_CONFIG)['deciles']
     return DecileConfig(n_deciles=d['n_deciles'], weighting=d['weighting'],
-                        transaction_cost_bps=d['transaction_cost_bps'], periods_per_year=MONTHS_PER_YEAR)
+                        transaction_cost_bps=d['transaction_cost_bps'], periods_per_year=periods_per_year(config))
 
 
 def build_stm_configuration(config: Optional[Dict[str, Any]] = None) -> STMConfiguration:
     """The project config as the reusable STMConfiguration (rows = months; in-memory model, nothing persisted)."""
     stm = (config or DEFAULT_CONFIG)['stm']
+    # one row = one rebalance period: the features annualise with the rebalances a year (12 when monthly)
+    features = {**stm['features'], 'annualisation': max(1, round(periods_per_year(config)))}
     return STMConfiguration(
         universe=STMUniverseConfig(**stm['universe']),
-        features=STMFeatureConfig(**stm['features']),
+        features=STMFeatureConfig(**features),
         model=STMModelConfig(**stm['model']),
         training=STMTrainingConfig(**stm['training']),
         prediction_horizon=stm['prediction_horizon'],

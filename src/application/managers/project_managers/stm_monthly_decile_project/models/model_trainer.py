@@ -140,7 +140,9 @@ class DecileModelTrainer(BaseModelTrainer):
                                    fallback=self.file_prices(), fallback_symbols=fallback_symbols)
         start, end = project_config.backtest_window(self.config)
         section = self.config["deciles"]
+        period, every = project_config.rebalance_schedule(self.config)
         return STMDecileTradingCycle(
             membership=membership, reader=reader, variants=self.scorers(factory, log),
             decile_config=project_config.build_decile_config(self.config), start=start, end=end,
-            traded=section["traded_variant"], long_short_gross=section["long_short_gross"], log=log)
+            traded=section["traded_variant"], long_short_gross=section["long_short_gross"], log=log,
+            period=period, every=every)
