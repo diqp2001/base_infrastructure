@@ -6,7 +6,7 @@
         <h3 class="mb-1">Experiment #{{ e.id }} <span id="status" class="badge badge-{{ e.status }}">{{ e.status }}</span>
             <small class="muted">{{ e.kind }}</small></h3>
         <div class="muted small">Strategy <a href="{{ url_for('strategies.view', configuration_id=c.id) }}">{{ c.name }} v{{ c.version }}</a>
-            · {{ e.strategy_type }} · hash {{ e.strategy_hash[:12] }} · worker {{ e.pid or '—' }} on {{ e.host or '—' }}</div>
+            · {{ e.strategy_type }}{% if e.backtest_start %} · <b>{{ e.backtest_start.date() }} .. {{ e.backtest_end.date() }}</b>, capital {{ '{:,.0f}'.format(e.initial_capital) }}{% endif %} · hash {{ e.strategy_hash[:12] }} · worker {{ e.pid or '—' }} on {{ e.host or '—' }}</div>
         <div class="muted small">created {{ e.created_at }} · started {{ e.started_at or '—' }} · last heartbeat
             <span id="heartbeat">{{ e.heartbeat_at or '—' }}</span> · finished <span id="finished">{{ e.finished_at or '—' }}</span></div>
     </div>

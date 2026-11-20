@@ -84,6 +84,9 @@ class StrategyExperimentModel(Base):
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
     heartbeat_at = Column(DateTime, nullable=True)
+    backtest_start = Column(DateTime, nullable=True)            # the window of this backtest (dates)
+    backtest_end = Column(DateTime, nullable=True)
+    initial_capital = Column(Float, nullable=True)
     error = Column(Text, nullable=True)
     provenance = Column(Text, nullable=True)                   # JSON: artifacts, universe snapshot, data coverage
     summary = Column(Text, nullable=True)                      # JSON: headline metrics of the report

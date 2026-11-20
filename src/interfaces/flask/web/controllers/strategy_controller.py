@@ -192,7 +192,9 @@ def view(configuration_id: int):
         label=f"project {c.strategy_type} (applied onto the project's own config)", unsupported=[])
     return render_template("strategies/view.html", issues=issues, has_schema=has_form,
                            schema=adapter.schema() if has_form else _stored_schema(c),
-                           launchable=getattr(adapter, "launchable", True), capabilities=capabilities, **common)
+                           launchable=getattr(adapter, "launchable", True), capabilities=capabilities,
+                           window_default=s.experiments.default_window(c.id) if c.status in ("validated", "locked")
+                           else None, **common)
 
 
 def _stored_schema(c):
@@ -259,7 +261,11 @@ def act(configuration_id: int, action: str):
             if request.form.get("confirm") != "yes":
                 flash("Tick the confirmation to launch the backtest.", "warning")
                 return redirect(url_for("strategies.view", configuration_id=configuration_id))
-            e = s.experiments.launch(configuration_id)
+            from src.application.services.strategy.backtest_window import BacktestWindow
+            window = (BacktestWindow.parse(request.form.get("backtest_start"), request.form.get("backtest_end"),
+                                           request.form.get("initial_capital"))
+                      if request.form.get("backtest_start") else None)
+            e = s.experiments.launch(configuration_id, window=window)
             flash(f"Experiment {e.id} launched (worker process {e.pid}).", "success")
             return redirect(url_for("strategies.experiment", experiment_id=e.id))
         else:

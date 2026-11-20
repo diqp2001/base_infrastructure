@@ -69,7 +69,7 @@
     </div>
     <div class="card-body p-0">
         <table class="table mb-0">
-            <thead><tr><th></th><th>#</th><th>Configuration</th><th>Kind</th><th>Status</th><th>Sharpe</th><th>Started</th><th>Finished</th></tr></thead>
+            <thead><tr><th></th><th>#</th><th>Configuration</th><th>Kind</th><th>Window</th><th>Capital</th><th>Status</th><th>Sharpe</th><th>Started</th><th>Finished</th></tr></thead>
             <tbody>
             {% for e in experiments %}
                 <tr>
@@ -77,13 +77,15 @@
                     <td><a href="{{ url_for('strategies.experiment', experiment_id=e.id) }}">{{ e.id }}</a></td>
                     <td>{{ names.get(e.strategy_id, e.strategy_id) }}</td>
                     <td>{{ e.kind }}</td>
+                    <td class="small">{% if e.backtest_start %}{{ e.backtest_start.date() }} .. {{ e.backtest_end.date() }}{% else %}<span class="muted">strategy dates</span>{% endif %}</td>
+                    <td class="small">{{ '{:,.0f}'.format(e.initial_capital) if e.initial_capital else '' }}</td>
                     <td><span class="badge badge-{{ e.status }}">{{ e.status }}</span></td>
                     <td>{% if e.summary.metrics and e.summary.metrics.Sharpe is not none %}{{ '%.2f'|format(e.summary.metrics.Sharpe) }}{% endif %}</td>
                     <td class="muted small">{{ e.started_at or '' }}</td>
                     <td class="muted small">{{ e.finished_at or '' }}</td>
                 </tr>
             {% else %}
-                <tr><td colspan="8" class="muted">No experiment yet.</td></tr>
+                <tr><td colspan="10" class="muted">No experiment yet.</td></tr>
             {% endfor %}
             </tbody>
         </table>

@@ -63,7 +63,8 @@ StrategyConfigurationMapper = StrategyMapper      # former name
 class StrategyExperimentMapper:
 
     FIELDS = ("strategy_id", "strategy_hash", "strategy_type", "kind", "status", "results_dir", "log_path",
-              "pid", "host", "created_at", "started_at", "finished_at", "heartbeat_at", "error")
+              "pid", "host", "created_at", "started_at", "finished_at", "heartbeat_at", "error",
+              "backtest_start", "backtest_end", "initial_capital")
 
     @staticmethod
     def to_domain(orm: Optional[StrategyExperimentModel]) -> Optional[StrategyExperiment]:

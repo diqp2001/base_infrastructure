@@ -192,6 +192,26 @@ Launchable projects are those whose manager takes `config` and `database_service
 and the screener (`NOT_LAUNCHABLE`): cross_sectional (+10m), etf_dispersion_stm, SPX v2, stm (+10m, 10m_hourly,
 full) and stm_monthly_deciles.
 
+### The backtest window: one strategy, many backtests
+
+A backtest (`strategy_experiments`) has exactly one strategy (`strategy_id` + the strategy's hash at launch), and a
+strategy can have many backtests. Each backtest has its own window: `backtest_start`, `backtest_end` and
+`initial_capital`, columns of `strategy_experiments` (`backtest_window.py`).
+
+- **Choosing it.** "Launch backtest" asks for start, end and capital, pre-filled with the strategy's own dates.
+  `ExperimentService.launch(id, window=BacktestWindow(...))` stores the window. Without one, the strategy's dates
+  apply.
+- **Applying it.** The worker applies the window over the project's config (`apply_window`):
+  - the dates keep the project's time of day (16:00 for daily projects, 09:40 for intraday ones);
+  - the capital also becomes the Portfolio's initial cash;
+  - `price_history_start` keeps the project's lead before the start, moved earlier when the window starts earlier
+    and never later than the project's own.
+- **Form strategies.** Projects with a web form also check their history needs against the window at launch.
+- **The strategy's own dates.** A strategy's dates (project config, or the `evaluation` section of a form strategy)
+  are only the form's default. A new window does not create a new strategy version.
+- **Older backtests.** Backtests recorded before windows existed keep NULL: they ran over their strategy's dates.
+- **Comparison.** It reads each backtest's period and capital and flags different periods.
+
 ### Models (`model_catalog.py`)
 
 | project | models offered |

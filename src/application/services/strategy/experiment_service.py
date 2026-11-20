@@ -143,10 +143,14 @@ class ExperimentService:
             e = self.get(experiment_id)
             c = self.configurations.get(e.strategy_id)
             ev, universe = c.section("evaluation"), c.section("universe")
+            from src.application.services.strategy.backtest_window import window_of
+            window = window_of(e)                       # the backtest's own window (older ones: the strategy's)
+            period = window.label() if window else f"{ev.get('backtest_start')} .. {ev.get('backtest_end')}"
+            capital = window.initial_capital if window else ev.get("initial_capital")
             rows.append({
                 "experiment": e.id, "status": e.status, "configuration": f"{c.name} v{c.version}",
-                "project": c.strategy_type, "period": f"{ev.get('backtest_start')} .. {ev.get('backtest_end')}",
-                "universe": universe.get("name"), "capital": ev.get("initial_capital"),
+                "project": c.strategy_type, "period": period,
+                "universe": universe.get("name") or universe.get("instruments"), "capital": capital,
                 "decisions": e.summary.get("decisions"), "metrics": e.summary.get("metrics", {}),
                 "benchmarks": e.summary.get("benchmarks", {}), "sections": c.sections,
             })
@@ -187,7 +191,36 @@ class ExperimentService:
             interrupted.append(self.repository.update(e))
         return interrupted
 
-    def launch(self, configuration_id: int, kind: str = BACKTEST) -> StrategyExperiment:
+    def default_window(self, configuration_id: int):
+        """The strategy's own dates and capital (the launch form's default); None when its config cannot be built."""
+        from src.application.services.strategy.backtest_window import default_window
+        try:
+            return default_window(self.configurations.native_config(self.configurations.get(configuration_id)))
+        except Exception:
+            return None
+
+    def _check_window(self, strategy, window) -> None:
+        """A project with a form checks its history needs on the window (price history before the start)."""
+        from src.application.services.strategy.backtest_window import history_start
+        adapter = self.configurations.registry.get(strategy.strategy_type)
+        sections = strategy.sections
+        if hasattr(adapter, "native_config_for") or "evaluation" not in sections:
+            return
+        native = self.configurations.native_config(strategy)
+        sections["evaluation"] = {**sections["evaluation"],
+                                  "backtest_start": f"{window.start} {str(native['backtest_start'])[11:19] or '16:00:00'}",
+                                  "backtest_end": f"{window.end} {str(native['backtest_end'])[11:19] or '16:00:00'}",
+                                  "price_history_start": history_start(native, window),
+                                  "initial_capital": float(window.initial_capital)}
+        _, issues = adapter.validate(sections)
+        errors = [i for i in issues if i.severity == "error"]
+        if errors:
+            from src.application.services.strategy.strategy_service import ConfigurationInvalid
+            raise ConfigurationInvalid(errors)
+
+    def launch(self, configuration_id: int, kind: str = BACKTEST, window=None) -> StrategyExperiment:
+        """A backtest of the strategy over ``window`` (BacktestWindow: start, end, starting capital; default: the
+        strategy's own dates). A strategy can be backtested over many windows."""
         if kind != BACKTEST:
             raise ValueError(f"only backtests can be launched from the strategy interface (not '{kind}')")
         strategy = self.configurations.get(configuration_id)
@@ -201,10 +234,19 @@ class ExperimentService:
             raise ExperimentConflict(f"experiment {running[0].id} is {running[0].status}: one run at a time "
                                      f"(shared IBKR client)")
         configuration = self.configurations.lock(configuration_id)          # validates; raises when invalid
+        window = window or self.default_window(configuration_id)
+        if window is None:
+            raise ValueError("no backtest window: give a start, an end and a starting capital")
+        self._check_window(configuration, window)
+        from src.application.services.strategy.backtest_window import as_datetime
         experiment = self.repository.add(StrategyExperiment(
             strategy_id=configuration.id, strategy_hash=configuration.content_hash,
             strategy_type=configuration.strategy_type, kind=kind, status=QUEUED, created_at=self.clock(), host=self.host,
-            provenance={"configuration": {"name": configuration.name, "version": configuration.version}}))
+            backtest_start=as_datetime(window.start), backtest_end=as_datetime(window.end),
+            initial_capital=float(window.initial_capital),
+            provenance={"configuration": {"name": configuration.name, "version": configuration.version},
+                        "window": {"start": str(window.start), "end": str(window.end),
+                                   "initial_capital": float(window.initial_capital)}}))
         folder = self.results_root / f"experiment_{experiment.id}"
         experiment.results_dir = str(folder)
         experiment.log_path = str(folder / "worker.log")

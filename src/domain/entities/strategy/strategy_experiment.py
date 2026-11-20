@@ -1,7 +1,8 @@
 """
 StrategyExperiment — one run of a locked Strategy version (a backtest today).
 
-It records what the run used and produced, so a result can always be traced back and reproduced:
+It records what the run used and produced, so a result can always be traced back and reproduced: its own window
+(backtest_start / backtest_end / initial_capital - a strategy runs over any window, many backtests per strategy),
 the strategy id and its content hash at launch, the job that ran it (process, host, heartbeat, log), the
 results folder (one per experiment, never shared), and ``provenance`` (model artifacts, universe membership
 used per decision, data coverage of the preload) and ``summary`` (headline metrics of the report).
@@ -32,7 +33,8 @@ class StrategyExperiment(Entity):
                  created_at: Optional[datetime] = None, started_at: Optional[datetime] = None,
                  finished_at: Optional[datetime] = None, heartbeat_at: Optional[datetime] = None,
                  error: Optional[str] = None, provenance: Optional[Dict[str, Any]] = None,
-                 summary: Optional[Dict[str, Any]] = None):
+                 summary: Optional[Dict[str, Any]] = None, backtest_start: Optional[datetime] = None,
+                 backtest_end: Optional[datetime] = None, initial_capital: Optional[float] = None):
         super().__init__(id)
         if kind not in KINDS:
             raise ValueError(f"unknown experiment kind '{kind}'")
@@ -52,6 +54,14 @@ class StrategyExperiment(Entity):
         self.finished_at = finished_at
         self.heartbeat_at = heartbeat_at
         self.error = error
+        if backtest_start is not None and backtest_end is not None and backtest_end <= backtest_start:
+            raise ValueError(f"backtest end {backtest_end} must be after its start {backtest_start}")
+        if initial_capital is not None and initial_capital <= 0:
+            raise ValueError("the starting capital must be positive")
+        # the window of THIS backtest (None: recorded before windows existed - the strategy's own dates applied)
+        self.backtest_start = backtest_start
+        self.backtest_end = backtest_end
+        self.initial_capital = initial_capital
         self.provenance: Dict[str, Any] = dict(provenance or {})
         self.summary: Dict[str, Any] = dict(summary or {})
 
@@ -103,7 +113,7 @@ class StrategyExperiment(Entity):
         return {k: getattr(self, k) for k in (
             "id", "strategy_id", "strategy_hash", "strategy_type", "kind", "status", "results_dir",
             "log_path", "pid", "host", "created_at", "started_at", "finished_at", "heartbeat_at", "error",
-            "provenance", "summary")}
+            "backtest_start", "backtest_end", "initial_capital", "provenance", "summary")}
 
     def __repr__(self) -> str:
         return f"<StrategyExperiment(id={self.id}, strategy={self.strategy_id}, {self.kind}, {self.status})>"

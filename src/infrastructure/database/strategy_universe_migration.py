@@ -16,6 +16,8 @@ Brings a database created before the Strategy / Universe models to the new shape
                             bar_frequency, bar_size, model_type, training_window, retrain_every_days,
                             prediction_horizon): one strategy_parameter_values row per parameter (catalog
                             strategy_parameters), then those columns are dropped.
+6. backtest window          strategy_experiments gets backtest_start / backtest_end / initial_capital (nullable: the
+                            backtests recorded before keep NULL - they ran over their strategy's own dates).
 New tables (universe_financial_assets, universe_factors, strategies) are created by ``create_all``.
 
 It is NOT run automatically (``BaseFactory._migrate_schema`` only warns): it rebuilds tables, so on SQL Server it is
@@ -79,6 +81,11 @@ def plan(engine: Engine) -> MigrationReport:
             report.steps.append(f"strategies: {old} strategy configuration version(s) copied (same ids)")
     if "strategy_experiments" in tables and "configuration_id" in _columns(inspector, "strategy_experiments"):
         report.steps.append("strategy_experiments: configuration_id -> strategy_id (same ids)")
+    experiment_columns = _columns(inspector, "strategy_experiments") if "strategy_experiments" in tables else set()
+    if (experiment_columns and "configuration_id" not in experiment_columns     # (a rebuilt table gets them)
+            and set(WINDOW_COLUMNS) - experiment_columns):
+        report.steps.append("strategy_experiments: backtest window columns added (backtest_start, backtest_end, "
+                            "initial_capital)")
     if "strategies" in tables and "sections" in _columns(inspector, "strategies"):
         with engine.connect() as conn:
             n = conn.execute(text("SELECT COUNT(*) FROM strategies")).scalar() or 0
@@ -197,6 +204,18 @@ def _migrate_investment_universes(conn: Connection, metadata) -> None:
         {"id": r["id"], "entity_type": r["entity_type"], "currency_id": r["currency_id"]} for r in rows])
     conn.execute(text("DROP TABLE investment_universes_v0"))
     _restore_references(conn, "investment_universes", references)
+
+
+WINDOW_COLUMNS = {"backtest_start": "DATETIME", "backtest_end": "DATETIME", "initial_capital": "FLOAT"}
+
+
+def _add_window_columns(conn: Connection) -> None:
+    present = _columns(inspect(conn), "strategy_experiments")
+    for column, kind in WINDOW_COLUMNS.items():
+        if column not in present:
+            sql = (f"ALTER TABLE strategy_experiments ADD {column} {kind} NULL" if _mssql(conn)
+                   else f"ALTER TABLE strategy_experiments ADD COLUMN {column} {kind}")
+            conn.execute(text(sql))
 
 
 TYPED_COLUMNS = ("bar_frequency", "bar_size", "model_type", "training_window", "retrain_every_days",
@@ -346,6 +365,8 @@ def migrate(engine: Engine, apply: bool = False, backup: bool = True) -> Migrati
             _migrate_experiments(conn, metadata)
         if "sections" in _columns(inspect(conn), "strategies"):
             _migrate_strategy_parameters(conn, metadata)
+        if "strategy_experiments" in inspect(conn).get_table_names():
+            _add_window_columns(conn)
         for name in reversed(recreate):                 # parents first (strategies before its values)
             if name not in inspect(conn).get_table_names():
                 _recreate(conn, metadata, name)
