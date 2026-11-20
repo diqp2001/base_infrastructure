@@ -228,7 +228,7 @@ def web(db, tmp_path):
         return s
 
     app = FlaskApp().get_app()
-    app.config.update(RESEARCH_SERVICES_FACTORY=factory, TESTING=True)
+    app.config.update(FACTOR_SERVICES_FACTORY=factory, TESTING=True)
     return SimpleNamespace(client=app.test_client(), db=db)
 
 

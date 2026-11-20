@@ -70,10 +70,107 @@ def clean_for_json(data):
 def home():
     return render_template("dashboard/index.html")
 
+# Every main page of the app, grouped as the hub shows them: (group, icon, [(path, label, description), ...]).
+# A page whose blueprint is not registered is left out of the hub (see _hub_sections).
+HUB_SECTIONS = [
+    ("Strategies", "fa-chess", [
+        ("/strategies/", "Strategies", "Every strategy and version, its backtests; derive, design and launch"),
+        ("/strategies/new", "New strategy", "Create a strategy from a project's defaults"),
+        ("/strategies/compare", "Compare experiments", "Side-by-side results of strategy experiments"),
+    ]),
+    ("Backtests & research", "fa-flask", [
+        ("/research/backtests", "Backtests", "Every backtest book: performance, holdings history, trades, assets"),
+        ("/research/", "Research runs", "The registry of backtest runs, filterable by project, model, status"),
+        ("/research/compare", "Compare runs", "Equity curves and metrics of several runs together"),
+        ("/research/models", "Models", "Trained models, their artifacts and the runs that used them"),
+    ]),
+    ("Projects", "fa-diagram-project", [
+        ("/stm/", "Spatio-temporal momentum", "STM: configure, run and follow a backtest"),
+        ("/stm/results", "STM results", "Latest STM backtest results and report"),
+        ("/stm-deciles/", "STM monthly deciles", "Dow members ranked into deciles, D10-D1"),
+        ("/csm/", "Cross-sectional momentum", "LightGBM + Optuna over the momentum factors"),
+        ("/csm/results", "CSM results", "Latest cross-sectional momentum results"),
+        ("/dispersion/", "Dispersion screener", "ETF dispersion-option candidates"),
+        ("/dispersion-stm/", "ETF dispersion + STM", "Monthly DIA dispersion, STM-filtered"),
+        ("/spx_v2/", "SPX call spread v2", "SPX call spread market maker"),
+        ("/spx_v2/results", "SPX v2 results", "Latest SPX v2 results"),
+    ]),
+    ("Factors", "fa-square-root-variable", [
+        ("/powerbuffet/generate", "Generate factors", "Compute factor values for a universe and window"),
+        ("/powerbuffet/research", "Factor research", "Explore factor values and pairs"),
+        ("/factor-analysis/", "Factor analysis", "CAPM / Fama-French analysis of results"),
+        ("/factor-analysis/factor-returns", "Factor returns", "Factor return series"),
+    ]),
+    ("Data", "fa-database", [
+        ("/powerbuffet", "Database explorer", "Browse tables, run SQL, visualise"),
+        ("/entity-upload", "Entity upload", "Excel templates to add companies, exchanges, factors..."),
+        ("/config", "Base project config", "Edit the base project's configuration"),
+        ("/api/entities/summary", "Entities summary (JSON)", "Database entities by type and sector"),
+    ]),
+    ("Monitoring", "fa-heart-pulse", [
+        ("/monitor/", "Overview", "Health of the whole stack"),
+        ("/monitor/trading", "Trading", "Account, positions and orders"),
+        ("/monitor/ibkr", "IBKR", "Gateway connections"),
+        ("/monitor/market-data", "Market data", "Data freshness"),
+        ("/monitor/factors", "Factors", "Factor coverage and freshness"),
+        ("/monitor/infrastructure", "Infrastructure", "Database and services"),
+        ("/monitor/logs", "Logs", "Recent log lines"),
+        ("/monitor/settings", "Settings", "Monitoring settings"),
+    ]),
+]
+
+
+def _hub_sections():
+    from flask import current_app
+    rules = {r.rule for r in current_app.url_map.iter_rules()}
+    out = []
+    for group, icon, links in HUB_SECTIONS:
+        kept = [{"path": p, "label": label, "description": d} for p, label, d in links if p in rules]
+        if kept:
+            out.append({"group": group, "icon": icon, "id": group.lower().replace(" & ", "-").replace(" ", "-"),
+                        "links": kept})
+    return out
+
+
 @web_bp.route("/dashboard")
 def dashboard_hub():
-    """Main comprehensive dashboard hub with all 7 views"""
-    return render_template("dashboard/hub.html")
+    """The hub: every main page of the app, grouped, with live counts (loaded from /dashboard/summary.json)."""
+    return render_template("dashboard/hub.html", sections=_hub_sections())
+
+
+@web_bp.route("/dashboard/summary.json")
+def dashboard_summary():
+    """Live numbers for the hub. Each part is read on its own: one failing source leaves the others shown."""
+    from src.interfaces.flask.api.controllers.research_controller import plain, research_services
+    out, errors = {}, {}
+    try:
+        from src.interfaces.flask.web.controllers.strategy_controller import services as strategy_services
+        s = strategy_services()
+        rows = s.design.overview()
+        experiments = s.experiments.list()
+        out["strategies"] = {
+            "count": len({r["strategy"].name for r in rows}), "versions": len(rows),
+            "experiments": len(experiments),
+            "latest": [{"id": r["strategy"].id, "name": r["strategy"].name, "version": r["strategy"].version,
+                        "project": r["strategy"].project_key, "assets": r["assets"],
+                        "factors": r["factors"]}
+                       for r in sorted(rows, key=lambda r: r["strategy"].id, reverse=True)[:6]]}
+    except Exception as e:                                       # never break the hub on one source
+        logger.warning("hub: strategies unavailable: %s", e)
+        errors["strategies"] = str(e)
+    try:
+        research = research_services()
+        out["runs"] = {"count": len(research.list_runs(limit=10_000))}
+        books = research.books.books()
+        out["backtests"] = {"count": len(books), "latest": plain([
+            {k: b.get(k) for k in ("portfolio_id", "name", "first", "last", "final_value", "total_return", "live")}
+            | {"strategy": (b.get("strategy") or {}).get("name")}
+            for b in books[:6]])}
+    except Exception as e:
+        logger.warning("hub: research registry unavailable: %s", e)
+        errors["research"] = str(e)
+    out["errors"] = errors
+    return jsonify(out)
 
 @web_bp.route("/backtest", methods=["POST"])
 def run_backtest():

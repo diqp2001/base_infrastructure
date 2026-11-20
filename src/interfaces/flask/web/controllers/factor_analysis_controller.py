@@ -33,18 +33,18 @@ def _default_factory():
 
 
 def services():
-    if "research_services" not in g:
-        factory = current_app.config.get("RESEARCH_SERVICES_FACTORY")
+    if "factor_services" not in g:
+        factory = current_app.config.get("FACTOR_SERVICES_FACTORY")
         if factory is None:
             factory = _default_factory()
-            current_app.config["RESEARCH_SERVICES_FACTORY"] = factory
-        g.research_services = factory()
-    return g.research_services
+            current_app.config["FACTOR_SERVICES_FACTORY"] = factory
+        g.factor_services = factory()
+    return g.factor_services
 
 
 @factor_analysis_bp.teardown_app_request
 def _close(_exc):
-    s = g.pop("research_services", None)
+    s = g.pop("factor_services", None)
     if s is not None and getattr(s, "session", None) is not None:
         s.session.close()
 
