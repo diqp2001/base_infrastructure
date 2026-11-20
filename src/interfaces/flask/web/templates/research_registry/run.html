@@ -35,7 +35,7 @@
 {% if run.assumptions %}<div class="card mt-3"><div class="card-header">Assumptions</div><table class="table table-sm mb-0">
 {% for k, v in run.assumptions.items() %}<tr><th class="small">{{ k }}</th><td class="small">{{ v }}</td></tr>{% endfor %}</table></div>{% endif %}
 <div class="card mt-3"><div class="card-header">Portfolios</div><table class="table table-sm mb-0">
-{% for p in run.portfolios %}<tr><td>{{ p.portfolio_id }}</td><td>{{ p.name }}</td><td class="muted">{{ p.role }}</td></tr>
+{% for p in run.portfolios %}<tr><td>{{ p.portfolio_id }}</td><td>{% if p.role == 'main' %}<a href="{{ url_for('research_registry.backtest', portfolio_id=p.portfolio_id) }}">{{ p.name }}</a> <span class="small">(performance, holdings, trades)</span>{% else %}{{ p.name }}{% endif %}</td><td class="muted">{{ p.role }}</td></tr>
 {% else %}<tr><td class="muted">none registered</td></tr>{% endfor %}</table></div>
 </div>
 

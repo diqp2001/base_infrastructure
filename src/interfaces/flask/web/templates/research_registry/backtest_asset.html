@@ -1,0 +1,16 @@
+{% extends "research_registry/base.html" %}
+{% block title %}{{ symbol }} · {{ book.name }}{% endblock %}
+{% block content %}
+<h4 class="mb-3"><a href="{{ url_for('research_registry.backtest', portfolio_id=book.portfolio_id) }}">{{ book.name }}</a> · {{ symbol }}</h4>
+{% if not asset.quantity %}<p class="muted">{{ symbol }} was never held in this book.</p>{% else %}
+<div class="row g-3">
+    <div class="col-lg-6"><div class="card"><div class="card-header">Quantity held</div><div class="card-body">
+        <div class="chart" data-chart='{{ charts.quantity }}' data-height="200"></div></div></div></div>
+    <div class="col-lg-6"><div class="card"><div class="card-header">Position value (latest daily close)</div><div class="card-body">
+        {% if charts.value %}<div class="chart" data-chart='{{ charts.value }}' data-height="200"></div>{% else %}<p class="muted mb-0">No price stored for {{ symbol }}.</p>{% endif %}</div></div></div>
+</div>
+{% endif %}
+<h5 class="mt-4">Trades in {{ symbol }} <span class="muted small">{{ asset.trades|length }}</span></h5>
+{% set trades = {'rows': asset.trades} %}
+{% include "research_registry/_trades_table.html" %}
+{% endblock %}

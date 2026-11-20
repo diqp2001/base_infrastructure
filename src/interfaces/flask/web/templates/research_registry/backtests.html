@@ -1,0 +1,35 @@
+{% extends "research_registry/base.html" %}
+{% block title %}Backtests{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h4 class="mb-0">Backtests <span class="muted small">— every book the engine kept; open one to drill down</span></h4>
+    <input class="form-control form-control-sm" style="max-width:260px" placeholder="filter by name / strategy"
+           oninput="const q=this.value.toLowerCase();document.querySelectorAll('tr.book-row').forEach(r=>r.style.display=r.dataset.key.includes(q)?'':'none')">
+</div>
+<div class="card"><div class="card-body p-0" style="overflow-x:auto">
+<table class="table table-sm mb-0">
+    <thead><tr><th>Book</th><th>Strategy</th><th>Run</th><th>From</th><th>To</th><th class="num">Days</th>
+        <th class="num">Start value</th><th class="num">Final value</th><th class="num">Return</th></tr></thead>
+    <tbody>
+    {% for b in books %}
+    <tr class="book-row" data-key="{{ ((b.name or '') ~ ' ' ~ (b.strategy.name if b.strategy else ''))|lower }}">
+        <td><a href="{{ url_for('research_registry.backtest', portfolio_id=b.portfolio_id) }}">{{ b.name or ('portfolio ' ~ b.portfolio_id) }}</a>
+            {% if b.live %}<span class="status status-RUNNING ms-1" title="a live / paper trading book, not a backtest">live</span>{% endif %}</td>
+        <td>{% if b.strategy %}<a href="/strategies/{{ b.strategy.id }}">{{ b.strategy.name }} v{{ b.strategy.version }}</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td>{% if b.run %}<a href="{{ url_for('research_registry.run', run_id=b.run.id) }}">#{{ b.run.id }}</a> <span class="status status-{{ b.run.status }}">{{ b.run.status }}</span>{% else %}<span class="muted" title="ran before the run registry (2026-11-18)">not registered</span>{% endif %}</td>
+        <td class="small">{{ (b.first or '')[:10] }}</td>
+        <td class="small">{{ (b.last or '')[:10] }}</td>
+        <td class="num">{{ b.days }}</td>
+        <td class="num">{{ '{:,.0f}'.format(b.start_value) if b.start_value is not none else '—' }}</td>
+        <td class="num">{{ '{:,.0f}'.format(b.final_value) if b.final_value is not none else '—' }}</td>
+        <td class="num">{{ '{:+.2f}%'.format(b.total_return * 100) if b.total_return is not none else '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9" class="muted">No backtest book yet.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div></div>
+<p class="muted small mt-2">A book is the main portfolio a backtest valued every bar. Backtests run before the run registry
+    (2026-11-18) only left their book: no config snapshot or run status, but their value, holdings and trades are here.</p>
+{% endblock %}

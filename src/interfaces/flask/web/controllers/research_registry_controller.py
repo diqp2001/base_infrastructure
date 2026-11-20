@@ -2,6 +2,11 @@
 /research - generic research / backtest registry pages (2026-11-18). Read only; every route goes through
 ResearchQueryService (the same services as /api/backtests and /api/models).
 
+    GET /research/backtests              every backtest's book (registered run or not): window, return, run, strategy
+    GET /research/backtests/<id>         drill-down: performance (value, drawdown, monthly returns, metrics), holdings
+                                         through time + at a date (?date=), latest trades
+    GET /research/backtests/<id>/trades  every share fill (?symbol=, ?page=)
+    GET /research/backtests/<id>/assets/<symbol>   one instrument: quantity and value through time, its trades
     GET /research/                       runs: filters (project, model, status, universe, created), headline metrics
     GET /research/runs/<id>              overview, progress, engine performance, equity, research series, metrics
     GET /research/compare?run_ids=1,2    comparability warnings, differences, config diff, metrics, equity overlay
@@ -134,3 +139,73 @@ def model(model_id: int):
     return render_template("research_registry/model.html", model=plain(m),
                            artifacts=plain(services.model_artifacts(model_id)),
                            config_json=json.dumps(plain(m.get("configuration")), indent=1, sort_keys=True))
+
+
+# -- every backtest's book, drilled down ------------------------------------------------------------------------------
+
+def _metrics_fn():
+    from src.application.services.misbuffet.engine.performance_metrics import calculate_performance_metrics
+    return calculate_performance_metrics
+
+
+def _book_or_404(portfolio_id: int):
+    book = research_services().books.book(portfolio_id)
+    if book is None:
+        abort(404)
+    return book
+
+
+@research_registry_bp.route("/backtests")
+def backtests():
+    """Every backtest: its book (portfolio), window, return, registry run and strategy when it has them."""
+    return render_template("research_registry/backtests.html", books=plain(research_services().books.books()))
+
+
+@research_registry_bp.route("/backtests/<int:portfolio_id>")
+def backtest(portfolio_id: int):
+    """One backtest: performance (value, drawdown, monthly returns, metrics), holdings through time and at a date,
+    the latest trades."""
+    books = research_services().books
+    book = _book_or_404(portfolio_id)
+    perf = books.performance(portfolio_id, metrics_fn=_metrics_fn())
+    holdings = books.holdings(portfolio_id)
+    at = books.holdings_at(portfolio_id, request.args.get("date"))
+    trades = books.trades(portfolio_id, per_page=50)
+    charts = {
+        "equity": chart_spec([{"name": "book value", "color": SERIES_COLORS[0], "points": perf["equity"]}],
+                             fmt="num", label="Book value") if perf["equity"] else None,
+        "drawdown": chart_spec([{"name": "drawdown", "color": SERIES_COLORS[1], "points": perf["drawdown"]}],
+                               fmt="pct", baseline=0, label="Drawdown") if perf["drawdown"] else None,
+        "exposure": chart_spec([{"name": n, "color": SERIES_COLORS[i], "points": holdings["exposure"][k]}
+                                for i, (k, n) in enumerate((("long", "long"), ("short", "short"),
+                                                             ("net", "net")))],
+                               fmt="num", baseline=0, label="Exposure") if holdings.get("exposure") else None,
+        "positions": chart_spec([{"name": "positions held", "color": SERIES_COLORS[2],
+                                  "points": holdings["positions"]}], fmt="num",
+                                label="Positions held") if holdings.get("positions") else None,
+    }
+    return render_template("research_registry/backtest.html", book=plain(book), perf=plain(perf),
+                           holdings=plain(holdings), at=plain(at), trades=plain(trades), charts=charts)
+
+
+@research_registry_bp.route("/backtests/<int:portfolio_id>/trades")
+def backtest_trades(portfolio_id: int):
+    book = _book_or_404(portfolio_id)
+    symbol = request.args.get("symbol") or None
+    trades = research_services().books.trades(portfolio_id, symbol=symbol, page=request.args.get("page", 1, type=int))
+    return render_template("research_registry/backtest_trades.html", book=plain(book), trades=plain(trades),
+                           symbol=symbol)
+
+
+@research_registry_bp.route("/backtests/<int:portfolio_id>/assets/<path:symbol>")
+def backtest_asset(portfolio_id: int, symbol: str):
+    book = _book_or_404(portfolio_id)
+    asset = research_services().books.asset(portfolio_id, symbol)
+    charts = {
+        "quantity": chart_spec([{"name": "quantity", "color": SERIES_COLORS[0], "points": asset["quantity"]}],
+                               fmt="num", baseline=0, label=f"{symbol} quantity") if asset["quantity"] else None,
+        "value": chart_spec([{"name": "value", "color": SERIES_COLORS[2], "points": asset["value"]}],
+                            fmt="num", baseline=0, label=f"{symbol} value") if asset["value"] else None,
+    }
+    return render_template("research_registry/backtest_asset.html", book=plain(book), asset=plain(asset),
+                           charts=charts, symbol=symbol)

@@ -1,0 +1,19 @@
+{% extends "research_registry/base.html" %}
+{% block title %}Trades · {{ book.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h4 class="mb-0"><a href="{{ url_for('research_registry.backtest', portfolio_id=book.portfolio_id) }}">{{ book.name }}</a>
+        · trades <span class="muted small">{{ trades.total }}{% if symbol %} in {{ symbol }}{% endif %}</span></h4>
+    <form method="get" class="d-flex gap-1">
+        <select class="form-select form-select-sm" name="symbol" onchange="this.form.submit()">
+            <option value="">every instrument</option>
+            {% for s in trades.symbols %}<option value="{{ s }}" {% if s == symbol %}selected{% endif %}>{{ s }}</option>{% endfor %}
+        </select></form>
+</div>
+{% include "research_registry/_trades_table.html" %}
+{% if trades.pages > 1 %}<div class="d-flex gap-2 mt-2 small">
+    {% if trades.page > 1 %}<a href="?page={{ trades.page - 1 }}{% if symbol %}&symbol={{ symbol }}{% endif %}">← newer</a>{% endif %}
+    <span class="muted">page {{ trades.page }} / {{ trades.pages }}</span>
+    {% if trades.page < trades.pages %}<a href="?page={{ trades.page + 1 }}{% if symbol %}&symbol={{ symbol }}{% endif %}">older →</a>{% endif %}
+</div>{% endif %}
+{% endblock %}

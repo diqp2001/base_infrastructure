@@ -1,0 +1,86 @@
+{% extends "research_registry/base.html" %}
+{% block title %}{{ book.name }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-1">
+    <h4 class="mb-0">{{ book.name or ('portfolio ' ~ book.portfolio_id) }}</h4>
+    {% if book.live %}<span class="status status-RUNNING">live book</span>{% endif %}
+    {% if book.run %}<a href="{{ url_for('research_registry.run', run_id=book.run.id) }}">run #{{ book.run.id }}</a>
+        <span class="status status-{{ book.run.status }}">{{ book.run.status }}</span>{% endif %}
+    {% if book.strategy %}<a href="/strategies/{{ book.strategy.id }}">strategy {{ book.strategy.name }} v{{ book.strategy.version }}</a>{% endif %}
+</div>
+<div class="muted small mb-3">portfolio #{{ book.portfolio_id }} · {{ (book.first or '')[:10] }} → {{ (book.last or '')[:10] }} ·
+    {% for p in book.sub_portfolios %}{{ p.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+    · <a href="#performance">performance</a> · <a href="#holdings">holdings</a> · <a href="#trades">trades</a></div>
+
+<h5 id="performance">Performance</h5>
+<div class="row g-3">
+<div class="col-lg-8">
+    <div class="card"><div class="card-header">Book value</div><div class="card-body">
+        {% if charts.equity %}<div class="chart" data-chart='{{ charts.equity }}' data-height="240"></div>{% else %}<p class="muted mb-0">No value recorded.</p>{% endif %}
+    </div></div>
+    <div class="card mt-3"><div class="card-header">Drawdown</div><div class="card-body">
+        {% if charts.drawdown %}<div class="chart" data-chart='{{ charts.drawdown }}' data-height="150"></div>{% endif %}
+    </div></div>
+</div>
+<div class="col-lg-4">
+    <div class="card"><div class="card-header">Metrics</div><table class="table table-sm mb-0"><tbody>
+    {% for k in ['total_return','annualized_return','volatility','sharpe_ratio','max_drawdown','win_rate','best_day','worst_day','total_trading_days'] if k in perf.metrics %}
+        <tr><th class="small">{{ k|replace('_',' ') }}</th><td class="num">{{ perf.metrics[k]|metric(k) }}</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+    <div class="card mt-3"><div class="card-header">Monthly returns</div>
+        <div style="max-height:260px;overflow:auto"><table class="table table-sm mb-0"><tbody>
+        {% for m in perf.monthly|reverse %}<tr><td class="small">{{ m.month }}</td>
+            <td class="num" style="color:{{ '#3fb950' if m['return'] >= 0 else '#f85149' }}">{{ '{:+.2f}%'.format(m['return'] * 100) }}</td></tr>
+        {% else %}<tr><td class="muted">—</td></tr>{% endfor %}
+        </tbody></table></div></div>
+</div>
+</div>
+
+<h5 class="mt-4" id="holdings">Holdings</h5>
+{% if not holdings.dates %}<p class="muted">No share trade in this book.</p>{% else %}
+<div class="row g-3">
+<div class="col-lg-8">
+    <div class="card"><div class="card-header">Exposure (long, short, net — at the latest daily close)</div><div class="card-body">
+        <div class="chart" data-chart='{{ charts.exposure }}' data-height="200"></div></div></div>
+</div>
+<div class="col-lg-4">
+    <div class="card"><div class="card-header">Positions held</div><div class="card-body">
+        <div class="chart" data-chart='{{ charts.positions }}' data-height="200"></div></div></div>
+</div>
+</div>
+
+<div class="card mt-3"><div class="card-header d-flex justify-content-between align-items-center">
+    <span>Holdings on {{ at.date }} <span class="muted small">book value {{ '{:,.0f}'.format(at.book_value) if at.book_value else '—' }}</span></span>
+    <form method="get" class="d-flex gap-1" action="#holdings">
+        <select class="form-select form-select-sm" name="date" onchange="this.form.submit()">
+            {% for d in (at.dates or [])|reverse %}<option value="{{ d }}" {% if d == at.date %}selected{% endif %}>{{ d }}</option>{% endfor %}
+        </select></form></div>
+    <div style="max-height:420px;overflow:auto"><table class="table table-sm mb-0">
+        <thead><tr><th>Symbol</th><th>Side</th><th class="num">Quantity</th><th class="num">Price</th><th class="num">Value</th><th class="num">Weight</th></tr></thead>
+        <tbody>
+        {% for r in at.rows %}<tr>
+            <td><a href="{{ url_for('research_registry.backtest_asset', portfolio_id=book.portfolio_id, symbol=r.symbol) }}">{{ r.symbol }}</a></td>
+            <td class="small">{{ r.side }}</td>
+            <td class="num">{{ '{:,.2f}'.format(r.quantity) }}</td>
+            <td class="num">{{ '{:,.2f}'.format(r.price) if r.price is not none else '—' }}</td>
+            <td class="num">{{ '{:,.0f}'.format(r.value) if r.value is not none else '—' }}</td>
+            <td class="num">{{ '{:+.2f}%'.format(r.weight * 100) if r.weight is not none else '—' }}</td></tr>
+        {% else %}<tr><td colspan="6" class="muted">No position held that day.</td></tr>{% endfor %}
+        </tbody></table></div></div>
+
+<div class="card mt-3"><div class="card-header">Holding history <span class="muted small">(quantity at 12 dates across the backtest; every instrument ever held)</span></div>
+    <div style="max-height:460px;overflow:auto"><table class="table table-sm mb-0">
+        <thead><tr><th>Symbol</th>{% for d in holdings.history_dates %}<th class="num small">{{ d[5:] }}</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for h in holdings.history %}<tr>
+            <td><a href="{{ url_for('research_registry.backtest_asset', portfolio_id=book.portfolio_id, symbol=h.symbol) }}">{{ h.symbol }}</a></td>
+            {% for q in h.cells %}<td class="num small" style="{% if q > 0 %}color:#3fb950{% elif q < 0 %}color:#f85149{% else %}color:var(--muted, #8b949e){% endif %}">{{ '{:,.0f}'.format(q) if q else '·' }}</td>{% endfor %}
+        </tr>{% endfor %}
+        </tbody></table></div></div>
+{% endif %}
+
+<h5 class="mt-4" id="trades">Trades <span class="muted small">— latest {{ trades.rows|length }} of {{ trades.total }}</span>
+    <a class="small" href="{{ url_for('research_registry.backtest_trades', portfolio_id=book.portfolio_id) }}">all trades</a></h5>
+{% include "research_registry/_trades_table.html" %}
+{% endblock %}

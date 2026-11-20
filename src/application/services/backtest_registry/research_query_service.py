@@ -48,6 +48,16 @@ class ResearchQueryService:
         self.results = ResearchResultService(factory)
         self.models = ModelRegistryService(factory)
 
+    @property
+    def books(self):
+        """Every backtest's book, drilled down (BacktestBookService)."""
+        from src.application.services.backtest_registry.backtest_book_service import BacktestBookService
+        from src.infrastructure.repositories.local_repo.backtest.backtest_book_repository import BacktestBookReader
+        return BacktestBookService(BacktestBookReader(self.factory.session), runs=self.runs,
+                                   run_portfolios=self.run_portfolios,
+                                   experiments=self.factory.strategy_experiment_local_repo,
+                                   strategies=self.factory.strategy_local_repo)
+
     # -- runs ---------------------------------------------------------------------------------------------------
     def list_runs(self, project: Optional[str] = None, model_id: Optional[int] = None, status: Optional[str] = None,
                   universe: Optional[str] = None, created_from: Optional[datetime] = None,

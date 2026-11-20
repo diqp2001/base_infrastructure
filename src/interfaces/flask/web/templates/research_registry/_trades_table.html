@@ -1,0 +1,14 @@
+<div class="card"><div style="max-height:520px;overflow:auto"><table class="table table-sm mb-0">
+    <thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th class="num">Filled</th><th class="num">Price</th><th class="num">Notional</th><th>Status</th><th class="muted">Order</th></tr></thead>
+    <tbody>
+    {% for t in trades.rows %}<tr>
+        <td class="small">{{ (t.time or '')[:19] }}</td>
+        <td><a href="{{ url_for('research_registry.backtest_asset', portfolio_id=book.portfolio_id, symbol=t.symbol) }}">{{ t.symbol }}</a></td>
+        <td class="small" style="color:{{ '#3fb950' if t.side == 'BUY' else '#f85149' }}">{{ t.side }}</td>
+        <td class="num">{{ '{:,.2f}'.format(t.filled) }}</td>
+        <td class="num">{{ '{:,.2f}'.format(t.price) if t.price is not none else '—' }}</td>
+        <td class="num">{{ '{:,.0f}'.format(t.notional) if t.notional is not none else '—' }}</td>
+        <td class="small">{{ t.status }}</td>
+        <td class="small muted">#{{ t.order_id }}</td></tr>
+    {% else %}<tr><td colspan="8" class="muted">No trade.</td></tr>{% endfor %}
+    </tbody></table></div></div>
