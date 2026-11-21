@@ -988,3 +988,15 @@ STMTradingCycle.step: provider.score_details -> scores + daily vol
 - `stm_backtest.signals_to_weights` is now a thin wrapper over the construction method, kept for research callers.
   The pre-P6 version is frozen in `tests/spatio_temporal_momentum/test_stm_target_portfolio.py` (regression:
   weights within rel 1e-12, plus identical target and order quantities).
+
+
+### ETFCallDispersionTradingStrategy (added 2026-11-20, refactor phase P7 — readiness)
+
+- `trading_strategy/etf_call_dispersion_strategy.py`: on an ETF parent, reads the constituents' ranking factor
+  (STM signal) per entity; `evaluate` gives the scores, with the ETF `weights` in the context.
+- Construction: `application/services/dispersion/dispersion_target_portfolio.py` wraps the existing
+  `select_constituents` and `DispersionPortfolioConstructionService` (N fixed from the full basket, ETF-weight
+  replication, bid / ask premiums). It returns a `TargetPortfolio` of contracts (`target_quantity`; ETF call short N,
+  selected constituent calls long), with premiums and net dollar delta in `context`. No orders.
+- Next steps (delta constraint, legs from option factors, wiring the dispersion cycle): see
+  `docs/architecture/STRATEGY_ARCHITECTURE_FINAL_REPORT.md` section 8.
