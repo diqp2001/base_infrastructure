@@ -168,3 +168,32 @@ class MyFinanceDomainEntity:
         # Business logic here
         return True
 ```
+
+---
+
+## TargetPortfolio and portfolio construction (added 2026-11-20, refactor phase P3)
+
+```
+Factor values -> TradingStrategy.evaluate -> StrategySignals
+              -> PortfolioConstructionService.construct(signals, method) -> TargetPortfolio
+              -> (P4) rebalancing against what the account holds -> trade instructions -> execution
+```
+
+- `portfolio/target_portfolio.py`: `TargetPortfolio` (as_of, strategy name, construction name, positions sorted by
+  symbol, one per asset) and `TargetPortfolioPosition` (symbol, signed `target_weight` = fraction of portfolio
+  value, optional `asset_type`, `financial_asset_id`, `target_quantity`). Immutable, in memory, never persisted.
+  It is what the strategy WANTS; `Position` / `PortfolioHolding` are what the account HOLDS. Never mix them.
+- `portfolio/construction/steps.py`: pure, deterministic steps (ties broken by symbol).
+  - selection (scores -> sides): `AllAssets`, `QuantileLongShort`, `TopBottomN`, `Threshold`, `Buckets` (scores that
+    are bucket labels, e.g. quintile 1-5);
+  - weighting (sides -> weights): `EqualWeighting`, `ScoreWeighting`, `InverseVolatilityWeighting`;
+  - adjustments (in order): `VolatilityScaling`, `DivideByCount`, `Normalise`, `NormaliseSides`, `GrossExposureCap`
+    (down only), `NetExposureLimit`, `AssetWeightLimit`, `ExposureLimit` (e.g. delta; a missing loading is an error).
+- `portfolio/construction/construction_method.py`: `PortfolioConstructionMethod(name, selection, weighting,
+  adjustments)` plus ready-made methods. `volatility_targeted_signals` reproduces STM's `signals_to_weights` and
+  `quantile_long_short_inverse_volatility` reproduces CSM's `long_short_weights`: golden tests in
+  `tests/strategy/test_portfolio_construction.py` pin both. `bucket_long_short` is long Q5 / short Q1.
+- Application: `src/application/services/portfolio_construction/portfolio_construction_service.py`. It only gathers
+  the inputs (scores from the signals, volatility and loadings from the caller or `signals.context`).
+- Construction never submits orders, reads or updates positions, creates transactions or uses broker code. A test
+  checks, in a fresh interpreter, that no execution module is loaded.
