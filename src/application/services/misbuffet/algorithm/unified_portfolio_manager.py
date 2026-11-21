@@ -22,6 +22,10 @@ from src.domain.entities.finance.holding.holding import Holding
 from src.domain.entities.finance.holding.position import Position, PositionType
 from src.domain.entities.finance.order.order import Order, OrderType, OrderSide, OrderStatus
 from src.domain.entities.finance.transaction.transaction import Transaction, TransactionType, TransactionStatus
+from src.domain.entities.finance.portfolio.target_portfolio import TargetPortfolio
+from src.application.services.misbuffet.algorithm.portfolio_rebalancer import (
+    LIQUIDATE, CurrentPortfolio, PortfolioRebalancer, target_portfolio_targets,
+)
 
 
 
@@ -315,6 +319,7 @@ class UnifiedPortfolioManager:
         """
         class_name = (
             asset_class.__name__ if isinstance(asset_class, type)
+            else asset_class if isinstance(asset_class, str)            # a TargetPortfolio's asset_type
             else type(asset_class).__name__ if asset_class is not None
             else self._probe_asset_class_name(ticker)
         )
@@ -1159,6 +1164,7 @@ class UnifiedPortfolioManager:
         invalid: {ticker: value} of NaN / infinite targets, removed from weights / quantities.
 
         Accepts:
+          TargetPortfolio: weights (or target quantities) of its positions, classes = their asset_type names
           Old: {ticker_str: weight_float}
           New: {DomainClass: {'name': ticker, 'weight': weight}      # % of portfolio
                            or {'name': ticker, 'quantity': int}      # absolute shares
@@ -1169,6 +1175,10 @@ class UnifiedPortfolioManager:
         classes: Dict[str, type] = {}
         quantities: Dict[str, int] = {}
         invalid: Dict[str, Any] = {}
+        if isinstance(target_weights, TargetPortfolio):          # values already finite (checked by the domain)
+            weights, quantities = target_portfolio_targets(target_weights)
+            classes = {p.symbol: p.asset_type for p in target_weights if p.asset_type}
+            return weights, classes, quantities, invalid
         for key, value in target_weights.items():
             if isinstance(key, str):
                 weights[key] = float(value)
@@ -1215,8 +1225,12 @@ class UnifiedPortfolioManager:
         live mode — trading happens only if the broker positions match the strategy's
         portfolio; tickers with a working order are skipped.
 
+        The order quantities are computed by PortfolioRebalancer (target - current, sells before buys);
+        this method gathers its inputs through the existing lookups and executes its plan through TradeManager.
+
         Args:
-            target_weights: One of two formats —
+            target_weights: a TargetPortfolio (liquidation scoped to its positions' asset types, like the
+              class-keyed format; positions without a type are probed) or one of two formats —
               Old: {ticker_str: weight_float}
               New: {DomainClass: {'name': ticker, 'weight': weight}      # % of portfolio
                                or {'name': ticker, 'quantity': int}      # absolute shares
@@ -1233,7 +1247,8 @@ class UnifiedPortfolioManager:
         Returns:
             {ticker: True/False} for every ticker where an order was attempted.
         """
-        has_string_keys = any(isinstance(k, str) for k in target_weights)
+        has_string_keys = (not isinstance(target_weights, TargetPortfolio)
+                           and any(isinstance(k, str) for k in target_weights))
         target_weights, ticker_asset_class, target_quantities, invalid = self._normalize_target_weights(target_weights)
         results: Dict[str, bool] = {}
         for ticker, value in invalid.items():
@@ -1340,48 +1355,34 @@ class UnifiedPortfolioManager:
                 cid = self._find_existing_container(ticker)
                 ticker_container[ticker] = cid if cid else main_id
 
-        sells: List[tuple] = []  # (ticker, order_qty, price, current_qty)
-        buys:  List[tuple] = []
-        within_band: List[str] = []
-
-        for ticker in all_tickers:
-            price = self._reference_price(ticker, data, current_time)
-            if not price:
-                if self.logger:
-                    self.logger.warning(f"set_holdings: no price for {ticker}, skipping")
-                results[ticker] = False
-                continue
-
-            current_qty = self._get_current_position_qty(ticker)
-            if ticker in target_quantities:
-                target_qty = target_quantities[ticker]
-            else:
-                target_pct = target_weights.get(ticker, 0.0)
-                # one contract of an option / future is worth price × multiplier (BI-009)
-                multiplier = self._trade_manager.contract_multiplier(ticker)
-                target_qty = int(portfolio_value * target_pct / (price * multiplier))
-                current_pct = current_qty * price * multiplier / portfolio_value
-                if (min_weight_change and ticker not in to_liquidate
-                        and abs(target_pct - current_pct) < min_weight_change):
-                    within_band.append(ticker)
-                    continue
-            order_qty   = target_qty - current_qty
-
-            if order_qty == 0:
-                continue
-
-            entry = (ticker, order_qty, price, current_qty)
-            if order_qty < 0:
-                sells.append(entry)
-            else:
-                buys.append(entry)
+        # Target - current -> order quantities (PortfolioRebalancer: pure, sells before buys)
+        current = CurrentPortfolio(
+            portfolio_value=portfolio_value,
+            price_of=lambda t: self._reference_price(t, data, current_time),
+            quantity_of=self._get_current_position_qty,
+            multiplier_of=self._trade_manager.contract_multiplier,
+        )
+        plan = PortfolioRebalancer().plan(
+            current,
+            target_weights={t: w for t, w in target_weights.items() if t in all_tickers},
+            target_quantities={t: q for t, q in target_quantities.items() if t in all_tickers},
+            liquidate=to_liquidate & all_tickers,
+            min_weight_change=min_weight_change,
+        )
+        for ticker in plan.unpriced:
+            if self.logger:
+                self.logger.warning(f"set_holdings: no price for {ticker}, skipping")
+            results[ticker] = False
+        within_band = list(plan.within_band)
 
         if within_band and self.logger:
             self.logger.info(f"set_holdings: {len(within_band)} ticker(s) within the {min_weight_change:.2%} "
                              f"no-trade band, not traded: {', '.join(sorted(within_band))}")
 
         # Execute sells first to free up cash / reduce exposure
-        for ticker, order_qty, price, current_qty in sells:
+        for instruction in plan.sells:
+            ticker, order_qty, price, current_qty = (instruction.ticker, instruction.order_qty, instruction.price,
+                                                     instruction.current_qty)
             if not self._has_budget_for_trade(order_qty, price, current_qty):
                 if self.logger:
                     self.logger.warning(
@@ -1389,7 +1390,7 @@ class UnifiedPortfolioManager:
                     )
                 results[ticker] = False
                 continue
-            if ticker in to_liquidate and self.logger:
+            if instruction.reason == LIQUIDATE and self.logger:
                 self.logger.warning(
                     f"set_holdings: liquidating {ticker} qty={order_qty:+d} "
                     f"(held by the portfolio, not in target_weights)"
@@ -1398,7 +1399,9 @@ class UnifiedPortfolioManager:
                                             current_time, tag, main_id)
 
         # Execute buys after sells have freed up liquidity
-        for ticker, order_qty, price, current_qty in buys:
+        for instruction in plan.buys:
+            ticker, order_qty, price, current_qty = (instruction.ticker, instruction.order_qty, instruction.price,
+                                                     instruction.current_qty)
             if not self._has_budget_for_trade(order_qty, price, current_qty):
                 if self.logger:
                     self.logger.warning(
@@ -1452,7 +1455,7 @@ class UnifiedPortfolioManager:
             return set()
         if not scoped:
             return set(held)
-        classes = {cls.__name__ for cls in ticker_asset_class.values()}
+        classes = {cls if isinstance(cls, str) else cls.__name__ for cls in ticker_asset_class.values()}
         selected = set()
         for ticker in held:
             try:

@@ -405,3 +405,27 @@ executable P.02 quote sizes an order, at the dearer side), `IBKRAccountProvider`
 account). Emergency actions, never automatic: `TradingControlsService.kill(reason, by)`,
 `cancel_working_orders(ledger, client, reason)` (cancel requested; status moves when IBKR confirms),
 `liquidate_all(upm, data)` after setting `reduce_only`. Tests: `tests/misbuffet/test_trading_controls.py`.
+
+---
+
+## PortfolioRebalancer: target vs current, separate from execution (2026-11-20, refactor phase P4)
+
+```
+TargetPortfolio (or target weights / quantities)
+  -> PortfolioRebalancer.plan(current, weights, quantities, liquidate, band) -> RebalancePlan
+  -> set_holdings executes plan.sells then plan.buys through TradeManager.execute_trade
+```
+
+- `portfolio_rebalancer.py` is pure arithmetic with no DB, broker, strategy or factor code:
+  `target_qty = quantity target, or int(PV x weight / (price x multiplier))`, then `order_qty = target_qty - current_qty`
+  (> 0 BUY, < 0 SELL, 0 no order). Liquidations have target 0. The no-trade band applies to weight targets only.
+  Unpriced assets are not traded. Instructions are sorted by symbol, sells before buys.
+- `CurrentPortfolio` holds the portfolio value plus `price_of` / `quantity_of` / `multiplier_of` callables. In
+  `set_holdings` these are the existing lookups (`_reference_price`, `_get_current_position_qty`,
+  `TradeManager.contract_multiplier`), called lazily in the same order as before.
+- `set_holdings` keeps every gate and its signature: invalid targets, gross cap, live reconciler / ledger /
+  recovery, pending orders, portfolio value, containers, liquidation scope, and budget checks before each order.
+  Only the quantity computation moved.
+- `set_holdings` also accepts a `TargetPortfolio`. Its liquidation is scoped to the positions' `asset_type`s (like
+  the class-keyed format), and a position with `target_quantity` is a quantity target.
+- Tests: `tests/misbuffet/test_portfolio_rebalancer.py`, including a golden comparison with the pre-P4 loop.
