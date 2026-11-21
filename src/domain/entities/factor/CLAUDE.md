@@ -942,3 +942,25 @@ information becomes a strategy. Plan and audit: `docs/architecture/P1_STRATEGY_A
 - `TradingStrategy` is in `tests/component/factor_context/factor_catalog.NOT_SERVICE_RESOLVABLE` (no scalar value);
   tests: `tests/strategy/test_trading_strategy_factor.py`.
 
+
+
+### LGBMQuintileLongShortStrategy (added 2026-11-20, refactor phase P5)
+
+`trading_strategy/lgbm_quintile_long_short_strategy.py` is the first concrete TradingStrategy:
+
+```
+Universe (members in force) -> CompanyShareLGBMCSQuintileRankMomentumFactor (per_entity, calculated, SELF frequency)
+  -> evaluate(): latest value per constituent -> StrategySignals
+  -> construction_method(): Q5 long / Q1 short, equal weight per side, each side gross/2 -> TargetPortfolio
+```
+
+- `quintiles='factor'` (default) reads the factor's label (1-5, rounded); `'cross_sectional'` re-ranks the values
+  into 5 buckets with the decile project's rule (`steps.quantile_labels`, ties broken by symbol).
+- No model or scoring logic: the factor and its provider produce the values.
+- Constituents without a value are left out. An empty long or short side gives an empty target (the CSM rule).
+- `TradingStrategy.construction_method()` (default None) names a strategy's construction.
+  `TradingStrategyEvaluationService.target_portfolio(strategy, universe, as_of)` runs
+  ranking factor -> strategy -> construction -> TargetPortfolio, with no orders.
+- It is not persisted as its own factor type yet (no ORM identity of its own). P6/P7 add one when a strategy row is
+  needed.
+- Tests: `tests/strategy/test_lgbm_quintile_strategy.py`.

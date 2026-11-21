@@ -26,6 +26,7 @@ from src.domain.entities.finance.portfolio.construction.steps import (
     GrossExposureCap,
     InverseVolatilityWeighting,
     NormaliseSides,
+    QuantileBuckets,
     QuantileLongShort,
     ScoreWeighting,
     Selection,
@@ -76,8 +77,19 @@ def quantile_long_short_inverse_volatility(quantile: float, gross: float) -> Por
                                        InverseVolatilityWeighting(), (NormaliseSides(gross / 2.0, gross / 2.0),))
 
 
-def bucket_long_short(long_buckets=(5,), short_buckets=(1,), gross: float = 1.0) -> PortfolioConstructionMethod:
+def bucket_long_short(long_buckets=(5,), short_buckets=(1,), gross: float = 1.0, round_labels: bool = False,
+                      require_both_sides: bool = False) -> PortfolioConstructionMethod:
     """Scores that are bucket labels (quintile 1-5): equal weight long the ``long_buckets``, short the
     ``short_buckets``, each side gross/2 (long Q5 / short Q1 by default)."""
-    return PortfolioConstructionMethod("bucket_long_short", Buckets(frozenset(long_buckets), frozenset(short_buckets)),
+    return PortfolioConstructionMethod("bucket_long_short",
+                                       Buckets(frozenset(long_buckets), frozenset(short_buckets), round_labels,
+                                               require_both_sides),
+                                       EqualWeighting(), (NormaliseSides(gross / 2.0, gross / 2.0),))
+
+
+def quantile_long_short(n_buckets: int = 5, gross: float = 1.0) -> PortfolioConstructionMethod:
+    """Rank the scores into ``n_buckets`` (ties by symbol), equal weight long the top bucket and short the bottom one,
+    each side gross/2 — the decile project's long-short book (top decile +gross/2, bottom -gross/2, equal weight)."""
+    return PortfolioConstructionMethod("quantile_long_short",
+                                       QuantileBuckets(n_buckets, frozenset({n_buckets}), frozenset({1})),
                                        EqualWeighting(), (NormaliseSides(gross / 2.0, gross / 2.0),))

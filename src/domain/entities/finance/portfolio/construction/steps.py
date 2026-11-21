@@ -130,12 +130,20 @@ class Threshold(Selection):
         return sides
 
 
+def _both_sides_or_nothing(sides: Dict[str, int]) -> Dict[str, int]:
+    """A long/short selection with an empty side selects nothing (the CSM rule: k < 1 -> no portfolio)."""
+    return sides if (1 in sides.values() and -1 in sides.values()) else {}
+
+
 @dataclass(frozen=True)
 class Buckets(Selection):
     """Scores that already are bucket labels (e.g. a quintile 1-5): long the ``long`` buckets, short the ``short``
-    ones, e.g. long Q5 / short Q1."""
+    ones, e.g. long Q5 / short Q1. ``round_labels`` reads 4.6 as bucket 5 (a model's label output may be a float);
+    ``require_both_sides``: nothing is selected when one side is empty."""
     long: FrozenSet[float] = frozenset({5.0})
     short: FrozenSet[float] = frozenset({1.0})
+    round_labels: bool = False
+    require_both_sides: bool = False
 
     def __post_init__(self):
         object.__setattr__(self, "long", frozenset(float(b) for b in self.long))
@@ -144,7 +152,48 @@ class Buckets(Selection):
             raise ValueError(f"buckets {sorted(self.long & self.short)} are both long and short")
 
     def select(self, inputs):
-        return {a: (1 if s in self.long else -1) for a, s in inputs.scores.items() if s in self.long | self.short}
+        sides = {}
+        for a, s in inputs.scores.items():
+            label = float(round(s)) if self.round_labels else s
+            if label in self.long:
+                sides[a] = 1
+            elif label in self.short:
+                sides[a] = -1
+        return _both_sides_or_nothing(sides) if self.require_both_sides else sides
+
+
+def quantile_labels(scores: Mapping[str, float], n_buckets: int) -> Dict[str, int]:
+    """{asset: bucket 1..n_buckets} (1 = lowest): ranked ascending by (score, symbol) — ties broken by the symbol —
+    bucket = min(n, floor(i x n / N) + 1), the rule of portfolio_research.decile_portfolios.assign_deciles."""
+    ranked = _ranked(scores)
+    total = len(ranked)
+    return {a: min(n_buckets, int(math.floor(i * n_buckets / total)) + 1) for i, a in enumerate(ranked)}
+
+
+@dataclass(frozen=True)
+class QuantileBuckets(Selection):
+    """Rank the scores cross-sectionally into ``n_buckets`` (quantile_labels), long the ``long`` buckets and short the
+    ``short`` ones. Fewer than ``n_buckets`` scored assets -> nothing selected (the top bucket would be empty)."""
+    n_buckets: int = 5
+    long: FrozenSet[int] = frozenset({5})
+    short: FrozenSet[int] = frozenset({1})
+
+    def __post_init__(self):
+        if self.n_buckets < 2:
+            raise ValueError("at least 2 buckets")
+        if self.long & self.short:
+            raise ValueError(f"buckets {sorted(self.long & self.short)} are both long and short")
+
+    def select(self, inputs):
+        if len(inputs.scores) < self.n_buckets:
+            return {}
+        sides = {}
+        for a, bucket in quantile_labels(inputs.scores, self.n_buckets).items():
+            if bucket in self.long:
+                sides[a] = 1
+            elif bucket in self.short:
+                sides[a] = -1
+        return _both_sides_or_nothing(sides)
 
 
 # -- 2. weighting --------------------------------------------------------------------------------------------------

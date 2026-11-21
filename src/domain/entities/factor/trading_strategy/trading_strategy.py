@@ -95,3 +95,8 @@ class TradingStrategy(Factor):
         ``dependencies`` is what the resolution service gives a factor: per-entity specs as
         {result_key: {asset key: [values]}}, plus 'weights' of the parent's constituents when it defines them."""
         raise NotImplementedError(f"{type(self).__name__} must implement evaluate()")
+
+    def construction_method(self):
+        """The portfolio construction this strategy's signals go through (a PortfolioConstructionMethod), or None
+        when the caller chooses one. Construction turns the signals into a TargetPortfolio; never into orders."""
+        return None

@@ -43,3 +43,18 @@ class TradingStrategyEvaluationService:
             self.logger.warning(f"{strategy.name}: no dependency resolved on {type(parent_entity).__name__} "
                                 f"{getattr(parent_entity, 'id', '?')} at {as_of}")
         return strategy.evaluate(inputs, as_of=as_of)
+
+    def target_portfolio(self, strategy: TradingStrategy, parent_entity, as_of: datetime, method=None,
+                         construction_service=None, repository_type: str = "local", **construct_kwargs):
+        """ranking factor -> strategy -> portfolio construction -> TargetPortfolio (never orders).
+
+        ``method`` defaults to the strategy's own construction_method()."""
+        from src.application.services.portfolio_construction.portfolio_construction_service import (
+            PortfolioConstructionService,
+        )
+        method = method or strategy.construction_method()
+        if method is None:
+            raise ValueError(f"{strategy.name}: no construction method (pass one or define construction_method())")
+        signals = self.evaluate(strategy, parent_entity, as_of, repository_type)
+        service = construction_service or PortfolioConstructionService(self.logger)
+        return service.construct(signals, method, strategy_name=strategy.name, **construct_kwargs)
