@@ -13,7 +13,7 @@ Nothing here knows about quantities held, prices, orders or brokers; it is never
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
@@ -72,6 +72,16 @@ class TargetPortfolio:
         return cls(as_of=as_of, positions=tuple(
             TargetPortfolioPosition(symbol=s, target_weight=w, asset_type=asset_type, financial_asset_id=ids.get(s))
             for s, w in weights.items()), **kwargs)
+
+    def with_weights(self, weights: Mapping[str, float], note: Optional[str] = None) -> "TargetPortfolio":
+        """The same target with new weights for some of its positions (e.g. a broker restriction setting a short
+        target to 0); every other field is kept. An asset that is not in the target is an error."""
+        unknown = sorted(set(weights) - set(self.symbols()))
+        if unknown:
+            raise ValueError(f"{unknown} are not in the target portfolio")
+        positions = tuple(replace(p, target_weight=weights[p.symbol]) if p.symbol in weights else p
+                          for p in self.positions)
+        return replace(self, positions=positions, note=self.note if note is None else note)
 
     def __len__(self) -> int:
         return len(self.positions)

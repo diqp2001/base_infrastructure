@@ -97,19 +97,14 @@ def signals_to_weights(signals: Dict[str, float], daily_vol: Dict[str, float], t
     Portfolio weights equivalent to the research return R = mean(pred * r * target_vol / ann_vol):
         w_i = signal_i * target_vol / (ann_vol_i * N)
     Optionally rescaled so the gross exposure does not exceed ``gross_cap``.
+
+    Kept for research callers: the rule now lives in portfolio construction
+    (construction_method.volatility_targeted_signals, used by SpatioTemporalMomentumTradingStrategy).
     """
-    n = len(signals)
-    if n == 0:
+    from src.domain.entities.finance.portfolio.construction.construction_method import volatility_targeted_signals
+    from src.domain.entities.finance.portfolio.construction.steps import ConstructionInputs
+    if not signals:
         return {}
-    weights = {}
-    for asset, s in signals.items():
-        vol = daily_vol.get(asset)
-        if vol is None or not np.isfinite(vol) or vol <= 0:
-            weights[asset] = 0.0
-            continue
-        weights[asset] = float(s) * target_vol / (vol * periods_per_year ** 0.5) / n     # vol is per row
-    if gross_cap:
-        gross = sum(abs(w) for w in weights.values())
-        if gross > gross_cap:
-            weights = {a: w * gross_cap / gross for a, w in weights.items()}
-    return weights
+    weights = volatility_targeted_signals(target_vol, gross_cap=gross_cap, periods_per_year=periods_per_year).weights(
+        ConstructionInputs(scores={a: float(s) for a, s in signals.items()}, volatility=dict(daily_vol)))
+    return {a: weights[a] for a in signals}                 # the callers' order

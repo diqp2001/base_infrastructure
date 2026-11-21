@@ -17,7 +17,9 @@ step(now):
      validation = the latest ``val_days``; the new model is used from the
      NEXT session (artifact selection requires validation_end < session)
   7. score the universe with the current model, store the signals
-  8. return vol-scaled target weights for set_holdings
+  8. the STM TradingStrategy turns the signals into StrategySignals, portfolio construction
+     (volatility_targeted_signals) into a TargetPortfolio; result.target_portfolio goes to
+     set_holdings (rebalancing + execution), result.weights = its weights
 """
 
 from __future__ import annotations
@@ -30,9 +32,6 @@ import pandas as pd
 
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_artifact_store import (
     STMArtifactStore,
-)
-from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_backtest import (
-    signals_to_weights,
 )
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_configuration import (
     STMConfiguration,
@@ -53,7 +52,14 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_walk_forward import (
     STMWalkForwardTrainer,
 )
+from src.application.services.portfolio_construction.portfolio_construction_service import (
+    PortfolioConstructionService,
+)
 from src.application.services.timing.step_timings import timed
+from src.domain.entities.factor.trading_strategy.spatio_temporal_momentum_strategy import (
+    SpatioTemporalMomentumTradingStrategy,
+)
+from src.domain.entities.finance.portfolio.target_portfolio import TargetPortfolio
 
 
 @dataclass
@@ -65,7 +71,8 @@ class CycleResult:
     artifact_id: Optional[int] = None
     scores: Dict[str, float] = field(default_factory=dict)       # ticker -> signal
     daily_vol: Dict[str, float] = field(default_factory=dict)    # ticker -> daily vol at session
-    weights: Dict[str, float] = field(default_factory=dict)      # ticker -> target weight
+    weights: Dict[str, float] = field(default_factory=dict)      # ticker -> target weight (of target_portfolio)
+    target_portfolio: Optional[TargetPortfolio] = None            # what the strategy wants to hold
     note: str = ""
     # False when the decision session did not change since the previous step (e.g. an
     # intraday engine clock): the previous decision is returned and must not be re-traded.
@@ -112,6 +119,16 @@ class STMTradingCycle:
         )
         self.feature_store = STMFeatureStore(factory, config) if persist else None
         self._last_result: Optional[CycleResult] = None
+        self.construction = PortfolioConstructionService()
+
+    def trading_strategy(self) -> SpatioTemporalMomentumTradingStrategy:
+        """The STM strategy with this cycle's parameters (target vol, gross cap, bar size)."""
+        from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import (
+            periods_per_year,
+        )
+        return SpatioTemporalMomentumTradingStrategy(
+            target_vol=self.config.training.target_vol, gross_cap=self.gross_cap,
+            periods_per_year=periods_per_year(self.config.bar_minutes))
 
     # ------------------------------------------------------------------
 
@@ -278,10 +295,12 @@ class STMTradingCycle:
 
         result.scores = {d["ticker"]: d["score"] for d in details}
         result.daily_vol = {d["ticker"]: d["daily_vol"] for d in details}
-        from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import periods_per_year
-        result.weights = signals_to_weights(result.scores, result.daily_vol,
-                                            self.config.training.target_vol, self.gross_cap,
-                                            periods_per_year=periods_per_year(self.config.bar_minutes))
+        # signals -> STM strategy -> portfolio construction -> TargetPortfolio
+        strategy = self.trading_strategy()
+        signals = strategy.signals(result.scores, result.daily_vol, as_of=session.to_pydatetime())
+        result.target_portfolio = self.construction.construct(
+            signals, strategy.construction_method(), asset_ids=self.ticker_to_entity, strategy_name=strategy.name)
+        result.weights = result.target_portfolio.weights()
         if self.persist:
             with timed("persist"):
                 self.feature_store.write_signals(session, {d["entity_id"]: d["score"] for d in details})

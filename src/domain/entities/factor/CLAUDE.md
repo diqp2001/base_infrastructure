@@ -964,3 +964,27 @@ Universe (members in force) -> CompanyShareLGBMCSQuintileRankMomentumFactor (per
 - It is not persisted as its own factor type yet (no ORM identity of its own). P6/P7 add one when a strategy row is
   needed.
 - Tests: `tests/strategy/test_lgbm_quintile_strategy.py`.
+
+
+### SpatioTemporalMomentumTradingStrategy (added 2026-11-20, refactor phase P6)
+
+```
+STMTradingCycle.step: provider.score_details -> scores + daily vol
+  -> SpatioTemporalMomentumTradingStrategy.signals(...) -> StrategySignals (vol in the context)
+  -> PortfolioConstructionService.construct(signals, strategy.construction_method()) -> result.target_portfolio
+  -> algorithm: set_holdings(result.target_portfolio) -> PortfolioRebalancer -> TradeManager
+```
+
+- `trading_strategy/spatio_temporal_momentum_strategy.py` holds STM's parameters: target vol, gross cap and
+  periods per year (from the bar size, `stm_time.periods_per_year`). The cycle builds it with
+  `STMTradingCycle.trading_strategy()`.
+- The construction is the generic `volatility_targeted_signals`:
+  w = s x target_vol / (vol x sqrt(P)) / N, then the gross cap (down only). An asset without a usable vol gets 0
+  and still counts in N.
+- `CycleResult.target_portfolio` is new. `CycleResult.weights` is filled from it, so every STM-based project gets
+  the same construction. The full and 10m_live algorithms pass the TargetPortfolio itself to `set_holdings`; live
+  applies the shortable restriction to it with `TargetPortfolio.with_weights` (after construction, before
+  rebalancing).
+- `stm_backtest.signals_to_weights` is now a thin wrapper over the construction method, kept for research callers.
+  The pre-P6 version is frozen in `tests/spatio_temporal_momentum/test_stm_target_portfolio.py` (regression:
+  weights within rel 1e-12, plus identical target and order quantities).

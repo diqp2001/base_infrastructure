@@ -443,7 +443,9 @@ def test_a_decision_is_recorded_before_its_orders_and_stamps_them():
             return d
     algorithm._entity_service = SimpleNamespace(repository_factory=SimpleNamespace(
         trading_decision_local_repo=Decisions()))
+    from src.domain.entities.finance.portfolio.target_portfolio import TargetPortfolio
     result = SimpleNamespace(session=pd.Timestamp("2026-10-30 09:30"), retrained=False, weights={"JPM": -0.1},
+                             target_portfolio=TargetPortfolio.from_weights({"JPM": -0.1}, asset_type="CompanyShare"),
                              note="", artifact_id=None)
     algorithm.cycle = SimpleNamespace(step=lambda t: result,
                                       artifact_store=SimpleNamespace(select=lambda s: (SimpleNamespace(id=39), {})))
@@ -456,6 +458,7 @@ def test_a_decision_is_recorded_before_its_orders_and_stamps_them():
     assert (decision.strategy, decision.account, decision.targets, decision.artifact_id) == \
         ("STM_10M_BANKS", "DUR314497", {"JPM": -0.1}, 39)
     assert seen[1] == ("orders sent with", 41) and ledger.current_decision_id is None    # reset afterwards
+    assert upm.set_holdings.call_args.args[0].weights() == {"JPM": -0.1}                # the TargetPortfolio
 
 
 def test_the_decision_column_is_added_to_an_existing_broker_orders_table(tmp_path, monkeypatch):

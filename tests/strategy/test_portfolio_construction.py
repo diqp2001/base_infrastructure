@@ -126,9 +126,8 @@ def test_strategy_a_quintiles_long_q5_short_q1():
 
 
 def test_strategy_b_reproduces_the_stm_volatility_targeted_weights():
-    from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_backtest import (
-        signals_to_weights,
-    )
+    # the pre-P6 signals_to_weights (since P6 a wrapper over this method), frozen in the STM regression test
+    from tests.spatio_temporal_momentum.test_stm_target_portfolio import OLD_signals_to_weights as signals_to_weights
     signals = {"AAPL": 0.8, "MSFT": -0.3, "JPM": 0.05, "XOM": -0.9, "NOVOL": 0.4}
     vol = {"AAPL": 0.012, "MSFT": 0.02, "JPM": 0.015, "XOM": 0.03, "NOVOL": 0.0}      # NOVOL: no usable vol -> 0
     inputs = ConstructionInputs(scores=signals, volatility=vol)

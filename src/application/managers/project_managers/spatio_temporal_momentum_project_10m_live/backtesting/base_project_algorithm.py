@@ -197,10 +197,13 @@ class Algorithm(BaseProjectAlgorithm):
             if result.retrained:
                 self.log(f"STM model retrained at bar {result.session} (artifact {result.artifact_id})")
             weights = dict(result.weights or {})
+            target = result.target_portfolio
             if weights and self.shortable is not None:
+                # after construction, before rebalancing: shorts IBKR cannot lend are set to 0 in the target
                 weights, cut = self.shortable.restrict(weights)
                 if cut:
                     self.logger.warning(f"{bar_time}: IBKR cannot lend {cut}: short targets set to 0")
+                    target = target.with_weights(weights)
             if weights and self._unified_portfolio_manager:
                 decision = self.record_decision(result, weights)
                 ledger = getattr(self.live_stack, "ledger", None)
@@ -209,7 +212,7 @@ class Algorithm(BaseProjectAlgorithm):
                 try:
                     with timings.section("orders"):
                         placed = self._unified_portfolio_manager.set_holdings(
-                            {CompanyShare: [{'name': t, 'weight': w} for t, w in weights.items()]},
+                            target,                    # TargetPortfolio -> rebalancing -> TradeManager
                             data=data,
                             max_gross_weight=self.config.get('gross_exposure_cap', 1.0),
                         )
