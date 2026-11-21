@@ -48,6 +48,13 @@ class ConstituentScoreFactorModel(FactorModel):
         "polymorphic_identity": "constituent_score_factor"
     }
 
+class TradingStrategyModel(FactorModel):
+    """A TradingStrategy factor (domain: src/domain/entities/factor/trading_strategy). Concrete strategies add their
+    own identity as subclasses of this model."""
+    __mapper_args__ = {
+        "polymorphic_identity": "trading_strategy"
+    }
+
 class CompanyShareFactorModel(FactorModel):
     __mapper_args__ = {
         "polymorphic_identity": "company_share_factor"

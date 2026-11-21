@@ -437,6 +437,7 @@ from src.infrastructure.repositories.local_repo.ml.model_artifact_repository imp
 
 # ConstituentScoreFactor repository
 from src.infrastructure.repositories.local_repo.factor.constituent_score_factor_repository import ConstituentScoreFactorRepository
+from src.infrastructure.repositories.local_repo.factor.trading_strategy_repository import TradingStrategyRepository
 
 
 class RepositoryRegistry(dict):
@@ -735,6 +736,8 @@ class RepositoryFactory:
 
                 # ConstituentScoreFactor
                 'ConstituentScoreFactor': ConstituentScoreFactorRepository(self.session, factory=self),
+                # TradingStrategy (a Factor: how factor information becomes a tradable strategy)
+                'TradingStrategy': TradingStrategyRepository(self.session, factory=self),
 
                 # Technical / Momentum CompanyShare factors
                 'CompanyShareReturn1DFactor': CompanyShareReturn1DFactorRepository(self.session, factory=self),
@@ -2426,6 +2429,10 @@ class RepositoryFactory:
     @property
     def constituent_score_factor_local_repo(self):
         return self.get_local_repository('ConstituentScoreFactor')
+
+    @property
+    def trading_strategy_local_repo(self):
+        return self.get_local_repository('TradingStrategy')
 
     @property
     def company_share_option_implied_vol_ml_factor_local_repo(self):

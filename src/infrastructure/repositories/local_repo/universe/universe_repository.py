@@ -185,6 +185,29 @@ class UniverseRepository(UniversePort):
                     found.setdefault(symbol, []).append(id_)
         return {symbol: ids[0] for symbol, ids in found.items() if len(ids) == 1}
 
+    def get_related_entities(self, universe_id: int, target_date=None) -> list:
+        """The universe's financial assets in force on ``target_date`` (all members when None), as domain entities
+        of their own class: the related entities the resolution service gives a factor resolved on a Universe (a
+        TradingStrategy sees every constituent through its per-entity dependencies)."""
+        from src.infrastructure.models.finance.financial_assets.financial_asset import FinancialAssetModel
+        from src.infrastructure.models.universe.universe_financial_asset import UniverseFinancialAssetModel
+        day = target_date.date() if isinstance(target_date, datetime) else target_date
+        query = (self.session.query(FinancialAssetModel.id, FinancialAssetModel.entity_type)
+                 .join(UniverseFinancialAssetModel, UniverseFinancialAssetModel.financial_asset_id == FinancialAssetModel.id)
+                 .filter(UniverseFinancialAssetModel.universe_id == universe_id))
+        if day is not None:
+            query = query.filter((UniverseFinancialAssetModel.start_date.is_(None))
+                                 | (UniverseFinancialAssetModel.start_date <= day),
+                                 (UniverseFinancialAssetModel.end_date.is_(None))
+                                 | (UniverseFinancialAssetModel.end_date >= day))
+        out = []
+        for asset_id, entity_type in query.order_by(FinancialAssetModel.id).all():
+            repo = self.factory.get_local_repository(domain_asset_type(entity_type)) if self.factory else None
+            entity = repo.get_by_id(asset_id) if repo is not None else None
+            if entity is not None:
+                out.append(entity)
+        return out
+
     def stored_symbols(self, asset_type: str) -> List[str]:
         """Every stored symbol of one asset type (a domain class name, e.g. 'CompanyShare'), sorted."""
         return self.stored_assets().get(domain_asset_type(asset_type), [])

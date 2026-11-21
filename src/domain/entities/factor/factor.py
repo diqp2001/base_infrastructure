@@ -130,6 +130,8 @@ class Factor(ABC):
         "transaction":  {"label": "Transaction",   "description": "Transaction-level factors"},
         "position":     {"label": "Position",      "description": "Position-level factors"},
         "price_model":  {"label": "Price Model",   "description": "Option pricing model outputs (BSM, Heston, …)"},
+        "strategy":     {"label": "Strategy",      "description": "Trading strategies: how factor information becomes "
+                                                                  "an investment strategy (TradingStrategy)"},
     }
 
     SUBGROUPS: ClassVar[dict[str, dict]] = {
@@ -226,6 +228,8 @@ class Factor(ABC):
         "sabr":                 {"label": "SABR",                "typical_group": "price_model"},
         "jump_diffusion":       {"label": "Jump Diffusion",      "typical_group": "price_model"},
         "local_volatility":     {"label": "Local Volatility",    "typical_group": "price_model"},
+        # trading strategies
+        "trading_strategy":     {"label": "Trading strategy",    "typical_group": "strategy"},
         # ── legacy values (pre-canonical; migrate to lowercase over time) ───
         "Price":         {"label": "Price (legacy)",        "legacy": True, "canonical": "mid_price"},
         "Yield":         {"label": "Yield (legacy)",        "legacy": True, "canonical": "yield"},

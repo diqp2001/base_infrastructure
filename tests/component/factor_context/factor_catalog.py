@@ -119,4 +119,7 @@ NOT_SERVICE_RESOLVABLE = {
     "ConstituentScoreFactor": "scores are written by the ML pipelines; calculate() is not a resolution path",
     "CurrencyRateFactor": "an observed rate stored by the data import; calculate() aggregates provider quotes "
                           "(source_prices), it is not a derived factor",
+    "TradingStrategy": "no scalar value by design: its dependencies are resolved on its parent entity "
+                       "(resolution_service.resolve_dependencies) and it gives StrategySignals through evaluate() "
+                       "(tests/strategy/test_trading_strategy_factor.py)",
 }

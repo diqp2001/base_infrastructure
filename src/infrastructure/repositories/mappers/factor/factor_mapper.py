@@ -161,6 +161,7 @@ from src.domain.entities.factor.finance.order.company_share_order_price_factor i
 # Import portfolio value factor
 from src.domain.entities.factor.finance.portfolio.portfolio_value_factor import PortfolioValueFactor as PortfolioValueFactorEntity
 from src.domain.entities.factor.constituent_score_factor import ConstituentScoreFactor as ConstituentScoreFactorEntity
+from src.domain.entities.factor.trading_strategy.trading_strategy import TradingStrategy as TradingStrategyEntity
 
 # Import corresponding entity types for mapping
 from src.domain.entities.continent import Continent
@@ -383,6 +384,7 @@ DISCRIMINATOR_CLASS_MAP: dict = {
     'company_share_order_price_factor': CompanyShareOrderPriceFactorEntity,
     'portfolio_value_factor': PortfolioValueFactorEntity,
     'constituent_score_factor': ConstituentScoreFactorEntity,
+    'trading_strategy': TradingStrategyEntity,
     # Technical / Momentum — Returns
     'company_share_return_1d_factor': CompanyShareReturn1DFactor,
     'company_share_return_5d_factor': CompanyShareReturn5DFactor,
@@ -786,6 +788,8 @@ class FactorMapper:
             )
         elif factor_type == 'constituent_score_factor':
             return ConstituentScoreFactorEntity(**base_args)
+        elif factor_type == 'trading_strategy':
+            return TradingStrategyEntity(**base_args)
         elif factor_type == 'backtest_factor':
             from src.domain.entities.factor.backtest.backtest_factor import BacktestFactor
             return BacktestFactor(**base_args)
@@ -999,6 +1003,8 @@ class FactorMapper:
             base_data['factor_type'] = 'company_share_order_price_factor'
         elif isinstance(domain_entity, PortfolioValueFactorEntity):
             base_data['factor_type'] = 'portfolio_value_factor'
+        elif type(domain_entity) is TradingStrategyEntity:      # concrete strategies map to their own identity
+            base_data['factor_type'] = 'trading_strategy'
         else:
             # Use existing logic or default
             base_data['factor_type'] = 'generic'

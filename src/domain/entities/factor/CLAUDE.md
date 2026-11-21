@@ -916,3 +916,29 @@ both through `FinancialStatementSourcePort` (`src/domain/ports/factor/financial_
   `FactorDependency` rows (those are calendar lags read from stored values only). ORM identities `company_share_fundamental_<kind>_factor`; library
   `company_share_fundamental_library` (keys `<subgroup>.<name>.<frequency>`, Eulerpool raw series
   `eulerpool.<subgroup>.<name>.<frequency>`). Tests: `tests/fmp/`, `tests/eulerpool/`.
+
+## TradingStrategy (added 2026-11-20, phase P2 of the strategy architecture refactor)
+
+`trading_strategy/trading_strategy.py`: a tradable investment strategy as a Factor (group `strategy`, subgroup
+`trading_strategy`). A ranking / scoring factor says how attractive an asset is; a TradingStrategy says how that
+information becomes a strategy. Plan and audit: `docs/architecture/P1_STRATEGY_ARCHITECTURE_AUDIT.md`.
+
+- **Dependencies**: `calculate_dependencies` returns `DependencySpec`s on ranking / scoring factors, usually
+  `per_entity=True`. It is resolved on a **parent entity**: a Universe (`UniverseRepository.get_related_entities` =
+  its members in force on the date) or an ETF (its holdings, plus `weights`).
+- **No scalar value**: `calculate()` returns None and nothing is stored for the strategy. Its output is
+  `StrategySignals` (`{asset: value}`, as_of, asset_type, context) from `evaluate(dependencies, as_of)`.
+- **Evaluation**: `FactorValueResolutionService.resolve_dependencies(strategy, parent, as_of)` resolves the inputs
+  with the existing machinery (each dependency value resolved and stored as usual) without calculating or storing
+  the strategy. `TradingStrategyEvaluationService.evaluate(strategy, parent, as_of)` = that + `strategy.evaluate`.
+- **Boundary**: no orders, quantities, positions or broker code. The signals go to portfolio construction (P3).
+- **Persistence**: `TradingStrategyModel` (`factors`, identity `trading_strategy`), `TradingStrategyMapper`,
+  `TradingStrategyPort` (`ports/factor/trading_strategy/`), `TradingStrategyRepository` (factory key
+  `TradingStrategy`, `factory.trading_strategy_local_repo`), FactorMapper dispatch + `DISCRIMINATOR_CLASS_MAP`. No
+  IBKR repository (a strategy is calculated, never fetched). Concrete strategies add their own identity.
+- **Dependency factors must be entity-compatible**: a dependency is resolved only on related entities compatible
+  with its factor class (e.g. a `CompanyShare...Factor` on CompanyShares); the generic `ConstituentScoreFactor` is
+  not mapped to an entity type and is skipped.
+- `TradingStrategy` is in `tests/component/factor_context/factor_catalog.NOT_SERVICE_RESOLVABLE` (no scalar value);
+  tests: `tests/strategy/test_trading_strategy_factor.py`.
+

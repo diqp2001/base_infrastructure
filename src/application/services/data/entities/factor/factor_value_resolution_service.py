@@ -90,6 +90,20 @@ class FactorValueResolutionService:
         self._note_input(value)
         return value
 
+    def resolve_dependencies(self, factor_entity, entity, time_date, repository_type: str = "local",
+                             **kwargs) -> Optional[Dict[str, Any]]:
+        """The values of the factors ``factor_entity`` declares in ``calculate_dependencies``, resolved for
+        ``entity`` at ``time_date`` exactly as for its own value (each dependency is resolved, and stored when it is,
+        through resolve_factor_value) — but ``factor_entity`` itself is neither calculated nor stored.
+
+        For factors whose result is not one scalar per entity, e.g. a TradingStrategy resolved on its Universe: its
+        per-entity specs give {result_key: {constituent symbol: [values]}}. None when the factor declares no
+        dependencies or they cannot be resolved; {} when none yielded a value."""
+        if entity is None or not hasattr(factor_entity, "calculate_dependencies"):
+            return None
+        parsed_date = self._parse_date(self._format_date(time_date))
+        return self._resolve_dynamic_dependencies(factor_entity, entity, parsed_date, repository_type, **kwargs)
+
     def _resolve_factor_value(
         self,
         factor_entity,
