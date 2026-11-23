@@ -138,9 +138,13 @@ the migrations that would have created the missing columns or tables. The databa
 fail or corrupt data on top of it. Stamp only after step 4 reports 0 differences.
 
 State on 2026-11-23:
-- **`base_infra` (Windows):** one difference, the index `ix_broker_orders_decision_id` (declared by the model; the old
-  start-up `ALTER` added the column without it). Steps 3 to 5 are pending the owner's approval.
-- **Docker `sqlserver`:** it still needs the strategy / universe migration before step 4.
+- **`base_infra` (Windows):** adopted at revision `0001` (owner's approval).
+  - **Backup:** COPY_ONLY with checksums, verified: `MSSQL\Backup\base_infra_before_alembic_stamp_20261123.bak`.
+  - **Reconciliation:** it created one index, `ix_broker_orders_decision_id`. The model declares it; the old start-up
+    `ALTER` added the column without it.
+  - **Stamp:** done once the comparison reported 0 differences.
+- **`base_infra_test`:** adopted at `0001` first (0 differences, nothing to reconcile).
+- **Docker `sqlserver`:** not adopted; it still needs the strategy / universe migration before step 4.
 
 ## Fresh database
 
