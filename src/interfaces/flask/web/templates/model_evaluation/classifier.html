@@ -1,0 +1,110 @@
+{% extends "factors/base.html" %}
+{% block title %}Classifier evaluation{% endblock %}
+{% block content %}
+<h4>Classifier model evaluation</h4>
+<p class="muted small">Does the model identify which stocks end in the better or worse future-performance classes?
+    Evaluated as a classifier, independent of any trading strategy. <b>True class</b> = the class the stock realised
+    after the prediction date (the model's own label rule); <b>predicted class</b> = argmax of its class probabilities
+    at the date; <b>probability quintile</b> = the stocks of ONE date ranked by one class probability, Q1 lowest .. Q5
+    highest — neither the true nor the predicted class.</p>
+
+<form method="get" class="card mb-3"><input type="hidden" name="run" value="1">
+    <div class="card-header">Configuration</div>
+    <div class="card-body small"><div class="row g-2">
+        <div class="col-md-3"><label class="form-label">Model</label>
+            <select class="form-select form-select-sm" name="model" id="model" onchange="loadRuns()">
+            {% for m in models %}<option value="{{ m.key }}" {% if m.key == selected_model %}selected{% endif %}>{{ m.name }} ({{ m.kind }}, {{ m.classes|length }} classes)</option>{% endfor %}
+            </select>{% if not models %}<div class="muted">No stored classifier model.</div>{% endif %}</div>
+        <div class="col-md-3"><label class="form-label">Run</label>
+            <select class="form-select form-select-sm" name="run_id" id="run_id">
+                <option value="">walk-forward: every run on its own dates</option>
+                {% for r in runs %}<option value="{{ r.run_id }}" {% if args.get('run_id')|string == r.run_id|string %}selected{% endif %}>{{ r.label }}</option>{% endfor %}
+            </select></div>
+        <div class="col-md-2"><label class="form-label">Universe</label><select class="form-select form-select-sm" name="universe_id">
+            <option value="">the model's universe</option>
+            {% for u in universes %}<option value="{{ u.id }}" {% if args.get('universe_id')|string == u.id|string %}selected{% endif %}>{{ u.name }}</option>{% endfor %}</select></div>
+        <div class="col-md-1"><label class="form-label">Start</label><input type="date" class="form-control form-control-sm" name="start" value="{{ args.get('start','')[:10] }}" required></div>
+        <div class="col-md-1"><label class="form-label">End</label><input type="date" class="form-control form-control-sm" name="end" value="{{ args.get('end','')[:10] }}" required></div>
+        <div class="col-md-1"><label class="form-label">Horizon (bars)</label><input class="form-control form-control-sm" name="horizon" value="{{ args.get('horizon','') }}" placeholder="label"></div>
+        <div class="col-md-1"><label class="form-label">P(class)</label><input class="form-control form-control-sm" name="prob_class" value="{{ args.get('prob_class','') }}" placeholder="best"></div>
+    </div><button class="btn btn-sm btn-success mt-2">Evaluate</button></div>
+</form>
+
+{% if error %}<div class="alert alert-warning py-2">{{ error }}</div>{% endif %}
+{% if evaluation %}{% set ev = evaluation %}{% set c = ev.classification %}{% set q = request.query_string.decode() %}
+{% set csv = url_for('model_evaluation.classifier_csv') ~ '?' ~ q %}
+<div class="card mb-3"><div class="card-header">Model and definitions</div><div class="card-body small"><ul class="mb-0">
+    <li><b>{{ ev.model.name }}</b> — classes {{ ev.classes|join(', ') }} (worst first)</li>
+    <li>True class: {{ ev.model.true_class_definition }}</li>
+    <li>Forward return of the probability quintiles: {{ ev.horizon }} bars after the prediction date</li>
+    <li>{{ ev.observations|length }} observations, {{ ev.observations['date'].nunique() if ev.observations|length else 0 }} dates, {{ ev.per_run|length }} run(s) ·
+        <a href="{{ csv }}&part=observations">observations CSV</a> (date, asset, run, true / predicted class, forward return, every class probability)</li>
+    {% for n in ev.notes %}<li class="muted">{{ n }}</li>{% endfor %}
+</ul></div></div>
+
+<div class="card mb-3"><div class="card-header">1. Classification — true class vs predicted class</div><div class="card-body small">
+    <div class="row g-3">
+        <div class="col-md-4">
+            <table class="table table-sm mb-2"><tbody>
+            {% for name, v in [('Accuracy', c.accuracy), ('Balanced accuracy', c.balanced_accuracy), ('Macro precision', c.macro_precision),
+                               ('Macro recall', c.macro_recall), ('Macro F1', c.macro_f1), ('Log loss', c.log_loss), ('Brier score (multiclass)', c.brier_score)] %}
+            <tr><td>{{ name }}</td><td>{{ '%.4f'|format(v) if v is not none else '—' }}</td></tr>{% endfor %}
+            <tr><td>Observations</td><td>{{ c.n_observations }}</td></tr>
+            <tr><td class="muted">Chance accuracy</td><td class="muted">{{ '%.4f'|format(1 / ev.classes|length) }}</td></tr>
+            </tbody></table>
+            {{ table(per_class, 4, 'class')|safe }} <a href="{{ csv }}&part=per_class">CSV</a></div>
+        <div class="col-md-8">
+            <div class="mb-1">Confusion matrix:
+                <a href="#" onclick="showConf('share');return false">row % (where did each true class get classified?)</a> ·
+                <a href="#" onclick="showConf('counts');return false">counts</a> · <a href="{{ csv }}&part=confusion">CSV</a></div>
+            <img class="figure" id="conf-share" src="data:image/png;base64,{{ figures.confusion_share }}" alt="confusion share">
+            <img class="figure" id="conf-counts" style="display:none" src="data:image/png;base64,{{ figures.confusion_counts }}" alt="confusion counts">
+        </div>
+    </div>
+    {% if ev.per_run|length > 1 %}<details class="mt-2"><summary>Per run</summary>{{ table(ev.per_run, 4, 'run')|safe }}</details>{% endif %}
+</div></div>
+
+<div class="card mb-3"><div class="card-header">2. Probability quintiles — does each class probability rank the realised returns?</div><div class="card-body small">
+    <p class="muted mb-1">Per date, stocks ranked by P(class k) into Q1 (lowest probability) .. Q5 (highest). If P(best class) is useful,
+        mean returns should rise from Q1 to Q5 (monotonicity close to +1); P(worst class) the opposite. Nothing here assumes it.</p>
+    {{ table(overview, 4, 'probability')|safe }}
+    <div class="mt-2">Probability shown below:
+        {% for k in ev.classes %}<a class="btn btn-sm {% if k == target %}btn-primary{% else %}btn-outline-secondary{% endif %} py-0"
+            href="{{ url_for('model_evaluation.classifier_evaluation') }}?{{ q|replace('prob_class=' ~ args.get('prob_class',''), '') }}&prob_class={{ k }}">P({{ label(k, ev.classes) }})</a>{% endfor %}</div>
+    {% if analysis %}
+    <h6 class="mt-3">P({{ label(target, ev.classes) }}) quintiles {% if analysis.monotonicity is not none %}<span class="muted">· monotonicity {{ '%.2f'|format(analysis.monotonicity) }}</span>{% endif %}
+        · <a href="{{ csv }}&part=quintiles&prob_class={{ target }}">per-date returns CSV</a></h6>
+    {% for n in analysis.notes %}<div class="muted">{{ n }}</div>{% endfor %}
+    {{ table(analysis.summary, 4, 'quintile')|safe }}
+    <p class="muted mt-1 mb-0">observations = stock-dates in the quintile; mean = average of the per-date equal-weight returns; median = over all its stocks;
+        hit rate = share whose true class is {{ label(target, ev.classes) }}; t-stat of the per-date mean.</p>
+    {% endif %}
+</div></div>
+
+{% if analysis %}
+<div class="card mb-3"><div class="card-header">3. Cumulative returns of the P({{ label(target, ev.classes) }}) quintiles · <a href="{{ csv }}&part=cumulative&prob_class={{ target }}">CSV</a></div>
+    <div class="card-body">{% if figures.cumulative %}<img class="figure" src="data:image/png;base64,{{ figures.cumulative }}" alt="cumulative">{% else %}<p class="muted small">No return series.</p>{% endif %}</div></div>
+
+<div class="card mb-3"><div class="card-header">4. Correlation of the P({{ label(target, ev.classes) }}) quintile return series · <a href="{{ csv }}&part=correlation&prob_class={{ target }}">CSV</a></div>
+    <div class="card-body small">{% if figures.correlation %}<img class="figure" src="data:image/png;base64,{{ figures.correlation }}" alt="correlation">
+        <p class="muted mb-0">Correlations near 1 everywhere: the quintiles move together and the probability separates little of the cross-section.</p>
+        {% else %}<p class="muted">Fewer than 3 dates: no correlation.</p>{% endif %}</div></div>
+{% endif %}
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+function showConf(which) {
+    document.getElementById('conf-share').style.display = which === 'share' ? '' : 'none';
+    document.getElementById('conf-counts').style.display = which === 'counts' ? '' : 'none';
+}
+function loadRuns() {
+    const key = document.getElementById('model').value;
+    fetch('{{ url_for("model_evaluation.classifier_runs") }}?model=' + encodeURIComponent(key)).then(r => r.json()).then(runs => {
+        const sel = document.getElementById('run_id');
+        sel.innerHTML = '<option value="">walk-forward: every run on its own dates</option>';
+        runs.forEach(r => { const o = document.createElement('option'); o.value = r.run_id; o.textContent = r.label; sel.appendChild(o); });
+    });
+}
+</script>
+{% endblock %}

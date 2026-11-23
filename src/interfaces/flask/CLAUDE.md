@@ -17,6 +17,8 @@ src/interfaces/flask/
 │   │   ├── strategies/          👈 /strategies: base, dashboard, new, view, edit, experiment, report, compare
 │   │   ├── projects/            👈 one subfolder per project: stm/, csm/, spx_v2/ (dashboard, results),
 │   │   │                           dispersion/ (results, detail, maturities)
+│   │   ├── model_evaluation/    👈 /powerbuffet/model-evaluation: classifier (classification metrics, confusion
+│   │   │                           matrix, probability quintiles) — application/services/model_evaluation
 │   │   └── monitor/             👈 monitoring app: base, _section, overview, trading, ibkr, ...
 │   └── static/
 │       └── style.css

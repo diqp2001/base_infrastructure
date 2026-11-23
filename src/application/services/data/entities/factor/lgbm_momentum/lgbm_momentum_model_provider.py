@@ -19,6 +19,14 @@ from src.application.services.data.entities.factor.lgbm_momentum.lgbm_momentum_f
 )
 
 
+def class_probabilities(model, X):
+    """(class labels, probabilities rows x classes) of a fitted sklearn-style classifier (LGBMClassifier or the
+    RandomForest fallback): ``predict_proba`` columns follow ``model.classes_``. A class absent from the training
+    labels has no column (the caller treats it as probability 0)."""
+    proba = model.predict_proba(X)
+    return [int(k) for k in model.classes_], proba
+
+
 class LGBMMomentumModelProvider:
     # Class-level cache: regime_key → fitted model
     _model_cache: Dict[str, Any] = {}
@@ -58,6 +66,24 @@ class LGBMMomentumModelProvider:
             return max(1.0, min(result, float(self.config.n_quintiles)))
         except Exception as e:
             print(f"LGBMMomentumModelProvider.predict error: {e}")
+            return None
+
+    def predict_proba(self, dependencies: dict, entity, target_date) -> Optional[Dict[int, float]]:
+        """{class (1..n_quintiles): probability} of the model in force at the date — the full output ``predict``
+        reduces to its argmax (added 2026-11-23 for the classifier evaluation; ``predict`` is unchanged)."""
+        features = self.feature_def.extract(dependencies, entity, target_date)
+        if features is None:
+            return None
+        ref_date = target_date.date() if hasattr(target_date, "date") else target_date
+        model = self._get_or_train_model(ref_date)
+        if model is None:
+            return None
+        try:
+            import numpy as np
+            classes, proba = class_probabilities(model, np.array([features]))
+            return {int(k): float(p) for k, p in zip(classes, proba[0])}
+        except Exception as e:
+            print(f"LGBMMomentumModelProvider.predict_proba error: {e}")
             return None
 
     # ------------------------------------------------------------------

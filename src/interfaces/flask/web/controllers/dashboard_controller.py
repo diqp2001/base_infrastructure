@@ -98,6 +98,8 @@ HUB_SECTIONS = [
     ("Factors", "fa-square-root-variable", [
         ("/powerbuffet/generate", "Generate factors", "Compute factor values for a universe and window"),
         ("/powerbuffet/research", "Factor research", "Explore factor values and pairs"),
+        ("/powerbuffet/model-evaluation", "Classifier evaluation",
+         "Classification metrics, confusion matrix and probability quintiles of the stock classifiers"),
         ("/factor-analysis/", "Factor analysis", "CAPM / Fama-French analysis of results"),
         ("/factor-analysis/factor-returns", "Factor returns (JSON)", "The available factor return series"),
     ]),
