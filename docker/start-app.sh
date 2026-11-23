@@ -14,8 +14,8 @@ export PATH="/home/trader/.local/bin:$PATH"
 # Create necessary directories
 mkdir -p logs reports results data/stock_data data/fx_data
 
-# Run database migrations if needed
-# python -m alembic upgrade head  # Uncomment if using Alembic
+# Database migrations are an explicit deployment step, not run here (docs/development/DATABASE_MIGRATIONS.md):
+#   docker compose run --rm app alembic upgrade head
 
 # Start the Flask application
 echo "Starting Flask application..."

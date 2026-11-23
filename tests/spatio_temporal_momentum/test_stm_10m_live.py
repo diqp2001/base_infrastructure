@@ -468,6 +468,7 @@ def test_the_decision_column_is_added_to_an_existing_broker_orders_table(tmp_pat
     with create_engine(url).begin() as conn:                     # a broker_orders table from before P.06.05
         conn.execute(text("CREATE TABLE broker_orders (id INTEGER PRIMARY KEY, order_id INTEGER)"))
     monkeypatch.setattr(base_factory, "get_database_url", lambda db_type: url)
-    base_factory.BaseFactory("sqlite")                           # runs create_all + _migrate_schema
+    # start-up no longer alters the schema (Alembic, 2026-11-23): the pre-Alembic upgrades are run explicitly
+    base_factory.BaseFactory("sqlite")._migrate_schema()         # legacy_schema.reconcile
     cols = {c["name"] for c in inspect(create_engine(url)).get_columns("broker_orders")}
     assert "decision_id" in cols

@@ -3,7 +3,7 @@ Infrastructure models for back testing enums.
 SQLAlchemy models for domain enums.
 """
 from sqlalchemy import Column, Integer, String, Enum as SQLEnum
-from src.infrastructure.models import ModelBase as Base
+from src.infrastructure.models.finance.back_testing.legacy_base import LegacyBackTestingBase as Base  # not ModelBase
 from src.domain.entities.finance.back_testing.enums import (
     Resolution, SecurityType, Market, OrderType, OrderStatus, OrderDirection,
     TickType, DataType, OptionRight, OptionStyle, DataNormalizationMode,

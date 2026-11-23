@@ -7,7 +7,7 @@ from decimal import Decimal
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, JSON
 from sqlalchemy import DECIMAL  # postgresql.DECIMAL was removed in SQLAlchemy 2.0
 from sqlalchemy.orm import relationship
-from src.infrastructure.models import ModelBase as Base
+from src.infrastructure.models.finance.back_testing.legacy_base import LegacyBackTestingBase as Base  # not ModelBase
 from src.domain.entities.finance.back_testing.enums import SecurityType, Market
 
 

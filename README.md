@@ -2,6 +2,7 @@
 
 * **Linux development environment** (WSL2 + Docker + VS Code Dev Containers: app, IB Gateway, SQL Server): see [.devcontainer/README.md](.devcontainer/README.md).
 * **Read-only monitoring dashboard** (no login, private-network access from a phone): see [docs/MONITORING.md](docs/MONITORING.md).
+* **Database migrations** (Alembic: `alembic upgrade head`, `alembic current`, `alembic revision --autogenerate -m "..."`, adopting an existing database): see [docs/development/DATABASE_MIGRATIONS.md](docs/development/DATABASE_MIGRATIONS.md).
 
 """ 
 base_infra/

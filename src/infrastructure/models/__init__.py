@@ -138,6 +138,15 @@ from src.infrastructure.models.time_series.time_series import TimeSeriesModel
 from src.infrastructure.models.time_series.finance.financial_asset_time_series import FinancialAssetTimeSeriesModel
 from src.infrastructure.models.time_series.finance.stock_time_series import StockTimeSeriesModel
 
+# SPX call-spread strategy positions (an existing base_infra table that was registered only when the SPX v1
+# algorithm imported it — so Base.metadata, and Alembic, missed it otherwise)
+from src.infrastructure.models.finance.strategy_position import StrategyPositionModel  # noqa: F401
+
+# Not part of this registry on purpose: the legacy back-testing models (models.finance.back_testing.*: bars, ticks,
+# symbols, enums — never created in the application database, used only by legacy mappers) have their own base,
+# LegacyBackTestingBase. ModelBase.metadata = exactly the tables registered here = the schema Alembic manages
+# (tests/migrations/test_alembic_migrations.py checks that importing any model module adds nothing to it).
+
 # Portfolio options
 CompanySharePortfolioOptionModel
 
