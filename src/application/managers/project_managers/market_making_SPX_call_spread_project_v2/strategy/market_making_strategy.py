@@ -14,6 +14,11 @@ from ..models.pricing_model import PricingModel
 from ..models.volatility_model import VolatilityModel
 from .hedging.rebalancing_bands import compute_hedge_band, select_hedge_method as _select_hedge_method_fn
 from .hedging.ww_ntbn import WWNTBNHedgePolicy
+from src.domain.entities.finance.portfolio.construction.delta_hedge import (
+    OptionExposure,
+    aggregate_book_greeks,
+    delta_hedge_decision,
+)
 
 
 class Strategy:
@@ -387,60 +392,34 @@ class Strategy:
         try:
             _positions = positions if positions is not None else self.active_positions
 
-            portfolio_delta = 0.0
-            portfolio_gamma = 0.0
-            total_gamma_weight = 0.0
-            weighted_iv = 0.0
-            weighted_tau = 0.0
-
             _pmd = position_market_data or {}
 
+            # the book's greeks (delta-hedge overlay, domain): delta / gamma x signed contracts, summed; IV and
+            # time to expiry as |gamma|-weighted averages
+            exposures = []
             for pos in _positions.values():
                 greeks = pos.get('greeks', {})
                 # signed quantity: negative for short positions (quantity stored signed from DB)
                 size = pos.get('size', 1)
-
-                # position delta: ∂V/∂S × signed contracts  (net_ key used when spread legs are pre-netted)
-                # size is negative for short → p_delta is negative for a short call (positive BSM delta)
-                p_delta = greeks.get('net_delta', greeks.get('delta', 0)) * size
-                # position gamma: ∂²V/∂S² × signed contracts
-                p_gamma = greeks.get('net_gamma', greeks.get('gamma', 0)) * size
-                # |gamma| used as the weighting factor for IV and tau averages
-                abs_gamma = abs(p_gamma)
-
-                # running sum: Σ(delta_i × size_i) → net portfolio delta
-                portfolio_delta += p_delta
-                # running sum: Σ(gamma_i × size_i) → net portfolio gamma (signed)
-                portfolio_gamma += p_gamma
-                # running sum: Σ|gamma_i × size_i| → total weight for weighted averages
-                total_gamma_weight += abs_gamma
-
                 # IV priority: stored greek > position_market_data resolved value > market_data fallback later
                 iv = greeks.get('implied_vol')
                 if iv is None:
                     symbol = pos.get('symbol')
                     if symbol:
                         iv = _pmd.get(symbol, {}).get('greeks', {}).get('implied_vol')
-
-                # time to expiry in years; fall back to 30 calendar days if not stored
-                tau = float(pos.get('time_to_expiry', pos.get('days_to_expiry', 30) / 365.25))
-                # accumulate |gamma|-weighted IV numerator: Σ(|gamma_i| × iv_i)
-                if iv is not None:
-                    weighted_iv += abs_gamma * float(iv)
-                # accumulate |gamma|-weighted tau numerator: Σ(|gamma_i| × tau_i)
-                weighted_tau += abs_gamma * tau
-
-            # aggregate gamma = signed sum of all position gammas (used for band width formula)
+                exposures.append(OptionExposure(
+                    # net_ keys when spread legs are pre-netted
+                    delta=greeks.get('net_delta', greeks.get('delta', 0)),
+                    gamma=greeks.get('net_gamma', greeks.get('gamma', 0)),
+                    size=size,
+                    implied_vol=iv,
+                    # time to expiry in years; 30 calendar days if not stored
+                    time_to_expiry=float(pos.get('time_to_expiry', pos.get('days_to_expiry', 30) / 365.25)),
+                ))
+            book = aggregate_book_greeks(exposures)
+            portfolio_delta, portfolio_gamma = book.delta, book.gamma
             agg_gamma = portfolio_gamma
-            if total_gamma_weight > 0:
-                # |gamma|-weighted average IV: Σ(|γ_i|·σ_i) / Σ|γ_i|  — None if no IV was available
-                implied_vol_agg = weighted_iv / total_gamma_weight if weighted_iv > 0 else None
-                # |gamma|-weighted average time-to-expiry: Σ(|γ_i|·τ_i) / Σ|γ_i|
-                time_to_expiry = weighted_tau / total_gamma_weight
-            else:
-                # no positions with gamma — cannot weight; set sensible defaults
-                implied_vol_agg = None
-                time_to_expiry = 30.0 / 365.25
+            implied_vol_agg, time_to_expiry = book.implied_vol, book.time_to_expiry
 
             # last-resort IV fallback: bar-level market_data (e.g. VIX proxy) if no position supplied one
             if implied_vol_agg is None:
@@ -524,7 +503,9 @@ class Strategy:
             current_hedge_delta = float(
                 self.hedge_band_state.get(_PORTFOLIO_KEY, {}).get('hedge_delta', 0.0)
             )
-            net_residual_delta = portfolio_delta + current_hedge_delta
+            # band rule (delta-hedge overlay, domain): inside the band no trade, outside hedge back to delta 0
+            decision = delta_hedge_decision(portfolio_delta, current_hedge_delta, half_width)
+            net_residual_delta = decision.net_residual
 
             base = {
                 'portfolio_delta': portfolio_delta,
@@ -538,20 +519,16 @@ class Strategy:
                 'evaluation_timestamp': datetime.now().isoformat(),
             }
 
-            if abs(net_residual_delta) <= half_width:
+            if not decision.should_hedge:
                 return {'should_hedge': False, **base}
 
-            # Band breached: hedge all the way to delta=0, not just to the band edge.
-            # target_hedge_delta = -portfolio_delta  →  net residual after hedge = 0
-            target_hedge_delta = -portfolio_delta
-            # incremental SPY trade on top of the hedge already in place
-            hedge_trade_delta = target_hedge_delta - current_hedge_delta
-
+            # Band breached: hedge all the way to delta=0 (target = -portfolio_delta), not just to the band edge;
+            # the trade is the increment on top of the hedge already in place
             return {
                 'should_hedge': True,
-                'hedge_direction': 'buy' if hedge_trade_delta > 0 else 'sell',
-                'hedge_trade_delta': abs(hedge_trade_delta),
-                'target_hedge_delta': target_hedge_delta,
+                'hedge_direction': decision.direction,
+                'hedge_trade_delta': abs(decision.trade),
+                'target_hedge_delta': decision.target_hedge,
                 **base,
             }
 

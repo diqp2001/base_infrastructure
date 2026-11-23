@@ -197,7 +197,7 @@ Duration: 34 min 53 s.
 ## 9. Remaining technical debt
 
 - **CSM, decile project, other STM projects, `etf_dispersion_stm_project`:** migrated on 2026-11-23 (section 10).
-- **SPX call-spread market making (v1 / v2):** not migrated. The entry is a fixed option weight and the hedge a SPY quantity from the book's greeks (position management on actual holdings, not a ranking strategy). Both are still sent as class-keyed dicts, as separate calls so one never liquidates the other. Moving them needs a design decision (section 10).
+- **SPX call-spread market making (v1 / v2):** migrated on 2026-11-23 (section 11). The hedging band models (WW, Zakamouline, WW-NTBN) stay in each project's `hedging/` copy, and v1 / v2 still each have their own `Strategy` copy.
 - **`test_base_project`:** legacy RandomForest + Black-Litterman inside the algorithm. Not migrated.
 - **misbuffet `PortfolioConstructionModel` (Black-Litterman):** legacy and unrelated to the new layer. Kept as is.
 - **Concrete strategies:** they have no database identity yet; only base `TradingStrategy` rows persist (see 8.4).
@@ -223,3 +223,28 @@ Notes:
 - **Dispersion cycle:** `DispersionTradingCycle.step` carries in one `TargetPortfolio` both the legs settled this step (0 contracts) and the next month's legs. `result.targets` is derived from it.
 - **`construct_dispersion_trade`:** takes the caller's `constructor` and the `unscored` reasons; the cycle passes both.
 - **`dispersion_target_portfolio`:** imports `occ_symbol` lazily (the cycle imports the module), and a zero short premium gives an informational weight of 0.
+
+## 11. SPX call-spread market making (2026-11-23)
+
+SPX doesn't rank a universe. It has two legs, and each is now its own `TargetPortfolio` sent in its own `set_holdings` call, so one never liquidates the other:
+
+```
+entry   SPXCallSpreadTradingStrategy (domain): option, entry weight, hedge symbol
+          wants_entry(current quantity): only while the book is flat in the option (never resized)
+          entry_target -> TargetPortfolio (the option at -0.2) -> rebalancer -> TradeManager
+hedge   PositionBook (actual holdings + greeks at t)
+          -> Strategy.evaluate_portfolio_delta_hedge (project):
+               aggregate_book_greeks (domain overlay: delta / gamma x signed size, |gamma|-weighted IV and expiry)
+               band half-width from the project's model (Whalley-Wilmott / Zakamouline / WW-NTBN network)
+               delta_hedge_decision (domain: inside the band no trade; outside, hedge back to delta 0)
+          -> SPXCallSpreadTradingStrategy.hedge_target -> TargetPortfolio (SPY at -book delta, shares) -> rebalancer
+```
+
+- **Domain:**
+  - `construction/delta_hedge.py`: `OptionExposure`, `aggregate_book_greeks`, `delta_hedge_decision`, `hedge_target_portfolio`;
+  - `trading_strategy/spx_call_spread_strategy.py`.
+  The band models stay in the projects (the network needs torch).
+- **v2:** `SPXCallSpreadTradingCycle` sends both targets. `CycleResult.option_order` / `hedge_order` are the sent `TargetPortfolio`s; `summary()` writes them to `results.json` in the previous shape.
+- **v1:** the algorithm sends the same targets. A non-finite hedge is logged and skipped, as the old `set_holdings` refused it.
+- **Regression:** `tests/market_making_spx/test_delta_hedge_overlay.py` freezes the pre-refactor `evaluate_portfolio_delta_hedge` verbatim and compares it with both `Strategy` copies on 400 random books each, including the error path. The v2 tests still check exactly what is sent, per leg.
+- **Known gap (unchanged):** the entry is a single short call, not a two-legged spread (`test_spx_v2_order_legs` keeps it as an expected failure).

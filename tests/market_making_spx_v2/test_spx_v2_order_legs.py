@@ -10,7 +10,7 @@ import unittest
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from tests.market_making_spx_v2.test_spx_v2_project import (
-    OPTION, T0, FakePortfolio, FakeStrategy, make_cycle, slice_with,
+    OPTION, T0, FakePortfolio, FakeStrategy, as_dict, make_cycle, slice_with,
 )
 
 
@@ -18,6 +18,7 @@ class RejectingPortfolio(FakePortfolio):
     """set_holdings refuses everything (blocked reconciliation, no price, no cash...)."""
 
     def set_holdings(self, targets, data=None):
+        targets = as_dict(targets)
         self.calls.append(targets)
         return {spec["name"]: False for value in targets.values()
                 for spec in (value if isinstance(value, list) else [value])}

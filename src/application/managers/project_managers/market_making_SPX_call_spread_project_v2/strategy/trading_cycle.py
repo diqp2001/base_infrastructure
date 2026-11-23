@@ -10,14 +10,17 @@ market_making_SPX_call_spread_project Algorithm.on_data, in the same order:
 1. factor refresh at ``time`` through the MarketDataHistoryService frontier
    (FactorUpdater; was ModelTrainer.train_complete_pipeline);
 2. entry: when the book holds none of the universe's first CompanyShareOption,
-   target ``option_entry_weight`` of it (short by default);
+   SPXCallSpreadTradingStrategy.entry_target: a TargetPortfolio of the option at
+   ``option_entry_weight`` (short by default);
 3. position book: open option positions + greeks resolved at ``time``;
-4. Strategy.manage_existing_positions -> exits and the aggregate delta-hedge decision;
-5. hedge: when the band is breached, target ``target_hedge_delta`` shares of the
-   hedge symbol (SPY).
+4. Strategy.manage_existing_positions -> exits and the aggregate delta-hedge decision
+   (the delta-hedge overlay: construction/delta_hedge.py, band from the project's hedging model);
+5. hedge: when the band is breached, SPXCallSpreadTradingStrategy.hedge_target: a
+   TargetPortfolio of ``target_hedge_delta`` shares of the hedge symbol (SPY).
 
-``portfolio`` is any object with ``quantity(ticker) -> int`` and
-``set_holdings(targets, data)``; in the engine it wraps UnifiedPortfolioManager.
+Entry and hedge are separate TargetPortfolios (separate set_holdings calls), so one never
+liquidates the other. ``portfolio`` is any object with ``quantity(ticker) -> int`` and
+``set_holdings(target, data)``; in the engine it wraps UnifiedPortfolioManager.
 """
 
 import logging
@@ -26,16 +29,16 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
-from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+from src.domain.entities.factor.trading_strategy.spx_call_spread_strategy import SPXCallSpreadTradingStrategy
+from src.domain.entities.finance.portfolio.target_portfolio import TargetPortfolio
 
 
 @dataclass
 class CycleResult:
     time: datetime
     factors_updated: bool = False
-    option_order: Optional[Dict[Any, Any]] = None      # targets sent for the option entry
-    hedge_order: Optional[Dict[Any, Any]] = None       # targets sent for the delta hedge
+    option_order: Optional[TargetPortfolio] = None     # target sent for the option entry
+    hedge_order: Optional[TargetPortfolio] = None      # target sent for the delta hedge
     positions: int = 0                                  # open option positions after the entry
     portfolio_delta: Optional[float] = None
     portfolio_gamma: Optional[float] = None
@@ -67,10 +70,20 @@ class CycleResult:
         }
 
 
-def _jsonable(targets):
-    if targets is None:
+def _jsonable(target: Optional[TargetPortfolio]):
+    """{asset type: {'name': symbol, 'quantity' | 'weight': value}} per position (the results.json shape)."""
+    if target is None:
         return None
-    return {getattr(k, '__name__', str(k)): v for k, v in targets.items()}
+    out: Dict[str, Any] = {}
+    for p in target:
+        spec = ({'name': p.symbol, 'quantity': p.target_quantity} if p.target_quantity is not None
+                else {'name': p.symbol, 'weight': p.target_weight})
+        if p.asset_type in out:
+            previous = out[p.asset_type]
+            out[p.asset_type] = (previous if isinstance(previous, list) else [previous]) + [spec]
+        else:
+            out[p.asset_type] = spec
+    return out
 
 
 def _refused(set_holdings_result) -> bool:
@@ -100,6 +113,8 @@ class SPXCallSpreadTradingCycle:
         self.option_ticker = option_ticker
         self.option_entry_weight = option_entry_weight
         self.hedge_symbol = hedge_symbol
+        self.trading_strategy = SPXCallSpreadTradingStrategy(
+            option_symbol=option_ticker, entry_weight=option_entry_weight, hedge_symbol=hedge_symbol)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.log = log or self.logger.info
 
@@ -117,8 +132,8 @@ class SPXCallSpreadTradingCycle:
                 return result
 
         # 2. entry: only when the book is flat in the option
-        if self.option_ticker and portfolio.quantity(self.option_ticker) == 0:
-            targets = {CompanyShareOption: {'name': self.option_ticker, 'weight': self.option_entry_weight}}
+        if self.option_ticker and self.trading_strategy.wants_entry(portfolio.quantity(self.option_ticker)):
+            targets = self.trading_strategy.entry_target(as_of=time)
             sent = portfolio.set_holdings(targets, data)
             if _refused(sent):
                 result.note = f"option entry refused by set_holdings: {sent}"
@@ -158,7 +173,7 @@ class SPXCallSpreadTradingCycle:
                 result.error = f"hedge size is not finite ({target}); no hedge sent"
                 self.logger.error(result.error)
                 return result
-            targets = {CompanyShare: {'name': self.hedge_symbol, 'quantity': target}}
+            targets = self.trading_strategy.hedge_target(target, as_of=time)
             sent = portfolio.set_holdings(targets, data)
             if _refused(sent):
                 result.note = f"hedge refused by set_holdings: {sent}"

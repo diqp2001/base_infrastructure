@@ -1013,3 +1013,12 @@ STMTradingCycle.step: provider.score_details -> scores + daily vol
 - The CSM, decile, STM and `etf_dispersion_stm_project` algorithms all call `set_holdings(result.target_portfolio)`.
   The pre-refactor rules are frozen in their regression tests; see
   `docs/architecture/STRATEGY_ARCHITECTURE_FINAL_REPORT.md` section 10.
+
+
+### SPXCallSpreadTradingStrategy (added 2026-11-23)
+
+- `trading_strategy/spx_call_spread_strategy.py`: holds the SPX market maker's option, entry weight and hedge symbol.
+  It has no ranking dependency (`calculate_dependencies` is empty). `wants_entry(quantity)` opens the option only
+  while the book is flat in it. `entry_target` gives the option at its weight; `hedge_target(qty)` gives the hedge
+  symbol in shares (via `finance/portfolio/construction/delta_hedge.py`). The hedge decision is made by the project
+  `Strategy` with the domain overlay. See `docs/architecture/STRATEGY_ARCHITECTURE_FINAL_REPORT.md` section 11.

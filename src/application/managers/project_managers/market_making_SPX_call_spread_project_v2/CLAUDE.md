@@ -92,13 +92,16 @@ Algorithm.on_data(slice)
   └─ SPXCallSpreadTradingCycle.step(bar_time, slice, PortfolioGateway(UnifiedPortfolioManager))
        1. FactorUpdater.update(t)            set_frontier(t) + _create_or_get_factor_value_batch
                                              (a failure skips the bar: no trade)
-       2. option entry                       quantity(option) == 0 -> set_holdings({CompanyShareOption:
-                                             {name: universe option, weight: option_entry_weight}})
+       2. option entry                       SPXCallSpreadTradingStrategy.wants_entry(quantity(option)) ->
+                                             set_holdings(entry_target: TargetPortfolio, the universe option at
+                                             option_entry_weight)
        3. PositionBook                       non-zero CompanyShareOptionPortfolioHoldings + delta / gamma /
                                              vega / IV / mid resolved at t (FactorValueResolutionService)
-       4. Strategy.manage_existing_positions exits + aggregate portfolio delta-hedge decision (band)
-       5. hedge                              should_hedge -> set_holdings({CompanyShare: {name: SPY,
-                                             quantity: target_hedge_delta}})
+       4. Strategy.manage_existing_positions exits + aggregate portfolio delta-hedge decision: book greeks and
+                                             the band rule from the domain overlay (construction/delta_hedge.py),
+                                             the band width from hedging/ (WW, Zakamouline, WW-NTBN)
+       5. hedge                              should_hedge -> set_holdings(hedge_target: TargetPortfolio, SPY at
+                                             target_hedge_delta shares)
   └─ portfolio value, performance tracking, value_history, progress
 ```
 

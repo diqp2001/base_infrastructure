@@ -195,5 +195,10 @@ Factor values -> TradingStrategy.evaluate -> StrategySignals
   `tests/strategy/test_portfolio_construction.py` pin both. `bucket_long_short` is long Q5 / short Q1.
 - Application: `src/application/services/portfolio_construction/portfolio_construction_service.py`. It only gathers
   the inputs (scores from the signals, volatility and loadings from the caller or `signals.context`).
+- `portfolio/construction/delta_hedge.py` (2026-11-23): the delta-hedge overlay on ACTUAL holdings. It provides
+  `aggregate_book_greeks` (option exposures to book delta / gamma, |gamma|-weighted IV and expiry) and
+  `delta_hedge_decision` (inside the band no trade; outside, hedge back to delta 0). `hedge_target_portfolio`
+  gives the hedge instrument as a quantity target. The band width is the caller's model (SPX: WW, Zakamouline,
+  WW-NTBN).
 - Construction never submits orders, reads or updates positions, creates transactions or uses broker code. A test
   checks, in a fresh interpreter, that no execution module is loaded.

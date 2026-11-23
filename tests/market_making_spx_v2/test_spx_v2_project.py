@@ -32,6 +32,7 @@ from src.application.managers.project_managers.market_making_SPX_call_spread_pro
 from src.application.managers.project_managers.market_making_SPX_call_spread_project_v2.strategy.trading_cycle import (
     CycleResult,
     SPXCallSpreadTradingCycle,
+    _jsonable,
     bar_close,
 )
 from src.application.managers.project_managers.market_making_SPX_call_spread_project_v2.utils.progress import (
@@ -39,8 +40,18 @@ from src.application.managers.project_managers.market_making_SPX_call_spread_pro
 )
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
 from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+from src.domain.entities.factor.trading_strategy.spx_call_spread_strategy import SPXCallSpreadTradingStrategy
+from src.domain.entities.finance.portfolio.target_portfolio import TargetPortfolio
 
 OPTION = "SPY   281215C00775000"
+_CLASSES = {"CompanyShareOption": CompanyShareOption, "CompanyShare": CompanyShare}
+
+
+def as_dict(targets):
+    """A TargetPortfolio sent by the cycle in the class-keyed shape {Class: {'name', 'weight' | 'quantity'}}."""
+    if isinstance(targets, TargetPortfolio):
+        return {_CLASSES[k]: v for k, v in _jsonable(targets).items()}
+    return targets
 T0 = datetime(2026, 8, 5, 16, 0)
 
 
@@ -54,6 +65,8 @@ class FakePortfolio:
         return self.quantities.get(ticker, 0)
 
     def set_holdings(self, targets, data=None):
+        assert isinstance(targets, TargetPortfolio), type(targets)      # the cycle sends TargetPortfolios only
+        targets = as_dict(targets)
         self.calls.append(targets)
         # the option entry opens a short position
         spec = targets.get(CompanyShareOption)
@@ -133,7 +146,7 @@ class TestTradingCycle(unittest.TestCase):
         strategy = FakeStrategy()
         result = make_cycle(portfolio, strategy).step(T0, slice_with("SPY", 640.0), portfolio)
         self.assertEqual(portfolio.calls, [{CompanyShareOption: {'name': OPTION, 'weight': -0.2}}])
-        self.assertEqual(result.option_order, portfolio.calls[0])
+        self.assertEqual(as_dict(result.option_order), portfolio.calls[0])
         self.assertEqual(result.positions, 1)                      # entry visible to step 3
         pos = strategy.seen['cso_holding_1']
         self.assertEqual(pos['greeks']['delta'], 0.6)              # greeks merged in
@@ -354,8 +367,9 @@ class TestConfigAndManager(unittest.TestCase):
         return manager
 
     def test_run_writes_progress_and_results(self):
-        steps = [CycleResult(time=T0, option_order={CompanyShareOption: {'name': OPTION, 'weight': -0.2}}),
-                 CycleResult(time=T0, hedge_order={CompanyShare: {'name': 'SPY', 'quantity': 1.0}}),
+        spx = SPXCallSpreadTradingStrategy(option_symbol=OPTION)
+        steps = [CycleResult(time=T0, option_order=spx.entry_target(T0)),
+                 CycleResult(time=T0, hedge_order=spx.hedge_target(1.0, T0)),
                  CycleResult(time=T0, error="factor refresh failed: x")]
         with tempfile.TemporaryDirectory() as tmp:
             manager = self._manager(tmp, {'success': True, 'misbuffet_result': 'ok', 'execution_time': 1.0}, steps)

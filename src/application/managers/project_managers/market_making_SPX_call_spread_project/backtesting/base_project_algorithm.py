@@ -8,14 +8,15 @@ Only SPX-specific logic remains here.
 
 import json
 import logging
+import math
 import random
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
 import pandas as pd
 
-from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
+from src.domain.entities.factor.trading_strategy.spx_call_spread_strategy import SPXCallSpreadTradingStrategy
 
 from src.application.managers.project_managers.market_making_SPX_call_spread_project.config import get_config
 from src.application.services.misbuffet.algorithm.base_project_algorithm import BaseProjectAlgorithm
@@ -374,14 +375,15 @@ class Algorithm(BaseProjectAlgorithm):
             # has a financial_assets row and market data (a ticker outside the
             # universe gets no holding and no price, so no order is ever sent).
             cso_ticker = self.universe[CompanyShareOption][0]
+            # entry rule + hedge targets: SPXCallSpreadTradingStrategy (domain); the hedge band stays in self.strategy
+            spx = SPXCallSpreadTradingStrategy(option_symbol=cso_ticker, entry_weight=-0.2, hedge_symbol='SPY')
+            bar_time = data.get('time') if isinstance(data, dict) else getattr(data, 'time', None)
             if (
                 self._unified_portfolio_manager
-                and self._unified_portfolio_manager._get_current_position_qty(cso_ticker) == 0
+                and spx.wants_entry(self._unified_portfolio_manager._get_current_position_qty(cso_ticker))
             ):
-                self._unified_portfolio_manager.set_holdings(
-                    {CompanyShareOption: {'name': cso_ticker, 'weight': -0.2}},
-                    data=data,
-                )
+                # TargetPortfolio (the option at its entry weight) -> rebalancing -> TradeManager
+                self._unified_portfolio_manager.set_holdings(spx.entry_target(as_of=bar_time or self.time), data=data)
             # Manage open positions (P&L, exits, aggregate delta hedge) — load from DB
             db_positions = self._load_strategy_positions()
 
@@ -425,10 +427,11 @@ class Algorithm(BaseProjectAlgorithm):
                     int(target_hedge_delta),
                     portfolio_hedge.get('hedge_direction', ''),
                 )
-                self._unified_portfolio_manager.set_holdings(
-                    {CompanyShare: {'name': 'SPY', 'quantity': target_hedge_delta}},
-                    data=data,
-                )
+                if math.isfinite(target_hedge_delta):
+                    # TargetPortfolio (SPY at the target hedge delta, in shares) -> rebalancing -> TradeManager
+                    self._unified_portfolio_manager.set_holdings(spx.hedge_target(target_hedge_delta), data=data)
+                else:
+                    self.logger.error("Delta hedge size is not finite (%s): no hedge sent", target_hedge_delta)
             #random_pct = random.random()
             # if self._unified_portfolio_manager:
             #     self._unified_portfolio_manager.set_holdings(
