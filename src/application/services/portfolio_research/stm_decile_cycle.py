@@ -1,7 +1,7 @@
 """
 STMDecileTradingCycle - monthly cross-sectional deciles of the spatio-temporal momentum (STM) model, one engine step
 at a time (the decile counterpart of STMTradingCycle). The Misbuffet algorithm calls ``step(t)`` every bar and sends
-the returned weights to set_holdings.
+the returned TargetPortfolio to set_holdings.
 
 Period bars: the model's rows are PERIOD-END closes - by default the month end (the last trading day of each month),
 its target the next period's return (STMConfiguration.prediction_horizon = 1 row = 1 period) - the existing STM
@@ -15,8 +15,9 @@ At a step, with the daily closes KNOWN at t only (KnownClosesReader: a close dat
     2. the members in force at T (membership.members_at) and their month-end close panel up to T;
     3. each model VARIANT (e.g. 'A' price features, 'B' + fundamentals) retrains / scores the members
        (STMConstituentScorer: the existing STM pipeline; closes up to T only) -> deciles (DecileResearch);
-    4. the engine trades the ``traded`` variant's Dn - D1: +gross/2 split equally over Dn, -gross/2 over D1, every
-       other held share to 0.
+    4. the engine trades the ``traded`` variant's Dn - D1: STMDecileLongShortTradingStrategy + portfolio construction
+       (quantile_long_short: +gross/2 split equally over Dn, -gross/2 over D1) -> result.target_portfolio; every
+       other held share goes to 0 (set_holdings).
 Every variant sees the same members, dates, target, deciles and weighting: a clean ablation.
 """
 
@@ -31,7 +32,14 @@ import pandas as pd
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_constituent_scorer import (
     STMConstituentScorer,
 )
+from src.application.services.portfolio_construction.portfolio_construction_service import (
+    PortfolioConstructionService,
+)
 from src.application.services.portfolio_research.decile_portfolios import DecileConfig, DecilePeriod, DecileResearch
+from src.domain.entities.factor.trading_strategy.stm_decile_long_short_strategy import (
+    STMDecileLongShortTradingStrategy,
+)
+from src.domain.entities.finance.portfolio.target_portfolio import TargetPortfolio
 
 
 PERIODS = {"days": "D", "weeks": "W", "months": "M"}           # Frequency unit -> pandas period alias
@@ -56,7 +64,8 @@ def month_end_panel(daily: pd.DataFrame, through: pd.Timestamp) -> pd.DataFrame:
 class DecileStepResult:
     time: pd.Timestamp
     rebalance: Optional[pd.Timestamp] = None
-    weights: Dict[str, float] = field(default_factory=dict)     # the traded variant's Dn - D1 targets
+    weights: Dict[str, float] = field(default_factory=dict)     # the traded variant's Dn - D1 targets (of target_portfolio)
+    target_portfolio: Optional[TargetPortfolio] = None          # what the strategy wants to hold
     formed: Dict[str, DecilePeriod] = field(default_factory=dict)
     note: str = ""
 
@@ -96,6 +105,7 @@ class STMDecileTradingCycle:
         self.start, self.end = start, end
         self.traded = traded
         self.long_short_gross = float(long_short_gross)
+        self.construction = PortfolioConstructionService()
         self.log = log or (lambda m: None)
         self.predictions: List[PredictionRecord] = []
         self.skipped: Dict[pd.Timestamp, str] = {}
@@ -151,19 +161,25 @@ class STMDecileTradingCycle:
                      f"{'retrained' if scores.retrained else 'model of ' + str(scores.trained_at.date())}")
         traded = result.formed.get(self.traded)
         if traded is not None:
-            result.weights = self.long_short_weights(traded)
+            result.target_portfolio = self.target_portfolio(traded)
+            result.weights = result.target_portfolio.weights()
         result.note = result.note or f"rebalanced at {T.date()}"
         return result
 
+    def trading_strategy(self) -> STMDecileLongShortTradingStrategy:
+        """The traded book's strategy with this cycle's parameters (decile count, long-short gross)."""
+        return STMDecileLongShortTradingStrategy(n_deciles=self.config.n_deciles, gross=self.long_short_gross)
+
+    def target_portfolio(self, period: DecilePeriod) -> TargetPortfolio:
+        """The period's scores -> the decile strategy -> portfolio construction: Dn long, D1 short."""
+        scores = dict(zip(period.assignment["symbol"], period.assignment["score"]))
+        strategy = self.trading_strategy()
+        signals = strategy.signals(scores, as_of=period.rebalance.to_pydatetime())
+        return self.construction.construct(signals, strategy.construction_method(), strategy_name=strategy.name)
+
     def long_short_weights(self, period: DecilePeriod) -> Dict[str, float]:
-        """+gross/2 over the top decile, -gross/2 over the bottom one, equal weights."""
-        n = self.config.n_deciles
-        half = self.long_short_gross / 2.0
-        top, bottom = period.weights.get(n, {}), period.weights.get(1, {})
-        out = {s: half * w for s, w in top.items()}
-        for s, w in bottom.items():
-            out[s] = out.get(s, 0.0) - half * w
-        return out
+        """+gross/2 over the top decile, -gross/2 over the bottom one, equal weights (the target's weights)."""
+        return self.target_portfolio(period).weights()
 
     def _settle(self, daily: pd.DataFrame, T: pd.Timestamp) -> None:
         if not self._open or self._last is None:

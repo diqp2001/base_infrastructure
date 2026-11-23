@@ -191,17 +191,35 @@ Duration: 34 min 53 s.
 
    A small leg-builder service in `application/services/dispersion/` would do this.
 2. **Delta constraint:** a partial delta-neutral step on contract quantities. Scale the long basket, or the hedge, until |net dollar delta| ≤ a limit; P3's `ExposureLimit` does the same for weights. Add it to `dispersion_target_portfolio` once the target rule (how partial) is decided.
-3. **Wire the dispersion cycle:** send `DispersionTradingCycle`'s `result.targets` through `dispersion_target_portfolio` → `set_holdings(target, liquidate_unlisted=False)`. Only once the dispersion screener project may trade; it is read-only today (P.11).
+3. **Wire the dispersion cycle:** done on 2026-11-23 for the `etf_dispersion_stm_project` backtest (section 10). The dispersion screener project stays read-only (P.11).
 4. **Database identity:** give `ETFCallDispersionTradingStrategy`, the LGBM and STM strategies their own factor identities (ORM subclass, dispatch, repository) when a strategy row is needed.
 
 ## 9. Remaining technical debt
 
-- **CSM:** `long_short_weights` (`csm_trading_cycle.py`) duplicates `quantile_long_short_inverse_volatility`. The only difference: CSM breaks exact score ties by input order, construction by symbol. Moving CSM onto the construction layer is a small behaviour decision on ties. It wasn't done, to keep CSM unchanged.
-- **Decile project:** `stm_decile_cycle.long_short_weights` / `decile_weights` have their own quantile rule, which matches `steps.quantile_labels`. It wasn't migrated: it's another project, and its research decile records use it.
-- **Other STM projects:** `spatio_temporal_momentum_project`, `_10m`, `_10m_hourly` and `etf_dispersion_stm_project` still call `set_holdings` with class-keyed dicts. The STM ones use the shared construction through `CycleResult.weights`. Switching them to `set_holdings(result.target_portfolio)` is a one-line change each.
-- **SPX call-spread market making (v1 / v2):** sizes option contracts in its own strategy code. It's a project-specific construction, not moved.
+- **CSM, decile project, other STM projects, `etf_dispersion_stm_project`:** migrated on 2026-11-23 (section 10).
+- **SPX call-spread market making (v1 / v2):** not migrated. The entry is a fixed option weight and the hedge a SPY quantity from the book's greeks (position management on actual holdings, not a ranking strategy). Both are still sent as class-keyed dicts, as separate calls so one never liquidates the other. Moving them needs a design decision (section 10).
+- **`test_base_project`:** legacy RandomForest + Black-Litterman inside the algorithm. Not migrated.
 - **misbuffet `PortfolioConstructionModel` (Black-Litterman):** legacy and unrelated to the new layer. Kept as is.
 - **Concrete strategies:** they have no database identity yet; only base `TradingStrategy` rows persist (see 8.4).
 - **Layering:** the LGBM factor repository (infrastructure) still injects the application-level model provider. It pre-dates the refactor and wasn't copied.
 - **Rebalancer trade order:** it orders trades by symbol within sells and within buys. Before, the order came from Python's set ordering, which isn't stable across runs. This only matters when the budget check runs out of cash part-way through a rebalance.
 - **Shortable restriction:** the live restriction rewrites target weights (`with_weights`). A construction adjustment step would be cleaner once a second live strategy needs it.
+
+## 10. Follow-up (2026-11-23): projects moved onto the architecture
+
+Every one of these projects now sends `set_holdings(result.target_portfolio)`, built as strategy → construction → `TargetPortfolio`. Each move is covered by a regression test: the pre-refactor rule is frozen in the test and compared with the new path, for both weights and order quantities.
+
+| Project(s) | Trading strategy | Construction | Regression test |
+|---|---|---|---|
+| `spatio_temporal_momentum_project`, `_10m`, `_10m_hourly` | `SpatioTemporalMomentumTradingStrategy` (already in the shared cycle since P6) | `volatility_targeted_signals` | `tests/spatio_temporal_momentum/test_stm_target_portfolio.py`; algorithm source checks in `tests/cross_sectional_momentum/test_csm_target_portfolio.py` |
+| `cross_sectionnal_project`, `_10m` | `CrossSectionalMomentumTradingStrategy` (`trading_strategy/cross_sectional_momentum_strategy.py`): quantile and gross | `quantile_long_short_inverse_volatility` | `tests/cross_sectional_momentum/test_csm_target_portfolio.py`: 500 weight cases, 200 quantity cases, a real synthetic cycle |
+| `stm_monthly_decile_project` | `STMDecileLongShortTradingStrategy` (`trading_strategy/stm_decile_long_short_strategy.py`): decile count and gross | `quantile_long_short` (top decile long, bottom decile short) | `tests/stm_monthly_deciles/test_decile_target_portfolio.py`: 400 weight cases, 200 quantity cases, a real cycle step |
+| `etf_dispersion_stm_project` | `ETFCallDispersionTradingStrategy` (P7) | `construct_dispersion_trade` → `dispersion_target_portfolio` (contracts) | `tests/dispersion/test_dispersion_cycle_target_portfolio.py`: synthetic run, both traded strategies |
+
+Notes:
+- **CSM ties:** the CSM dataset is sorted by (date, asset), so the scores reach the old stable sort in symbol order. Breaking ties by symbol therefore picks the same names; the regression covers tied probabilities.
+- **Decile scores:** both STM scorer paths drop non-finite scores, so `QuantileBuckets` and `assign_deciles` see the same N.
+- **Kept wrappers:** `csm_trading_cycle.long_short_weights` and `STMDecileTradingCycle.long_short_weights` remain as thin wrappers for research callers, as `signals_to_weights` did.
+- **Dispersion cycle:** `DispersionTradingCycle.step` carries in one `TargetPortfolio` both the legs settled this step (0 contracts) and the next month's legs. `result.targets` is derived from it.
+- **`construct_dispersion_trade`:** takes the caller's `constructor` and the `unscored` reasons; the cycle passes both.
+- **`dispersion_target_portfolio`:** imports `occ_symbol` lazily (the cycle imports the module), and a zero short premium gives an informational weight of 0.

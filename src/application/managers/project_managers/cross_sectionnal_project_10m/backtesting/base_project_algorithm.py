@@ -8,7 +8,7 @@ initialize():
 on_data(data), every 10 minutes:
     cycle.step(bar time)  -> frontier advance, data update, retrain at the first bar of a new day,
                              scores from the model valid for the bar
-    set_holdings(weights) -> UnifiedPortfolioManager (orders, transactions, positions)
+    set_holdings(TargetPortfolio) -> UnifiedPortfolioManager (orders, transactions, positions)
 
 The time spent in each part of a bar (slice / cycle / orders / valuation) is written to results_dir/timings.csv.
 """
@@ -20,7 +20,6 @@ from typing import Any, List
 from src.application.managers.project_managers.cross_sectionnal_project_10m.config import get_config
 from src.application.services.misbuffet.algorithm.base_project_algorithm import BaseProjectAlgorithm
 from src.application.services.timing.step_timings import StepTimings, record as record_step_timings
-from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 
 TIMINGS_FILE = "timings.csv"            # per-bar time spent in slice / cycle / orders / valuation (results_dir)
 
@@ -74,7 +73,7 @@ class Algorithm(BaseProjectAlgorithm):
             if result.weights and self._unified_portfolio_manager:
                 with timings.section("orders"):
                     self._unified_portfolio_manager.set_holdings(
-                        {CompanyShare: [{'name': t, 'weight': w} for t, w in result.weights.items()]},
+                        result.target_portfolio,       # TargetPortfolio -> rebalancing -> TradeManager
                         data=data,
                     )
             elif not result.weights:

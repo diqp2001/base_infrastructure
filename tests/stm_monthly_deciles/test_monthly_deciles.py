@@ -238,20 +238,21 @@ def test_the_algorithm_sends_the_long_short_book_to_misbuffet_set_holdings():
     from src.application.managers.project_managers.stm_monthly_decile_project.backtesting.base_project_algorithm import (
         Algorithm,
     )
-    from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
+    from src.domain.entities.finance.portfolio.target_portfolio import TargetPortfolio
     algo = Algorithm()
     algo.initialized = True
     algo.config = {"results_dir": "."}
     algo.cycle = MagicMock(long_short_gross=1.0)
-    algo.cycle.step.return_value = SimpleNamespace(weights={"AAA": 0.25, "BBB": 0.25, "CCC": -0.5}, rebalance=None)
+    book = {"AAA": 0.25, "BBB": 0.25, "CCC": -0.5}
+    target = TargetPortfolio.from_weights(book, asset_type="CompanyShare")
+    algo.cycle.step.return_value = SimpleNamespace(weights=book, target_portfolio=target, rebalance=None)
     upm = MagicMock()
     algo._unified_portfolio_manager = upm
     algo._update_portfolio_value = lambda data: None
     algo._update_performance_tracking = lambda data: None
     algo.on_data(SimpleNamespace(time=pd.Timestamp("2021-02-01 16:00")))
     (targets,), kwargs = upm.set_holdings.call_args
-    assert targets == {CompanyShare: [{"name": "AAA", "weight": 0.25}, {"name": "BBB", "weight": 0.25},
-                                      {"name": "CCC", "weight": -0.5}]}
+    assert targets is target                                 # the cycle's TargetPortfolio -> rebalancing
     assert kwargs["max_gross_weight"] == 1.0
 
 

@@ -12,7 +12,9 @@ step(now):
   6. retrain when due (every ``retrain_every_days`` calendar days): Optuna TPE study (features + LightGBM
      hyper-parameters) on the rolling window of labels known at the session, then the final model
   7. score the eligible assets (probability of beating the cross-sectional median), store the signals
-  8. long the top / short the bottom quantile, inverse-volatility weights, dollar-neutral, gross capped
+  8. the CSM TradingStrategy turns the scores into StrategySignals; portfolio construction
+     (quantile_long_short_inverse_volatility: long the top / short the bottom quantile, inverse-volatility
+     weights, each side gross/2) into a TargetPortfolio; result.target_portfolio goes to set_holdings
 """
 
 from __future__ import annotations
@@ -44,6 +46,13 @@ from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_
     STMFrontierPriceReader,
 )
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_time import frequency
+from src.application.services.portfolio_construction.portfolio_construction_service import (
+    PortfolioConstructionService,
+)
+from src.domain.entities.factor.trading_strategy.cross_sectional_momentum_strategy import (
+    CrossSectionalMomentumTradingStrategy,
+)
+from src.domain.entities.finance.portfolio.target_portfolio import TargetPortfolio
 
 
 @dataclass
@@ -55,7 +64,8 @@ class CSMCycleResult:
     artifact_id: Optional[int] = None              # model used for the scores
     scores: Dict[str, float] = field(default_factory=dict)        # ticker -> probability
     daily_vol: Dict[str, float] = field(default_factory=dict)
-    weights: Dict[str, float] = field(default_factory=dict)
+    weights: Dict[str, float] = field(default_factory=dict)      # ticker -> target weight (of target_portfolio)
+    target_portfolio: Optional[TargetPortfolio] = None            # what the strategy wants to hold
     shap: Dict[str, float] = field(default_factory=dict)          # feature -> mean |TreeSHAP| over the scored assets
     features_used: List[str] = field(default_factory=list)
     note: str = ""
@@ -64,22 +74,14 @@ class CSMCycleResult:
 
 def long_short_weights(scores: Dict[str, float], daily_vol: Dict[str, float], quantile: float,
                        gross: float) -> Dict[str, float]:
-    """Long the top / short the bottom ``quantile`` of scores, inverse-vol inside each side, each side gross/2."""
-    usable = {a: s for a, s in scores.items()
-              if np.isfinite(s) and np.isfinite(daily_vol.get(a, np.nan)) and daily_vol.get(a, 0) > 0}
-    n = len(usable)
-    k = int(np.floor(n * quantile))
-    if n < 2 or k < 1:
-        return {}
-    ranked = sorted(usable, key=lambda a: usable[a])
-    shorts, longs = ranked[:k], ranked[-k:]
-    weights: Dict[str, float] = {}
-    for side, names in ((1.0, longs), (-1.0, shorts)):
-        inv = {a: 1.0 / daily_vol[a] for a in names}
-        total = sum(inv.values())
-        for a, v in inv.items():
-            weights[a] = side * (gross / 2.0) * v / total
-    return weights
+    """Long the top / short the bottom ``quantile`` of scores, inverse-vol inside each side, each side gross/2.
+
+    Kept for research callers: the rule now lives in portfolio construction
+    (construction_method.quantile_long_short_inverse_volatility, used by CrossSectionalMomentumTradingStrategy).
+    """
+    strategy = CrossSectionalMomentumTradingStrategy(quantile=quantile, gross=gross)
+    signals = strategy.signals(scores, daily_vol)
+    return PortfolioConstructionService().construct(signals, strategy.construction_method()).weights()
 
 
 class CSMTradingCycle:
@@ -93,6 +95,7 @@ class CSMTradingCycle:
         self.config = config
         self.history_service = history_service
         self.ticker_to_entity = dict(ticker_to_entity)
+        self.construction = PortfolioConstructionService()
         # benchmarks the candidates compare with (e.g. SPY): read, never traded nor scored
         self.benchmark_entities = dict(benchmark_entities or {})
         self.benchmark_types = benchmark_entity_types(config.features)          # e.g. {'SPY': None, 'IRX': 'Index'}
@@ -130,6 +133,11 @@ class CSMTradingCycle:
             self.log("[CSM] fundamental candidates configured but no statement source: they stay empty")
         self._last_result: Optional[CSMCycleResult] = None
         self._loaded: Dict[int, object] = {}
+
+    def trading_strategy(self) -> CrossSectionalMomentumTradingStrategy:
+        """The CSM strategy with this cycle's parameters (long / short quantile, gross exposure)."""
+        return CrossSectionalMomentumTradingStrategy(quantile=self.config.training.long_short_quantile,
+                                                     gross=self.config.training.gross_exposure)
 
     # ------------------------------------------------------------------
 
@@ -233,9 +241,12 @@ class CSMTradingCycle:
         result.scores = {a: float(v) for a, v in zip(today.index, p)}
         result.daily_vol = {a: float(v) for a, v in today["daily_vol"].items()}
         result.shap = {f: float(v) for f, v in zip(model.features, contrib)}
-        result.weights = long_short_weights(result.scores, result.daily_vol,
-                                            self.config.training.long_short_quantile,
-                                            self.config.training.gross_exposure)
+        # scores -> CSM strategy -> portfolio construction -> TargetPortfolio
+        strategy = self.trading_strategy()
+        signals = strategy.signals(result.scores, result.daily_vol, as_of=session.to_pydatetime())
+        result.target_portfolio = self.construction.construct(
+            signals, strategy.construction_method(), asset_ids=self.ticker_to_entity, strategy_name=strategy.name)
+        result.weights = result.target_portfolio.weights()
         if self.signal_store is not None:
             self.signal_store.write(session, {self.ticker_to_entity[a]: s for a, s in result.scores.items()})
         if self.feature_store is not None:

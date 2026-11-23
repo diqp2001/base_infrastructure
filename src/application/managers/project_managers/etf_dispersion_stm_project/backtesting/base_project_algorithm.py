@@ -7,8 +7,8 @@ initialize():
 
 on_data(data):
     cycle.step(bar time)  -> settle the expiring trade / open the next one at the latest known close
-    set_holdings(option quantities) -> UnifiedPortfolioManager (orders, transactions, positions); the DIA calls
-                                       as ETFShareOption, the members' calls as CompanyShareOption
+    set_holdings(TargetPortfolio)   -> UnifiedPortfolioManager (orders, transactions, positions): option contracts,
+                                       the DIA calls as ETFShareOption, the members' calls as CompanyShareOption
     portfolio value / performance tracking (BaseProjectAlgorithm)
 
 _resolve_asset_price(ticker):
@@ -23,8 +23,6 @@ from typing import Any, List, Optional
 from src.application.managers.project_managers.etf_dispersion_stm_project.config import get_config
 from src.application.services.misbuffet.algorithm.base_project_algorithm import BaseProjectAlgorithm
 from src.application.services.timing.step_timings import StepTimings, record as record_step_timings
-from src.domain.entities.finance.financial_assets.derivatives.option.company_share_option import CompanyShareOption
-from src.domain.entities.finance.financial_assets.derivatives.option.etf_share_option import ETFShareOption
 
 TIMINGS_FILE = "timings.csv"            # per-bar time spent in cycle / orders / valuation (results_dir)
 
@@ -84,12 +82,9 @@ class Algorithm(BaseProjectAlgorithm):
             self.step_results.append(result)
             if result.targets and self._unified_portfolio_manager:
                 with timings.section("orders"):
-                    targets = {}
-                    for s, q in result.targets.items():
-                        cls = ETFShareOption if self.cycle.is_etf_leg(s) else CompanyShareOption
-                        targets.setdefault(cls, []).append({'name': s, 'quantity': q})
+                    # TargetPortfolio (contracts; legs settled this step at 0) -> rebalancing -> TradeManager
                     sent = self._unified_portfolio_manager.set_holdings(
-                        targets, data=data, liquidate_unlisted=False, max_gross_weight=None)
+                        result.target_portfolio, data=data, liquidate_unlisted=False, max_gross_weight=None)
                 refused = sorted(s for s, ok in (sent or {}).items() if ok is False)
                 if refused:
                     self._log(f"[DISP-STM] {bar_time}: orders refused for {refused}")

@@ -9,7 +9,7 @@ initialize():
 on_data(data):
     cycle.step(bar time)  -> frontier advance, data update, retrain when due,
                              scores from the model valid for the session
-    set_holdings(weights) -> UnifiedPortfolioManager (orders, transactions, positions)
+    set_holdings(TargetPortfolio) -> UnifiedPortfolioManager (orders, transactions, positions)
 
 Nothing here knows about PyTorch; the same code runs when the engine is live.
 """
@@ -21,7 +21,6 @@ from typing import Any, List
 from src.application.managers.project_managers.spatio_temporal_momentum_project_10m.config import get_config
 from src.application.services.misbuffet.algorithm.base_project_algorithm import BaseProjectAlgorithm
 from src.application.services.timing.step_timings import StepTimings, record as record_step_timings
-from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 
 
 TIMINGS_FILE = "timings.csv"            # per-bar time spent in slice / cycle / orders / valuation (results_dir)
@@ -79,7 +78,7 @@ class Algorithm(BaseProjectAlgorithm):
             if result.weights and self._unified_portfolio_manager:
                 with timings.section("orders"):
                     self._unified_portfolio_manager.set_holdings(
-                        {CompanyShare: [{'name': t, 'weight': w} for t, w in result.weights.items()]},
+                        result.target_portfolio,       # TargetPortfolio -> rebalancing -> TradeManager
                         data=data,
                         min_weight_change=self.min_weight_change(len(self.cycle.ticker_to_entity)),
                     )

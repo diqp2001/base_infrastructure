@@ -1000,3 +1000,16 @@ STMTradingCycle.step: provider.score_details -> scores + daily vol
   selected constituent calls long), with premiums and net dollar delta in `context`. No orders.
 - Next steps (delta constraint, legs from option factors, wiring the dispersion cycle): see
   `docs/architecture/STRATEGY_ARCHITECTURE_FINAL_REPORT.md` section 8.
+
+
+### CrossSectionalMomentumTradingStrategy and STMDecileLongShortTradingStrategy (added 2026-11-23)
+
+- `trading_strategy/cross_sectional_momentum_strategy.py`: holds the CSM classifier's quantile and gross exposure.
+  `CSMTradingCycle.step` runs scores + daily vol → `signals` → `quantile_long_short_inverse_volatility` →
+  `result.target_portfolio`. A non-finite score is never ranked.
+- `trading_strategy/stm_decile_long_short_strategy.py`: holds the decile count and the long-short gross.
+  `STMDecileTradingCycle.target_portfolio(period)` runs the traded variant's scores → `quantile_long_short` (Dn long,
+  D1 short, equal weight) → `result.target_portfolio`.
+- The CSM, decile, STM and `etf_dispersion_stm_project` algorithms all call `set_holdings(result.target_portfolio)`.
+  The pre-refactor rules are frozen in their regression tests; see
+  `docs/architecture/STRATEGY_ARCHITECTURE_FINAL_REPORT.md` section 10.

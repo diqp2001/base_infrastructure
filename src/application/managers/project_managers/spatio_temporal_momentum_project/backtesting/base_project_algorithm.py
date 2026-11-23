@@ -9,7 +9,7 @@ initialize():
 on_data(data):
     cycle.step(bar time)  -> frontier advance, data update, retrain when due,
                              scores from the model valid for the session
-    set_holdings(weights) -> UnifiedPortfolioManager (orders, transactions, positions)
+    set_holdings(TargetPortfolio) -> UnifiedPortfolioManager (orders, transactions, positions)
 
 Nothing here knows about PyTorch; the same code runs when the engine is live.
 """
@@ -19,7 +19,6 @@ from typing import Any, Dict, List
 
 from src.application.managers.project_managers.spatio_temporal_momentum_project.config import get_config
 from src.application.services.misbuffet.algorithm.base_project_algorithm import BaseProjectAlgorithm
-from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 
 
 class Algorithm(BaseProjectAlgorithm):
@@ -69,7 +68,7 @@ class Algorithm(BaseProjectAlgorithm):
                 self.log(f"STM model retrained at session {result.session.date()} (artifact {result.artifact_id})")
             if result.weights and self._unified_portfolio_manager:
                 self._unified_portfolio_manager.set_holdings(
-                    {CompanyShare: [{'name': t, 'weight': w} for t, w in result.weights.items()]},
+                    result.target_portfolio,       # TargetPortfolio -> rebalancing -> TradeManager
                     data=data,
                 )
             elif not result.weights:

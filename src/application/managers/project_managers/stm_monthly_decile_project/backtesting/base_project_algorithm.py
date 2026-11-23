@@ -8,7 +8,7 @@ initialize():
 on_data(data):
     cycle.step(bar time)   -> at the first step of a month: settle the previous month, retrain / score / form the
                               deciles of every model variant, the traded variant's D10 - D1 weights
-    set_holdings(weights)  -> UnifiedPortfolioManager (orders, transactions, positions; shares no longer in D10 / D1
+    set_holdings(TargetPortfolio) -> UnifiedPortfolioManager (orders, transactions, positions; shares no longer in D10 / D1
                               are liquidated)
     portfolio value / performance tracking (BaseProjectAlgorithm)
 """
@@ -20,7 +20,6 @@ from typing import Any, List
 from src.application.managers.project_managers.stm_monthly_decile_project.config import get_config
 from src.application.services.misbuffet.algorithm.base_project_algorithm import BaseProjectAlgorithm
 from src.application.services.timing.step_timings import StepTimings, record as record_step_timings
-from src.domain.entities.finance.financial_assets.share.company_share.company_share import CompanyShare
 
 TIMINGS_FILE = "timings.csv"
 
@@ -76,7 +75,7 @@ class Algorithm(BaseProjectAlgorithm):
             if result.weights and self._unified_portfolio_manager:
                 with timings.section("orders"):
                     self._unified_portfolio_manager.set_holdings(
-                        {CompanyShare: [{'name': s, 'weight': w} for s, w in result.weights.items()]},
+                        result.target_portfolio,       # TargetPortfolio -> rebalancing -> TradeManager
                         data=data, max_gross_weight=self.cycle.long_short_gross)
             with timings.section("valuation"):
                 self._update_portfolio_value(data)

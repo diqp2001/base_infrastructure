@@ -16,14 +16,13 @@ rebalancer sizes quantity targets in units). The legs' net dollar delta is in ``
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Callable, Optional, Sequence
+from typing import Callable, Mapping, Optional, Sequence
 
 from src.application.services.dispersion.dispersion_portfolio_construction_service import (
     WHOLE,
     ConstructedTrade,
     DispersionPortfolioConstructionService,
 )
-from src.application.services.dispersion.dispersion_trading_cycle import occ_symbol
 from src.application.services.dispersion.model_selection import ModelFilterConfig, select_constituents
 from src.domain.entities.factor.finance.financial_assets.derivatives.option.etf_share_option.etf_share_option_factor import (  # noqa: E501
     Leg,
@@ -36,18 +35,26 @@ ORIGINAL, MODEL_FILTERED = "original", "model_filtered"
 
 def construct_dispersion_trade(signals: StrategySignals, etf: Leg, constituents: Sequence[Leg], opened: date,
                                expiry: date, config: Optional[ModelFilterConfig] = None,
-                               contracts: str = WHOLE) -> ConstructedTrade:
-    """Steps 1-5: selection on the strategy's scores, then the existing dispersion construction."""
+                               contracts: str = WHOLE, unscored: Optional[Mapping[str, str]] = None,
+                               constructor: Optional[DispersionPortfolioConstructionService] = None
+                               ) -> ConstructedTrade:
+    """Steps 1-5: selection on the strategy's scores, then the existing dispersion construction.
+    ``unscored``: why a constituent has no score (reported with the rejections); ``constructor``: the caller's
+    DispersionPortfolioConstructionService (else one with ``contracts``)."""
     selection = select_constituents([c.symbol for c in constituents], dict(signals.values),
-                                    config or ModelFilterConfig())
-    return DispersionPortfolioConstructionService(contracts).construct(opened, expiry, etf, constituents, selection)
+                                    config or ModelFilterConfig(), unscored)
+    constructor = constructor or DispersionPortfolioConstructionService(contracts)
+    return constructor.construct(opened, expiry, etf, constituents, selection)
 
 
 def dispersion_target_portfolio(trade: ConstructedTrade, as_of: Optional[datetime] = None,
                                 strategy: str = MODEL_FILTERED, strategy_name: str = "etf_call_dispersion",
-                                option_symbol: Callable[[str, date, float], str] = occ_symbol) -> TargetPortfolio:
+                                option_symbol: Optional[Callable[[str, date, float], str]] = None
+                                ) -> TargetPortfolio:
     """Steps 6-8: the trade's legs (strategy 'original' = full basket, 'model_filtered' = selected) as a
-    TargetPortfolio of option contracts."""
+    TargetPortfolio of option contracts. ``option_symbol`` names a leg's contract (default: the cycle's OCC symbol)."""
+    if option_symbol is None:                     # imported here: the dispersion trading cycle imports this module
+        from src.application.services.dispersion.dispersion_trading_cycle import occ_symbol as option_symbol
     if strategy not in (ORIGINAL, MODEL_FILTERED):
         raise ValueError(f"strategy must be '{ORIGINAL}' or '{MODEL_FILTERED}'")
     legs = trade.original if strategy == ORIGINAL else trade.filtered
@@ -61,7 +68,7 @@ def dispersion_target_portfolio(trade: ConstructedTrade, as_of: Optional[datetim
         premium = qty * leg.multiplier * leg.ask
         positions.append(TargetPortfolioPosition(
             symbol=option_symbol(underlying, trade.expiry, leg.strike), asset_type="CompanyShareOption",
-            target_quantity=float(qty), target_weight=premium / short_premium))
+            target_quantity=float(qty), target_weight=premium / short_premium if short_premium else 0.0))
     deltas = [trade.etf.dollar_delta(-legs.etf_contracts)] + [
         by_symbol[s].dollar_delta(q) for s, q in legs.positions.items()]
     net_delta = None if any(d is None for d in deltas) else sum(deltas)

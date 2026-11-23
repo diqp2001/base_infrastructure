@@ -198,14 +198,17 @@ def test_the_10m_algorithm_records_cycle_orders_and_valuation(tmp_path):
     logged = []
     algo.progress_tracker = SimpleNamespace(log=logged.append, on_step=lambda *a: None)
     algo.cycle = SimpleNamespace(step=lambda t: SimpleNamespace(retrained=False, weights={"JPM": 0.1}, note="",
-                                                               session=t, artifact_id=None),
+                                                               session=t, artifact_id=None,
+                                                               target_portfolio="TARGET"),
                                  ticker_to_entity={"JPM": 1})
-    algo._unified_portfolio_manager = SimpleNamespace(set_holdings=lambda *a, **k: None)
+    sent = []
+    algo._unified_portfolio_manager = SimpleNamespace(set_holdings=lambda *a, **k: sent.append(a))
     algo._update_portfolio_value = lambda data: None
     algo._update_performance_tracking = lambda data: None
     algo.log = lambda msg: None
     algo.step_timings = step_timings.StepTimings("2026-10-05 10:10:00")
     algo.on_data(SimpleNamespace(time=pd.Timestamp("2026-10-05 10:10")))
+    assert sent == [("TARGET",)]                      # the cycle's TargetPortfolio, not a weights dict
     assert logged and logged[0].startswith("[timing] 2026-10-05 10:10:00")
     row = pd.read_csv(tmp_path / TIMINGS_FILE).iloc[0]
     assert {"cycle_s", "orders_s", "valuation_s"} <= set(row.index)

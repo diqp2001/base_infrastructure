@@ -1,7 +1,7 @@
 """
 DispersionTradingCycle - the monthly model-filtered ETF dispersion, one engine step at a time (the dispersion
 counterpart of STMTradingCycle). The Misbuffet algorithm calls ``step(t)`` at every bar and sends the returned
-option quantities to set_holdings; ``option_price(symbol)`` is the modelled price of a leg (the algorithm's price
+TargetPortfolio (option contracts) to set_holdings; ``option_price(symbol)`` is the modelled price of a leg (the algorithm's price
 resolver: orders and the daily valuation).
 
 At a step, with the closes KNOWN at t only (KnownClosesReader: the members' and the ETF's daily IBKR bars through the
@@ -15,12 +15,17 @@ MarketDataHistoryService frontier - a daily close dated D is known from D+1 00:0
      modelled ATM call of the ETF and of EVERY member, N from the full basket, STM scores (closes up to that day),
      selection, A and B (DispersionPortfolioConstructionService). The engine trades ``traded`` (B by default); the
      other strategy is tracked alongside for the comparison.
+     Strategy architecture: STM scores + ETF weights -> ETFCallDispersionTradingStrategy (StrategySignals) ->
+     construct_dispersion_trade (selection + sizing) -> dispersion_target_portfolio -> result.target_portfolio
+     (ETF calls short N, selected constituent calls long; the legs settled this step at 0 contracts).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from dataclasses import replace
+from datetime import datetime
 from typing import Callable, Dict, List, Mapping, Optional
 
 import pandas as pd
@@ -32,8 +37,12 @@ from src.application.services.dispersion.dispersion_portfolio_construction_servi
     SettledStrategy,
     StrategyLegs,
 )
+from src.application.services.dispersion.dispersion_target_portfolio import (
+    construct_dispersion_trade,
+    dispersion_target_portfolio,
+)
 from src.application.services.dispersion.index_membership import IndexMembership
-from src.application.services.dispersion.model_selection import ModelFilterConfig, select_constituents
+from src.application.services.dispersion.model_selection import ModelFilterConfig
 from src.application.services.dispersion.realized_payoff import expiry_for, settlement_day, third_fridays
 from src.application.services.dispersion.screen_config import DispersionScreenConfig
 from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_constituent_scorer import ConstituentScores, STMConstituentScorer
@@ -41,6 +50,8 @@ from src.application.services.data.backtest_preload.known_closes_reader import (
     KnownClosesReader,
     known_through,
 )
+from src.domain.entities.factor.trading_strategy.etf_call_dispersion_strategy import ETFCallDispersionTradingStrategy
+from src.domain.entities.finance.portfolio.target_portfolio import TargetPortfolio, TargetPortfolioPosition
 
 ORIGINAL, MODEL_FILTERED = "original", "model_filtered"
 CALL = "C"
@@ -73,7 +84,8 @@ class MonthResult:
 class DispersionStepResult:
     time: pd.Timestamp
     session: Optional[date] = None                       # latest close known at the step
-    targets: Dict[str, int] = field(default_factory=dict)   # option symbol -> target contracts (signed)
+    targets: Dict[str, int] = field(default_factory=dict)   # option symbol -> target contracts (of target_portfolio)
+    target_portfolio: Optional[TargetPortfolio] = None      # what the strategy wants to hold (contracts)
     opened: Optional[MonthResult] = None
     settled: Optional[MonthResult] = None
     note: str = ""
@@ -109,6 +121,14 @@ class DispersionTradingCycle:
         self._last_roll: Optional[date] = None
         self._marks: Dict[str, tuple] = {}       # option symbol -> (session, price) of the latest mark
         self._legs: Dict[str, dict] = {}          # option symbol -> {underlying, strike, expiry, is_etf, exit}
+        self.strategy = ETFCallDispersionTradingStrategy()
+
+    def _add_targets(self, result: DispersionStepResult, target: TargetPortfolio) -> None:
+        """Add ``target``'s positions to the step's TargetPortfolio (a step can settle a month and open the next)."""
+        if result.target_portfolio is not None:
+            target = replace(target, positions=tuple(result.target_portfolio) + tuple(target))
+        result.target_portfolio = target
+        result.targets = {p.symbol: int(round(p.target_quantity)) for p in target}
 
     # -- the step --
     def step(self, now) -> DispersionStepResult:
@@ -180,8 +200,11 @@ class DispersionTradingCycle:
             return self._skip(month, result)
 
         month.scores = self.scorer.score(closes.loc[:pd.Timestamp(opened)], members, pd.Timestamp(opened))
-        selection = select_constituents(members, month.scores.scores, self.model_filter, month.scores.unscored)
-        month.trade = self.constructor.construct(opened, expiry, etf_leg, legs, selection)
+        as_of = datetime.combine(opened, datetime.min.time())
+        signals = self.strategy.evaluate({"score": {s: [v] for s, v in month.scores.scores.items()},
+                                          "weights": weights}, as_of=as_of)
+        month.trade = construct_dispersion_trade(signals, etf_leg, legs, opened, expiry, self.model_filter,
+                                                 unscored=month.scores.unscored, constructor=self.constructor)
 
         traded = self._traded_legs(month.trade)
         for leg in [etf_leg] + legs:
@@ -194,7 +217,8 @@ class DispersionTradingCycle:
             symbol = month.option_symbols[underlying]
             self.register_option(symbol=symbol, underlying=underlying, expiry=expiry, strike=leg.strike,
                                  multiplier=leg.multiplier, is_etf=underlying == etf, day=opened)
-            result.targets[symbol] = int(round(qty))
+        self._add_targets(result, dispersion_target_portfolio(month.trade, as_of=as_of, strategy=self.traded,
+                                                              strategy_name=self.strategy.name))
         self.open_month = month
         self.months.append(month)
         result.opened = month
@@ -227,11 +251,17 @@ class DispersionTradingCycle:
         month.filtered = self.constructor.settle(month.trade, month.trade.filtered, at[etf], prices)
         month.settled_on = settled
         traded = self._traded_legs(month.trade)
+        closing = []
         for underlying in [etf] + list(traded.positions):
             symbol = month.option_symbols[underlying]
             leg = self._legs[symbol]
             leg["exit"] = max(at[underlying] - leg["strike"], 0.0)
-            result.targets[symbol] = 0
+            closing.append(TargetPortfolioPosition(
+                symbol=symbol, target_weight=0.0, target_quantity=0.0,
+                asset_type="ETFShareOption" if underlying == etf else "CompanyShareOption"))
+        self._add_targets(result, TargetPortfolio(
+            as_of=datetime.combine(settled, datetime.min.time()), positions=tuple(closing),
+            strategy_name=self.strategy.name, construction="etf_call_dispersion:settlement"))
         self.open_month = None
         result.settled = month
         self.log(f"[DISP-STM] settled {month.opened} -> {month.expiry} at the {settled} close: "
