@@ -181,6 +181,28 @@ class CSMFeatureEngine:
             return np.nan
         return float(v) if v is not None and np.isfinite(float(v)) else np.nan
 
+    def features_at(self, asset: str, series: Union[pd.Series, pd.DataFrame], at) -> pd.DataFrame:
+        """The feature rows of ``asset`` at the dates ``at`` only (e.g. month ends), each from the bars dated <= that
+        date — the rows ``asset_features`` gives for those dates, without computing every other bar (added
+        2026-11-23 for the monthly classifier backtest)."""
+        frame = series.to_frame("close") if isinstance(series, pd.Series) else series
+        frame = frame[frame["close"].notna()].sort_index()
+        dates = frame.index
+        bars = {f: frame[f].to_numpy(dtype=float) for f in frame.columns}
+        rows, index = [], []
+        for d in pd.DatetimeIndex(at):
+            i = dates.searchsorted(d, side="right") - 1
+            if i < 0 or dates[i] != d:
+                continue
+            key = (asset, d)
+            row = self._cache.get(key)
+            if row is None:
+                row = {n: self._value(n, bars, dates, i) for n in self.factors}
+                self._cache[key] = row
+            rows.append(row)
+            index.append(d)
+        return pd.DataFrame(rows, index=pd.DatetimeIndex(index), columns=list(self.factors))
+
     def asset_features(self, asset: str, series: Union[pd.Series, pd.DataFrame]) -> pd.DataFrame:
         """Feature rows of one asset (index = its own close sessions); ``series`` = closes or a bar-field frame."""
         frame = series.to_frame("close") if isinstance(series, pd.Series) else series

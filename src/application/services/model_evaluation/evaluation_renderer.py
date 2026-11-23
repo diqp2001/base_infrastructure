@@ -52,20 +52,20 @@ def fig_confusion(result, normalised: bool = False):
                     max(float(values.max()), 1.0), lambda v: f"{int(v)}")
 
 
-def fig_correlation(analysis):
+def fig_correlation(analysis, name: str):
     c = analysis.correlation
     if c is None or c.empty:
         return None
     return _heatmap(c.to_numpy(dtype=float), list(c.index), list(c.columns),
-                    f"Correlation of the P(class {analysis.target_class}) quintile return series",
+                    f"Correlation of the {name} quintile return series",
                     "probability quintile", "probability quintile", "RdBu_r", -1.0, 1.0, lambda v: f"{v:.2f}")
 
 
-def fig_cumulative(analysis):
+def fig_cumulative(analysis, name: str):
     if analysis.cumulative is None or analysis.cumulative.empty:
         return None
     cum = analysis.cumulative.copy()
-    title = (f"Cumulative realised return of the P(class {analysis.target_class}) quintiles "
+    title = (f"Cumulative realised return of the {name} quintiles "
              f"(equal weight, {analysis.horizon}-bar forward returns" +
              (", non-overlapping dates)" if analysis.horizon > 1 else ")"))
     return rr.fig_series(cum, title, ylabel="cumulative return")
@@ -76,9 +76,9 @@ def figures(evaluation, target_class: Optional[int]) -> Dict[str, Optional[str]]
            "confusion_share": rr.png(fig_confusion(evaluation.classification, normalised=True))}
     analysis = evaluation.probability_quintiles.get(target_class) if target_class is not None else None
     if analysis is not None:
-        f = fig_cumulative(analysis)
+        f = fig_cumulative(analysis, evaluation.output_label(target_class))
         out["cumulative"] = rr.png(f) if f is not None else None
-        f = fig_correlation(analysis)
+        f = fig_correlation(analysis, evaluation.output_label(target_class))
         out["correlation"] = rr.png(f) if f is not None else None
     return out
 
@@ -104,7 +104,7 @@ def probability_overview(evaluation) -> pd.DataFrame:
         s = a.summary
         if s is None or s.empty:
             continue
-        rows[f"P({class_label(k, evaluation.classes)})"] = {
+        rows[evaluation.output_label(k)] = {
             "mean Q1": s["mean_forward_return"].iloc[0], f"mean Q{a.n_quantiles}": s["mean_forward_return"].iloc[-1],
             f"Q{a.n_quantiles} - Q1": s["mean_forward_return"].iloc[-1] - s["mean_forward_return"].iloc[0],
             "monotonicity (Spearman)": a.monotonicity, "dates": int(s["dates"].max())}

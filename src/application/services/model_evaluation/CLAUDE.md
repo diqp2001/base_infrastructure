@@ -48,3 +48,31 @@ and the probability class. CSV exports via `/powerbuffet/model-evaluation/csv?pa
 ## Tests
 
 `tests/model_evaluation/` (no database).
+
+## Monthly classifier backtest (added 2026-11-23)
+
+`monthly_classifier_backtest.py` runs the four stock-ranking models on one shared monthly setup, walk-forward. It is
+a model evaluation, not an engine backtest: no TradingStrategy, no orders.
+
+- **Universe:** the DJIA point-in-time members (`djia_membership`, from 2020-08-31). Predictions run from 2021-01 to
+  2026-10. Training rows before 2020-08-31 use the base members' own history (survivors), as the STM decile project
+  does.
+- **Prices:** adjusted daily closes from the cached IBKR files (`results/etf_dispersion_stm/price_history`,
+  Eulerpool fallback). IBKR is not called.
+- **Target:** the next month. 5 classes = the per-date quintile of the next-month return; 2 classes = above the
+  date's cross-sectional median.
+- **Training:** at each month end T, every model is fit on month-end rows dated before T, over a rolling 120-month
+  window, and retrained monthly. `run_id` = the training month (yyyymm).
+
+| model | algorithm | features | classes |
+|---|---|---|---|
+| `csm` | CSM LightGBM + Optuna TPE (`csm_model.train`) | CSM candidates from closes (`CSMFeatureEngine.features_at`) | 0 / 1 |
+| `lgbm_quintile` | `LGBMClassifier` with `LGBMMomentumModelConfiguration`'s parameters | the 24 momentum factors | 1-5 |
+| `random_forest` | test_base_project's RandomForest (100 trees, random_state 42), pooled | two lagged monthly returns, last month's daily volatility | 0 / 1 |
+| `stm` | STM model A of the decile project (`STMConstituentScorer`, retrained monthly) | its own (month-end closes) | score ranking: predicted class = per-date score quintile vs the 1-5 true classes |
+
+- **Outputs:** `results/classifier_backtests/<stamp>/manifest.json` and `<model>.csv` (the observation table). These
+  are read by `ClassifierBacktestFileSource` (model key `monthly_backtest:<stamp>:<model>`) and evaluated on
+  `/powerbuffet/model-evaluation`.
+- **Run:** `python -m src.application.services.model_evaluation.monthly_classifier_backtest [--models csm,stm]
+  [--start 2021-01-01] [--end 2026-10-31] [--csm-trials 25]`

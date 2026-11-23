@@ -25,6 +25,7 @@ from src.application.services.model_evaluation.observations import probability_c
 from src.application.services.model_evaluation.probability_quintiles import (
     ProbabilityQuintileAnalysis,
     analyse_all,
+    analyse_probability,
 )
 from src.domain.entities.ml.classifier_evaluation import (
     ClassificationEvaluationResult,
@@ -55,14 +56,25 @@ class ClassifierEvaluation:
     probability_quintiles: Dict[int, ProbabilityQuintileAnalysis]
     per_run: pd.DataFrame                       # run_id -> observations, dates, accuracy, macro F1
     notes: List[str] = field(default_factory=list)
+    score_only: bool = False                    # a ranking score instead of class probabilities
+
+    def output_label(self, k: int) -> str:
+        """'P(Q5)' / 'P(class 1)', or 'score' for a score model."""
+        from src.domain.entities.ml.classifier_evaluation import class_label
+        return "score" if self.score_only else f"P({class_label(k, self.classes)})"
 
 
 def evaluate_observations(frame: pd.DataFrame, classes: Sequence[int], horizon: int = 1, n_quantiles: int = 5,
                           model: Optional[ClassifierModelRef] = None, runs: Sequence[ClassifierRun] = (),
-                          notes: Sequence[str] = ()) -> ClassifierEvaluation:
+                          notes: Sequence[str] = (), score_only: Optional[bool] = None) -> ClassifierEvaluation:
+    """``score_only``: the model outputs a ranking score (column 'score'), not class probabilities — the predicted
+    class is given by the source (e.g. the score's per-date quintile) and the score's quintiles are analysed against
+    the best class (default: from ``model.output``)."""
     classes = [int(k) for k in classes]
-    obs = validate(frame, classes)
-    probs = obs[probability_columns(classes)].to_numpy(dtype=float)
+    if score_only is None:
+        score_only = model is not None and model.output == "score"
+    obs = validate(frame, classes, score_only)
+    probs = None if score_only else obs[probability_columns(classes)].to_numpy(dtype=float)
     classification = evaluate_classification(obs["true_class"].to_numpy(dtype=float),
                                              obs["predicted_class"].to_numpy(dtype=float), classes, probs)
     rows = []
@@ -76,10 +88,17 @@ def evaluate_observations(frame: pd.DataFrame, classes: Sequence[int], horizon: 
     all_notes = list(notes) + list(classification.notes)
     if obs.empty:
         all_notes.append("no observation in the window")
+    if score_only:
+        top = classes[-1]
+        quintiles = {top: analyse_probability(obs.assign(**{f"p_{top}": obs["score"]}), top, n_quantiles,
+                                              int(horizon))}
+        all_notes.append("score model: no class probabilities — its score quintiles are analysed against the best "
+                         "class; no log loss / Brier score")
+    else:
+        quintiles = analyse_all(obs, classes, n_quantiles, int(horizon))
     return ClassifierEvaluation(model=model, runs=list(runs), classes=classes, horizon=int(horizon), observations=obs,
-                                classification=classification,
-                                probability_quintiles=analyse_all(obs, classes, n_quantiles, int(horizon)),
-                                per_run=per_run, notes=all_notes)
+                                classification=classification, probability_quintiles=quintiles,
+                                per_run=per_run, notes=all_notes, score_only=bool(score_only))
 
 
 class ClassifierEvaluationService:

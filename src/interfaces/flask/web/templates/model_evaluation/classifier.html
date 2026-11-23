@@ -69,10 +69,10 @@
         mean returns should rise from Q1 to Q5 (monotonicity close to +1); P(worst class) the opposite. Nothing here assumes it.</p>
     {{ table(overview, 4, 'probability')|safe }}
     <div class="mt-2">Probability shown below:
-        {% for k in ev.classes %}<a class="btn btn-sm {% if k == target %}btn-primary{% else %}btn-outline-secondary{% endif %} py-0"
-            href="{{ url_for('model_evaluation.classifier_evaluation') }}?{{ q|replace('prob_class=' ~ args.get('prob_class',''), '') }}&prob_class={{ k }}">P({{ label(k, ev.classes) }})</a>{% endfor %}</div>
+        {% for k in (ev.probability_quintiles.keys()|list) %}<a class="btn btn-sm {% if k == target %}btn-primary{% else %}btn-outline-secondary{% endif %} py-0"
+            href="{{ url_for('model_evaluation.classifier_evaluation') }}?{{ q|replace('prob_class=' ~ args.get('prob_class',''), '') }}&prob_class={{ k }}">{{ ev.output_label(k) }}</a>{% endfor %}</div>
     {% if analysis %}
-    <h6 class="mt-3">P({{ label(target, ev.classes) }}) quintiles {% if analysis.monotonicity is not none %}<span class="muted">· monotonicity {{ '%.2f'|format(analysis.monotonicity) }}</span>{% endif %}
+    <h6 class="mt-3">{{ ev.output_label(target) }} quintiles {% if analysis.monotonicity is not none %}<span class="muted">· monotonicity {{ '%.2f'|format(analysis.monotonicity) }}</span>{% endif %}
         · <a href="{{ csv }}&part=quintiles&prob_class={{ target }}">per-date returns CSV</a></h6>
     {% for n in analysis.notes %}<div class="muted">{{ n }}</div>{% endfor %}
     {{ table(analysis.summary, 4, 'quintile')|safe }}
@@ -82,10 +82,10 @@
 </div></div>
 
 {% if analysis %}
-<div class="card mb-3"><div class="card-header">3. Cumulative returns of the P({{ label(target, ev.classes) }}) quintiles · <a href="{{ csv }}&part=cumulative&prob_class={{ target }}">CSV</a></div>
+<div class="card mb-3"><div class="card-header">3. Cumulative returns of the {{ ev.output_label(target) }} quintiles · <a href="{{ csv }}&part=cumulative&prob_class={{ target }}">CSV</a></div>
     <div class="card-body">{% if figures.cumulative %}<img class="figure" src="data:image/png;base64,{{ figures.cumulative }}" alt="cumulative">{% else %}<p class="muted small">No return series.</p>{% endif %}</div></div>
 
-<div class="card mb-3"><div class="card-header">4. Correlation of the P({{ label(target, ev.classes) }}) quintile return series · <a href="{{ csv }}&part=correlation&prob_class={{ target }}">CSV</a></div>
+<div class="card mb-3"><div class="card-header">4. Correlation of the {{ ev.output_label(target) }} quintile return series · <a href="{{ csv }}&part=correlation&prob_class={{ target }}">CSV</a></div>
     <div class="card-body small">{% if figures.correlation %}<img class="figure" src="data:image/png;base64,{{ figures.correlation }}" alt="correlation">
         <p class="muted mb-0">Correlations near 1 everywhere: the quintiles move together and the probability separates little of the cross-section.</p>
         {% else %}<p class="muted">Fewer than 3 dates: no correlation.</p>{% endif %}</div></div>

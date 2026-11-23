@@ -38,6 +38,8 @@ class ClassifierModelRef:
     classes: Tuple[int, ...]         # the model's class labels, worst performance first
     true_class_definition: str       # how the realised class is computed (the model's own label rule)
     label_horizon: str               # the forward period of the label, e.g. '5 trading days (return_5d at T+5..11d)'
+    output: str = "probabilities"    # 'probabilities' (P(class k) for every k) or 'score' (a ranking score only: its
+                                     # quintiles play the role of the probability quintiles; no log loss / Brier)
 
 
 @dataclass(frozen=True)

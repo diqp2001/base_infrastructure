@@ -37,15 +37,20 @@ def probability_columns(classes: Sequence[int]) -> List[str]:
     return [probability_column(k) for k in classes]
 
 
-def validate(frame: pd.DataFrame, classes: Sequence[int]) -> pd.DataFrame:
+def validate(frame: pd.DataFrame, classes: Sequence[int], score_only: bool = False) -> pd.DataFrame:
     """Columns present, one row per (date, asset), probabilities in [0, 1] summing to 1 (tolerance 1e-6) where all
-    are known. Returns the frame sorted by (date, asset)."""
-    missing = [c for c in list(REQUIRED) + probability_columns(classes) if c not in frame.columns]
+    are known (a score-only model has a ``score`` column instead). Returns the frame sorted by (date, asset)."""
+    needed = list(REQUIRED) + (["score"] if score_only else probability_columns(classes))
+    missing = [c for c in needed if c not in frame.columns]
     if missing:
         raise ValueError(f"observation table without columns {missing}")
     if frame.duplicated(["date", "asset"]).any():
         dup = frame[frame.duplicated(["date", "asset"], keep=False)][["date", "asset"]].head(3).to_dict("records")
         raise ValueError(f"several observations for the same (date, asset), e.g. {dup}: runs mixed?")
+    if score_only:
+        out = frame.copy()
+        out["date"] = pd.to_datetime(out["date"])
+        return out.sort_values(["date", "asset"], kind="mergesort").reset_index(drop=True)
     p = frame[probability_columns(classes)].to_numpy(dtype=float)
     known = np.isfinite(p).all(axis=1)
     if known.any():
