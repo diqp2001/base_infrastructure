@@ -90,6 +90,7 @@ TAG_MAP: Dict[str, Dict[str, Tuple[Alternative, ...]]] = {
         "retainedEarnings": (((1, "RetainedEarningsAccumulatedDeficit"),),),
         "totalStockholdersEquity": (((1, "StockholdersEquity"),),),
         "totalEquity": (((1, "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"),),),
+        "commonStockSharesOutstanding": (((1, "CommonStockSharesOutstanding"),),),    # shares at the period end
     },
     CASH_FLOW: {
         "netCashProvidedByOperatingActivities": (((1, "NetCashProvidedByUsedInOperatingActivities"),),),

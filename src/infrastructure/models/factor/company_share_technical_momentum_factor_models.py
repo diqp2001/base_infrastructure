@@ -337,3 +337,137 @@ class CompanyShareWhalleyWilmottCeilingDistanceFactorModel(FactorModel):
 
 class CompanyShareWhalleyWilmottFloorDistanceFactorModel(FactorModel):
     __mapper_args__ = {"polymorphic_identity": "company_share_whalley_wilmott_floor_distance_factor"}
+
+
+# ── Liquidity and volume factors over several periods (2026-11-23) ──
+
+
+class CompanyShareAvgDollarVolume5DFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_avg_dollar_volume_5d_factor"}
+
+
+class CompanyShareAvgDollarVolume1MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_avg_dollar_volume_1m_factor"}
+
+
+class CompanyShareAvgDollarVolume3MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_avg_dollar_volume_3m_factor"}
+
+
+class CompanyShareAvgDollarVolume6MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_avg_dollar_volume_6m_factor"}
+
+
+class CompanyShareAvgDollarVolume12MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_avg_dollar_volume_12m_factor"}
+
+
+class CompanyShareAmihudIlliquidity5DFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_amihud_illiquidity_5d_factor"}
+
+
+class CompanyShareAmihudIlliquidity1MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_amihud_illiquidity_1m_factor"}
+
+
+class CompanyShareAmihudIlliquidity3MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_amihud_illiquidity_3m_factor"}
+
+
+class CompanyShareAmihudIlliquidity6MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_amihud_illiquidity_6m_factor"}
+
+
+class CompanyShareAmihudIlliquidity12MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_amihud_illiquidity_12m_factor"}
+
+
+class CompanyShareVolumeVolatility5DFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_volume_volatility_5d_factor"}
+
+
+class CompanyShareVolumeVolatility1MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_volume_volatility_1m_factor"}
+
+
+class CompanyShareVolumeVolatility3MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_volume_volatility_3m_factor"}
+
+
+class CompanyShareVolumeVolatility6MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_volume_volatility_6m_factor"}
+
+
+class CompanyShareVolumeVolatility12MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_volume_volatility_12m_factor"}
+
+
+class CompanyShareRelativeVolume5DFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_relative_volume_5d_factor"}
+
+
+class CompanyShareRelativeVolume1MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_relative_volume_1m_factor"}
+
+
+class CompanyShareRelativeVolume3MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_relative_volume_3m_factor"}
+
+
+class CompanyShareRelativeVolume6MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_relative_volume_6m_factor"}
+
+
+class CompanyShareVolumePriceTrend5DFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_volume_price_trend_5d_factor"}
+
+
+class CompanyShareVolumePriceTrend1MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_volume_price_trend_1m_factor"}
+
+
+class CompanyShareVolumePriceTrend3MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_volume_price_trend_3m_factor"}
+
+
+class CompanyShareVolumePriceTrend6MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_volume_price_trend_6m_factor"}
+
+
+class CompanyShareVolumePriceTrend12MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_volume_price_trend_12m_factor"}
+
+
+class CompanyShareAvgPriceRange5DFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_avg_price_range_5d_factor"}
+
+
+class CompanyShareAvgPriceRange1MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_avg_price_range_1m_factor"}
+
+
+class CompanyShareAvgPriceRange3MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_avg_price_range_3m_factor"}
+
+
+# ── Share turnover over several periods (2026-11-24) ──
+
+
+class CompanyShareTurnover5DFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_turnover_5d_factor"}
+
+
+class CompanyShareTurnover1MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_turnover_1m_factor"}
+
+
+class CompanyShareTurnover3MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_turnover_3m_factor"}
+
+
+class CompanyShareTurnover6MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_turnover_6m_factor"}
+
+
+class CompanyShareTurnover12MFactorModel(FactorModel):
+    __mapper_args__ = {"polymorphic_identity": "company_share_turnover_12m_factor"}

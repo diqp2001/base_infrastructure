@@ -46,6 +46,7 @@ def test_a_daily_configuration_hash_is_unchanged_by_the_bar_size_field():
     for k in ("artifact_dir", "persist_signals", "persist_features", "bar_minutes"):
         d.pop(k)
     d["features"].pop("fundamentals")               # no fundamentals: left out of the hash too
+    d["features"].pop("liquidity_volume")           # the opt-in liquidity / volume group off: idem (2026-11-23)
     assert cfg.bar_minutes is None and not cfg.features.fundamentals
     assert cfg.model_hash() == hashlib.sha256(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()
 

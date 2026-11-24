@@ -24,6 +24,16 @@ class CSMUniverseConfig:
     tickers: Optional[List[str]] = None
 
 
+def liquidity_volume_names(enabled: bool) -> List[str]:
+    """The opt-in liquidity / volume candidates (feature name = the factor's default name), or none."""
+    if not enabled:
+        return []
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_liquidity_volume_factors import (  # noqa: E501
+        LIQUIDITY_VOLUME_FACTOR_CLASSES,
+    )
+    return [cls.DEFAULT_NAME for cls in LIQUIDITY_VOLUME_FACTOR_CLASSES]
+
+
 @dataclass
 class CSMFeatureConfig:
     """
@@ -40,12 +50,18 @@ class CSMFeatureConfig:
     # point-in-time fundamental candidates (csm_fundamentals: 'fund_<factor>_<1q|1y>'), read from the statement
     # provider(s) the cycle is given; empty = none (the default: no statements are fetched)
     fundamentals: Tuple[str, ...] = ()
+    # opt-in (2026-11-23): the 27 liquidity / volume candidates over 5d..12m (company_share_liquidity_volume_factors).
+    # Off by default, so existing configurations keep their 48 candidates, warm-up and model hash. Computed by the
+    # trading cycle / feature engine only: not dependencies of CompanyShareCrossSectionalMomentumFactor, so a model
+    # selecting them cannot be scored by a single-entity factor resolution (like cross_sectional_ranks)
+    liquidity_volume: bool = False
 
     def base_feature_names(self) -> List[str]:
         from src.application.services.data.entities.factor.cross_sectional_momentum.csm_feature_definition import (
             CSMFeatureDefinition,
         )
-        names = list(CSMFeatureDefinition.FEATURE_NAMES) + list(self.fundamentals)
+        names = list(CSMFeatureDefinition.FEATURE_NAMES) + liquidity_volume_names(self.liquidity_volume) \
+            + list(self.fundamentals)
         return [n for n in names if n not in self.exclude]
 
     def fundamental_names(self) -> List[str]:
@@ -56,9 +72,10 @@ class CSMFeatureConfig:
         return base + ([f"cs_rank_{n}" for n in base] if self.cross_sectional_ranks else [])
 
     def warmup_rows(self) -> int:
-        """Sessions of bars before the first row where every candidate exists (longest window: 127 closes of
-        max_daily_return_6m; checked against csm_features.max_lookback by the tests)."""
-        return 128
+        """Sessions of bars before the first row where every candidate exists: the longest window plus one - 127
+        closes of max_daily_return_6m, 253 with the liquidity / volume group (12-month factors). Constants, checked
+        against csm_features.max_lookback by the tests (no import of csm_features here: it imports this module)."""
+        return 254 if self.liquidity_volume else 128
 
 
 @dataclass
@@ -150,4 +167,6 @@ class CSMConfiguration:
             d.pop("bar_minutes", None)            # daily: the hash of the models trained before the field existed
         if not d.get("features", {}).get("fundamentals"):
             d.get("features", {}).pop("fundamentals", None)    # idem: models trained before fundamentals existed
+        if not d.get("features", {}).get("liquidity_volume"):
+            d.get("features", {}).pop("liquidity_volume", None)   # idem: before the liquidity / volume candidates
         return hashlib.sha256(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()

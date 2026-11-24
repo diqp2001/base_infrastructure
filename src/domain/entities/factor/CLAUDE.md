@@ -1022,3 +1022,27 @@ STMTradingCycle.step: provider.score_details -> scores + daily vol
   while the book is flat in it. `entry_target` gives the option at its weight; `hedge_target(qty)` gives the hedge
   symbol in shares (via `finance/portfolio/construction/delta_hedge.py`). The hedge decision is made by the project
   `Strategy` with the domain overlay. See `docs/architecture/STRATEGY_ARCHITECTURE_FINAL_REPORT.md` section 11.
+
+## Liquidity / volume factors over several periods (added 2026-11-23) and share turnover (2026-11-24)
+
+These live in `share_factor/company_share/company_share_liquidity_volume_factors.py`. Each factor has its own class,
+ORM identity `company_share_<name>_factor`, mapper and local and IBKR repositories (in the technical-momentum
+modules), FactorMapper dispatch and library entry.
+
+- **`LIQUIDITY_VOLUME_FACTOR_CLASSES` (27, daily bars only):**
+  - `avg_dollar_volume_<p>`
+  - `amihud_illiquidity_<p>`
+  - `volume_volatility_<p>`
+  - `volume_price_trend_<p>`
+  - `relative_volume_{5d,1m,3m,6m}` (relative to 252 sessions)
+  - `avg_price_range_{5d,1m,3m}`
+
+  Here p is 5d, 1m, 3m, 6m or 12m (5, 21, 63, 126 or 252 sessions). CSM computes them only when the opt-in group
+  `CSMFeatureConfig.liquidity_volume` is on. It is off by default, so the existing model hashes and warmups are
+  unchanged.
+- **`TURNOVER_FACTOR_CLASSES` (5):** `turnover_<p>` = mean daily volume / shares outstanding.
+  - The share count comes from a statement DependencySpec on the quarterly balance sheet field
+    `commonStockSharesOutstanding` (point in time).
+  - It is kept out of the bar-only group.
+  - Eulerpool maps the field from `CommonStockSharesOutstanding`. FMP does not serve it.
+- Tests: `tests/unit/test_liquidity_volume_factors.py`.

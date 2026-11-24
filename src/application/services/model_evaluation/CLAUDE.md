@@ -76,3 +76,45 @@ a model evaluation, not an engine backtest: no TradingStrategy, no orders.
   `/powerbuffet/model-evaluation`.
 - **Run:** `python -m src.application.services.model_evaluation.monthly_classifier_backtest [--models csm,stm]
   [--start 2021-01-01] [--end 2026-10-31] [--csm-trials 25]`
+
+## Binary and quintile views (added 2026-11-23)
+
+Every model gets the same two confusion matrices, whatever its own classes (`observations.cross_sectional_views`):
+- the ranking score is P(class 1) for a binary model, Σ k·P(k) for a five-class model, the score for a score model;
+- **binary**: the true class = above the date's median forward return, the predicted class = score above the date's
+  median score;
+- **quintile**: true and predicted classes are the per-date quintiles of the forward return and of the score.
+
+Page section "1b", CSV parts `binary` and `quintile`.
+
+## S&P 500 monthly backtest of CSM (added 2026-11-23)
+
+`sp500_monthly_backtest.py` runs CSM LightGBM + Optuna TPE on the S&P 500, with the same walk-forward as the DJIA
+backtest (`mcb.walk_forward`, rolling 120 months, retrained monthly, binary target = above the next-month median).
+
+- **Universe**: `src/application/services/universe/sp500_membership.py`. The point-in-time members are rebuilt from
+  Wikipedia: the current list plus the history of changes, rolled back to 2007 (ticker aliases, additions inferred
+  from "Date added"). Cache: `results/sp500/membership.json`.
+- **Prices**: `sp500_data.py`, Eulerpool daily OHLCV (split-adjusted, not dividend-adjusted), file cache
+  `results/sp500/price_history/eulerpool_ohlcv`.
+  - Delisted companies are often missing. The member-months without bars are left out.
+  - Coverage is written in the manifest: ~77% in 2012, 87% in 2016, 95% in 2019, 98-99.5% from 2021.
+- **Statements**: Eulerpool, behind `FileCachedStatementSource` (`results/sp500/statements/eulerpool`). Nothing is
+  written to a database.
+- **Candidates**:
+  - the CSM bar candidates;
+  - the 27 liquidity / volume factors (`CSMFeatureConfig(liquidity_volume=True)`);
+  - the 5 share-turnover factors (`turnover_features`, each by its domain `calculate()`);
+  - the 75 point-in-time fundamentals (`CSMFundamentals`).
+- **Outputs**: `results/classifier_backtests/<stamp>/{manifest.json, csm.csv}`, with `universe_label` "S&P 500 PIT".
+- **Run**: `python -m src.application.services.model_evaluation.sp500_monthly_backtest [--no-turnover]
+  [--no-fundamentals]`. A run takes about 1.5-2 h.
+- **Result of run 20261123T204251** (2012-01 .. 2026-10, 81,902 predictions; without turnover): no edge.
+  - Accuracy 0.502, log loss 0.701 (worse than a coin flip's 0.693).
+  - Q5 − Q1 of P(above median) = +0.18% per month, t = 1.1.
+- **Result of run 20261124T090147** (the same setup with the 5 turnover factors, 155 candidates): no edge either.
+  - Accuracy 0.505, log loss 0.700.
+  - Q5 − Q1 = +0.11% per month, t = 0.6.
+  - The predictions are identical to the previous run up to 2018; they differ from 2019.
+  - The share count comes from the balance sheet: 493 of the 628 symbols with statements. The others report it only
+    on the cover page (dei), which the statement endpoints do not serve.

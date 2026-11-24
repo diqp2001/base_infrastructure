@@ -247,3 +247,45 @@ def test_the_evaluation_flow_works_for_any_number_of_classes(classes):
     top = ev.probability_quintiles[classes[-1]]
     assert top.mean_returns["Q5 - Q1"].mean() > 0                       # the planted signal is found
     assert len(ev.per_run) == 1 and not math.isnan(ev.per_run["accuracy"].iloc[0])
+
+
+# ── the same binary and quintile views for every model ───────────────────────────────────────────────────────────
+
+def test_binary_and_quintile_views_rank_every_model_the_same_way():
+    from src.application.services.model_evaluation.observations import cross_sectional_views, ranking_score
+    fwd = [0.05, -0.02, 0.01, 0.03, -0.04, 0.00, 0.02, -0.01, 0.04, -0.03]
+    order = np.argsort(np.argsort(fwd))                               # 0 = worst .. 9 = best
+    base = pd.DataFrame({"date": pd.Timestamp("2024-01-31"), "asset": range(10), "forward_return": fwd})
+    binary = base.assign(p_0=1 - (order + 1) / 11, p_1=(order + 1) / 11)      # P(class 1) ranks perfectly
+    five = base.copy()                                                 # the expected class ranks perfectly
+    raw = np.exp(np.outer(order / 3.0, np.arange(1, 6)))               # higher order -> mass on higher classes
+    for j, k in enumerate(CLASSES):
+        five[f"p_{k}"] = raw[:, j] / raw.sum(axis=1)
+    score = base.assign(score=order / 9.0)
+    assert ranking_score(binary, [0, 1]).tolist() == binary["p_1"].tolist()
+    assert ranking_score(five, CLASSES).tolist() == pytest.approx(
+        (five[[f"p_{k}" for k in CLASSES]].to_numpy() @ np.arange(1, 6)).tolist())
+    for frame, classes, score_only in ((binary, [0, 1], False), (five, CLASSES, False), (score, CLASSES, True)):
+        views = cross_sectional_views(frame, classes, score_only)
+        for view, (true, predicted) in views.items():
+            assert true.tolist() == predicted.tolist(), (view, classes)            # a perfect ranking: diagonal
+        r = evaluate_classification(*[s.to_numpy() for s in views["quintile"]], CLASSES)
+        assert r.accuracy == 1.0 and np.diag(r.confusion_matrix).tolist() == [2] * 5
+        r2 = evaluate_classification(*[s.to_numpy() for s in views["binary"]], [0, 1])
+        assert r2.confusion_matrix == ((5, 0), (0, 5))
+
+
+def test_the_evaluation_carries_both_views():
+    rng = np.random.default_rng(9)
+    rows = []
+    for d in pd.bdate_range("2024-01-01", periods=10):
+        for a in range(20):
+            p = rng.dirichlet(np.ones(5))
+            rows.append({"date": d, "asset": a, "run_id": 1, "forward_return": rng.normal(0, 0.02),
+                         "true_class": float(rng.integers(1, 6)), "predicted_class": float(np.argmax(p) + 1),
+                         **{f"p_{k}": p[k - 1] for k in CLASSES}})
+    ev = evaluate_observations(pd.DataFrame(rows), CLASSES)
+    assert set(ev.cross_sectional) == {"binary", "quintile"}
+    assert ev.cross_sectional["binary"].classes == (0, 1) and ev.cross_sectional["quintile"].classes == (1, 2, 3, 4, 5)
+    assert ev.cross_sectional["quintile"].n_observations == 200 == ev.cross_sectional["binary"].n_observations
+    assert ev.ranking_label().startswith("the expected class")

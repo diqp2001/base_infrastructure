@@ -21,7 +21,11 @@ from typing import Dict, List, Optional, Sequence
 import pandas as pd
 
 from src.application.services.model_evaluation.classification_metrics import evaluate_classification
-from src.application.services.model_evaluation.observations import probability_columns, validate
+from src.application.services.model_evaluation.observations import (
+    cross_sectional_views,
+    probability_columns,
+    validate,
+)
 from src.application.services.model_evaluation.probability_quintiles import (
     ProbabilityQuintileAnalysis,
     analyse_all,
@@ -57,6 +61,17 @@ class ClassifierEvaluation:
     per_run: pd.DataFrame                       # run_id -> observations, dates, accuracy, macro F1
     notes: List[str] = field(default_factory=list)
     score_only: bool = False                    # a ranking score instead of class probabilities
+    # the same two views for every model (observations.cross_sectional_views): 'binary' (above / below the date's
+    # median) and 'quintile' (per-date quintiles), true from the forward return, predicted from the ranking score
+    cross_sectional: Dict[str, ClassificationEvaluationResult] = field(default_factory=dict)
+
+    def ranking_label(self) -> str:
+        if self.score_only:
+            return "the score"
+        if len(self.classes) == 2:
+            from src.domain.entities.ml.classifier_evaluation import class_label
+            return f"P({class_label(self.classes[-1], self.classes)})"
+        return "the expected class (sum of k x P(k))"
 
     def output_label(self, k: int) -> str:
         """'P(Q5)' / 'P(class 1)', or 'score' for a score model."""
@@ -88,6 +103,11 @@ def evaluate_observations(frame: pd.DataFrame, classes: Sequence[int], horizon: 
     all_notes = list(notes) + list(classification.notes)
     if obs.empty:
         all_notes.append("no observation in the window")
+    cross_sectional = {}
+    for view, (true, predicted) in cross_sectional_views(obs, classes, score_only, n_quantiles).items():
+        view_classes = [0, 1] if view == "binary" else list(range(1, n_quantiles + 1))
+        cross_sectional[view] = evaluate_classification(true.to_numpy(dtype=float), predicted.to_numpy(dtype=float),
+                                                        view_classes)
     if score_only:
         top = classes[-1]
         quintiles = {top: analyse_probability(obs.assign(**{f"p_{top}": obs["score"]}), top, n_quantiles,
@@ -98,7 +118,8 @@ def evaluate_observations(frame: pd.DataFrame, classes: Sequence[int], horizon: 
         quintiles = analyse_all(obs, classes, n_quantiles, int(horizon))
     return ClassifierEvaluation(model=model, runs=list(runs), classes=classes, horizon=int(horizon), observations=obs,
                                 classification=classification, probability_quintiles=quintiles,
-                                per_run=per_run, notes=all_notes, score_only=bool(score_only))
+                                per_run=per_run, notes=all_notes, score_only=bool(score_only),
+                                cross_sectional=cross_sectional)
 
 
 class ClassifierEvaluationService:

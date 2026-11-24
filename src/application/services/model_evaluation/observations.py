@@ -100,6 +100,34 @@ def median_split_classes(frame: pd.DataFrame, value: str) -> pd.Series:
     return out.where(frame[value].notna())
 
 
+def ranking_score(frame: pd.DataFrame, classes: Sequence[int], score_only: bool = False) -> pd.Series:
+    """One number per observation that orders the stocks by the model's expected performance, known at T:
+    the score (score models), P(best class) for a binary model, the expected class sum_k k x P(k) otherwise (the
+    whole distribution, not only its argmax)."""
+    if score_only:
+        return frame["score"].astype(float)
+    if len(classes) == 2:
+        return frame[probability_column(classes[-1])].astype(float)
+    p = frame[probability_columns(classes)].to_numpy(dtype=float)
+    return pd.Series(p @ np.asarray(classes, dtype=float), index=frame.index)
+
+
+def cross_sectional_views(frame: pd.DataFrame, classes: Sequence[int], score_only: bool = False,
+                          n_quantiles: int = 5) -> dict:
+    """The same two classifications for every model, per date (from the forward return and the ranking score):
+    'binary'   true = forward return above the date's median, predicted = ranking score above the date's median;
+    'quintile' true = per-date quintile of the forward return, predicted = per-date quintile of the ranking score.
+    Returns {view: (true classes, predicted classes)} on the rows with a forward return and a score."""
+    work = frame[["date", "asset", "forward_return"]].copy()
+    work["ranking"] = ranking_score(frame, classes, score_only)
+    work = work.dropna(subset=["forward_return", "ranking"])
+    return {
+        "binary": (median_split_classes(work, "forward_return"), median_split_classes(work, "ranking")),
+        "quintile": (cross_sectional_classes(work, "forward_return", n_quantiles),
+                     cross_sectional_classes(work, "ranking", n_quantiles)),
+    }
+
+
 def restrict_to_runs(frame: pd.DataFrame, runs: Iterable) -> pd.DataFrame:
     """Rows whose date is inside their run's evaluable window [evaluable_from or valid_from, valid_until]."""
     keep = pd.Series(False, index=frame.index)

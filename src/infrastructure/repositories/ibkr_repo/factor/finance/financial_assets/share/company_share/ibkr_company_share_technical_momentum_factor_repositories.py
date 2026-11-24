@@ -414,3 +414,173 @@ class IBKRCompanyShareWhalleyWilmottCeilingDistanceFactorRepository(_BaseIBKRTec
 
 class IBKRCompanyShareWhalleyWilmottFloorDistanceFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareWhalleyWilmottFloorDistanceFactorPort):
     _local_repo_key = 'CompanyShareWhalleyWilmottFloorDistanceFactor'
+
+
+# ── Liquidity and volume factors over several periods (2026-11-23) ──
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_technical_momentum_factor_ports import (  # noqa: E402
+    CompanyShareAvgDollarVolume5DFactorPort,
+    CompanyShareAvgDollarVolume1MFactorPort,
+    CompanyShareAvgDollarVolume3MFactorPort,
+    CompanyShareAvgDollarVolume6MFactorPort,
+    CompanyShareAvgDollarVolume12MFactorPort,
+    CompanyShareAmihudIlliquidity5DFactorPort,
+    CompanyShareAmihudIlliquidity1MFactorPort,
+    CompanyShareAmihudIlliquidity3MFactorPort,
+    CompanyShareAmihudIlliquidity6MFactorPort,
+    CompanyShareAmihudIlliquidity12MFactorPort,
+    CompanyShareVolumeVolatility5DFactorPort,
+    CompanyShareVolumeVolatility1MFactorPort,
+    CompanyShareVolumeVolatility3MFactorPort,
+    CompanyShareVolumeVolatility6MFactorPort,
+    CompanyShareVolumeVolatility12MFactorPort,
+    CompanyShareRelativeVolume5DFactorPort,
+    CompanyShareRelativeVolume1MFactorPort,
+    CompanyShareRelativeVolume3MFactorPort,
+    CompanyShareRelativeVolume6MFactorPort,
+    CompanyShareVolumePriceTrend5DFactorPort,
+    CompanyShareVolumePriceTrend1MFactorPort,
+    CompanyShareVolumePriceTrend3MFactorPort,
+    CompanyShareVolumePriceTrend6MFactorPort,
+    CompanyShareVolumePriceTrend12MFactorPort,
+    CompanyShareAvgPriceRange5DFactorPort,
+    CompanyShareAvgPriceRange1MFactorPort,
+    CompanyShareAvgPriceRange3MFactorPort,
+)
+
+
+class IBKRCompanyShareAvgDollarVolume5DFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAvgDollarVolume5DFactorPort):
+    _local_repo_key = 'CompanyShareAvgDollarVolume5DFactor'
+
+
+class IBKRCompanyShareAvgDollarVolume1MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAvgDollarVolume1MFactorPort):
+    _local_repo_key = 'CompanyShareAvgDollarVolume1MFactor'
+
+
+class IBKRCompanyShareAvgDollarVolume3MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAvgDollarVolume3MFactorPort):
+    _local_repo_key = 'CompanyShareAvgDollarVolume3MFactor'
+
+
+class IBKRCompanyShareAvgDollarVolume6MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAvgDollarVolume6MFactorPort):
+    _local_repo_key = 'CompanyShareAvgDollarVolume6MFactor'
+
+
+class IBKRCompanyShareAvgDollarVolume12MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAvgDollarVolume12MFactorPort):
+    _local_repo_key = 'CompanyShareAvgDollarVolume12MFactor'
+
+
+class IBKRCompanyShareAmihudIlliquidity5DFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAmihudIlliquidity5DFactorPort):
+    _local_repo_key = 'CompanyShareAmihudIlliquidity5DFactor'
+
+
+class IBKRCompanyShareAmihudIlliquidity1MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAmihudIlliquidity1MFactorPort):
+    _local_repo_key = 'CompanyShareAmihudIlliquidity1MFactor'
+
+
+class IBKRCompanyShareAmihudIlliquidity3MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAmihudIlliquidity3MFactorPort):
+    _local_repo_key = 'CompanyShareAmihudIlliquidity3MFactor'
+
+
+class IBKRCompanyShareAmihudIlliquidity6MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAmihudIlliquidity6MFactorPort):
+    _local_repo_key = 'CompanyShareAmihudIlliquidity6MFactor'
+
+
+class IBKRCompanyShareAmihudIlliquidity12MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAmihudIlliquidity12MFactorPort):
+    _local_repo_key = 'CompanyShareAmihudIlliquidity12MFactor'
+
+
+class IBKRCompanyShareVolumeVolatility5DFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareVolumeVolatility5DFactorPort):
+    _local_repo_key = 'CompanyShareVolumeVolatility5DFactor'
+
+
+class IBKRCompanyShareVolumeVolatility1MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareVolumeVolatility1MFactorPort):
+    _local_repo_key = 'CompanyShareVolumeVolatility1MFactor'
+
+
+class IBKRCompanyShareVolumeVolatility3MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareVolumeVolatility3MFactorPort):
+    _local_repo_key = 'CompanyShareVolumeVolatility3MFactor'
+
+
+class IBKRCompanyShareVolumeVolatility6MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareVolumeVolatility6MFactorPort):
+    _local_repo_key = 'CompanyShareVolumeVolatility6MFactor'
+
+
+class IBKRCompanyShareVolumeVolatility12MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareVolumeVolatility12MFactorPort):
+    _local_repo_key = 'CompanyShareVolumeVolatility12MFactor'
+
+
+class IBKRCompanyShareRelativeVolume5DFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareRelativeVolume5DFactorPort):
+    _local_repo_key = 'CompanyShareRelativeVolume5DFactor'
+
+
+class IBKRCompanyShareRelativeVolume1MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareRelativeVolume1MFactorPort):
+    _local_repo_key = 'CompanyShareRelativeVolume1MFactor'
+
+
+class IBKRCompanyShareRelativeVolume3MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareRelativeVolume3MFactorPort):
+    _local_repo_key = 'CompanyShareRelativeVolume3MFactor'
+
+
+class IBKRCompanyShareRelativeVolume6MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareRelativeVolume6MFactorPort):
+    _local_repo_key = 'CompanyShareRelativeVolume6MFactor'
+
+
+class IBKRCompanyShareVolumePriceTrend5DFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareVolumePriceTrend5DFactorPort):
+    _local_repo_key = 'CompanyShareVolumePriceTrend5DFactor'
+
+
+class IBKRCompanyShareVolumePriceTrend1MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareVolumePriceTrend1MFactorPort):
+    _local_repo_key = 'CompanyShareVolumePriceTrend1MFactor'
+
+
+class IBKRCompanyShareVolumePriceTrend3MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareVolumePriceTrend3MFactorPort):
+    _local_repo_key = 'CompanyShareVolumePriceTrend3MFactor'
+
+
+class IBKRCompanyShareVolumePriceTrend6MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareVolumePriceTrend6MFactorPort):
+    _local_repo_key = 'CompanyShareVolumePriceTrend6MFactor'
+
+
+class IBKRCompanyShareVolumePriceTrend12MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareVolumePriceTrend12MFactorPort):
+    _local_repo_key = 'CompanyShareVolumePriceTrend12MFactor'
+
+
+class IBKRCompanyShareAvgPriceRange5DFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAvgPriceRange5DFactorPort):
+    _local_repo_key = 'CompanyShareAvgPriceRange5DFactor'
+
+
+class IBKRCompanyShareAvgPriceRange1MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAvgPriceRange1MFactorPort):
+    _local_repo_key = 'CompanyShareAvgPriceRange1MFactor'
+
+
+class IBKRCompanyShareAvgPriceRange3MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareAvgPriceRange3MFactorPort):
+    _local_repo_key = 'CompanyShareAvgPriceRange3MFactor'
+
+
+# ── Share turnover over several periods (2026-11-24) ──
+from src.domain.ports.factor.finance.financial_assets.share_factor.company_share.company_share_technical_momentum_factor_ports import (  # noqa: E402
+    CompanyShareTurnover5DFactorPort,
+    CompanyShareTurnover1MFactorPort,
+    CompanyShareTurnover3MFactorPort,
+    CompanyShareTurnover6MFactorPort,
+    CompanyShareTurnover12MFactorPort,
+)
+
+
+class IBKRCompanyShareTurnover5DFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareTurnover5DFactorPort):
+    _local_repo_key = 'CompanyShareTurnover5DFactor'
+
+
+class IBKRCompanyShareTurnover1MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareTurnover1MFactorPort):
+    _local_repo_key = 'CompanyShareTurnover1MFactor'
+
+
+class IBKRCompanyShareTurnover3MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareTurnover3MFactorPort):
+    _local_repo_key = 'CompanyShareTurnover3MFactor'
+
+
+class IBKRCompanyShareTurnover6MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareTurnover6MFactorPort):
+    _local_repo_key = 'CompanyShareTurnover6MFactor'
+
+
+class IBKRCompanyShareTurnover12MFactorRepository(_BaseIBKRTechMomentumRepo, CompanyShareTurnover12MFactorPort):
+    _local_repo_key = 'CompanyShareTurnover12MFactor'

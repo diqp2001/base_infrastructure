@@ -242,7 +242,8 @@ class FactorWorld:
     # published (45 days after the quarter's end), the last one before T
     STATEMENTS = {("income_statement", "revenue"): 1000.0, ("income_statement", "grossProfit"): 450.0,
                   ("income_statement", "epsDiluted"): 1.5, ("cash_flow", "freeCashFlow"): 250.0,
-                  ("balance_sheet", "totalDebt"): 900.0, ("balance_sheet", "totalEquity"): 1800.0}
+                  ("balance_sheet", "totalDebt"): 900.0, ("balance_sheet", "totalEquity"): 1800.0,
+                  ("balance_sheet", "commonStockSharesOutstanding"): 1.5e10}    # share count (turnover)
 
     def _seed_statements(self):
         from src.infrastructure.models.factor.factor import CompanyShareFactorModel

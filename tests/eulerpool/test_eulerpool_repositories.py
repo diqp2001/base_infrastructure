@@ -127,6 +127,8 @@ def test_balance_sheet_quarters_and_the_year_end_as_fourth_quarter():
     for i, r in enumerate(rows):
         assert r.values["totalAssets"] == balance(i)["totalAssets"]          # never the 10-Q's year-end comparative
         assert r.values["totalStockholdersEquity"] == balance(i)["totalStockholdersEquity"]
+        assert r.values["commonStockSharesOutstanding"] == fake.shares_outstanding(i)   # a count (2026-11-24)
+    assert rows[0].reported_currency == "USD"                              # the 'shares' unit is never the currency
 
 
 def test_annual_statements_drop_the_quarter_tagged_as_fy():

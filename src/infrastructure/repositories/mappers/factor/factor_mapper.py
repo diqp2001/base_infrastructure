@@ -141,6 +141,42 @@ from src.domain.entities.factor.finance.financial_assets.share_factor.company_sh
     CompanyShareAvgTurnover4mFactor, CompanyShareAvgTurnover5mFactor, CompanyShareTurnoverFactor,
     CompanyShareVpt16w20dLagFactor, CompanyShareMaxDailyReturn6mFactor, CompanyShareMinReturn120dFactor,
 )
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_liquidity_volume_factors import (
+    CompanyShareTurnover5DFactor,
+    CompanyShareTurnover1MFactor,
+    CompanyShareTurnover3MFactor,
+    CompanyShareTurnover6MFactor,
+    CompanyShareTurnover12MFactor,
+)
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_liquidity_volume_factors import (
+    CompanyShareAvgDollarVolume5DFactor,
+    CompanyShareAvgDollarVolume1MFactor,
+    CompanyShareAvgDollarVolume3MFactor,
+    CompanyShareAvgDollarVolume6MFactor,
+    CompanyShareAvgDollarVolume12MFactor,
+    CompanyShareAmihudIlliquidity5DFactor,
+    CompanyShareAmihudIlliquidity1MFactor,
+    CompanyShareAmihudIlliquidity3MFactor,
+    CompanyShareAmihudIlliquidity6MFactor,
+    CompanyShareAmihudIlliquidity12MFactor,
+    CompanyShareVolumeVolatility5DFactor,
+    CompanyShareVolumeVolatility1MFactor,
+    CompanyShareVolumeVolatility3MFactor,
+    CompanyShareVolumeVolatility6MFactor,
+    CompanyShareVolumeVolatility12MFactor,
+    CompanyShareRelativeVolume5DFactor,
+    CompanyShareRelativeVolume1MFactor,
+    CompanyShareRelativeVolume3MFactor,
+    CompanyShareRelativeVolume6MFactor,
+    CompanyShareVolumePriceTrend5DFactor,
+    CompanyShareVolumePriceTrend1MFactor,
+    CompanyShareVolumePriceTrend3MFactor,
+    CompanyShareVolumePriceTrend6MFactor,
+    CompanyShareVolumePriceTrend12MFactor,
+    CompanyShareAvgPriceRange5DFactor,
+    CompanyShareAvgPriceRange1MFactor,
+    CompanyShareAvgPriceRange3MFactor,
+)
 from src.domain.entities.factor.finance.financial_assets.currency.currency_value_factor import CurrencyValueFactor as CurrencyValueFactorEntity
 from src.domain.entities.factor.finance.financial_assets.currency.currency_rate_factor import CurrencyRateFactor as CurrencyRateFactorEntity
 from src.domain.entities.factor.finance.financial_assets.currency.currency_yield_factor import CurrencyYieldFactor as CurrencyYieldFactorEntity
@@ -457,6 +493,38 @@ DISCRIMINATOR_CLASS_MAP: dict = {
     'company_share_relative_return_vs_spy_3m_factor': CompanyShareRelativeReturnVsSpy3MFactor,
     'company_share_relative_return_vs_spy_6m_factor': CompanyShareRelativeReturnVsSpy6MFactor,
     'company_share_avg_turnover_1m_factor': CompanyShareAvgTurnover1mFactor,
+    'company_share_turnover_5d_factor': CompanyShareTurnover5DFactor,
+    'company_share_turnover_1m_factor': CompanyShareTurnover1MFactor,
+    'company_share_turnover_3m_factor': CompanyShareTurnover3MFactor,
+    'company_share_turnover_6m_factor': CompanyShareTurnover6MFactor,
+    'company_share_turnover_12m_factor': CompanyShareTurnover12MFactor,
+    'company_share_avg_dollar_volume_5d_factor': CompanyShareAvgDollarVolume5DFactor,
+    'company_share_avg_dollar_volume_1m_factor': CompanyShareAvgDollarVolume1MFactor,
+    'company_share_avg_dollar_volume_3m_factor': CompanyShareAvgDollarVolume3MFactor,
+    'company_share_avg_dollar_volume_6m_factor': CompanyShareAvgDollarVolume6MFactor,
+    'company_share_avg_dollar_volume_12m_factor': CompanyShareAvgDollarVolume12MFactor,
+    'company_share_amihud_illiquidity_5d_factor': CompanyShareAmihudIlliquidity5DFactor,
+    'company_share_amihud_illiquidity_1m_factor': CompanyShareAmihudIlliquidity1MFactor,
+    'company_share_amihud_illiquidity_3m_factor': CompanyShareAmihudIlliquidity3MFactor,
+    'company_share_amihud_illiquidity_6m_factor': CompanyShareAmihudIlliquidity6MFactor,
+    'company_share_amihud_illiquidity_12m_factor': CompanyShareAmihudIlliquidity12MFactor,
+    'company_share_volume_volatility_5d_factor': CompanyShareVolumeVolatility5DFactor,
+    'company_share_volume_volatility_1m_factor': CompanyShareVolumeVolatility1MFactor,
+    'company_share_volume_volatility_3m_factor': CompanyShareVolumeVolatility3MFactor,
+    'company_share_volume_volatility_6m_factor': CompanyShareVolumeVolatility6MFactor,
+    'company_share_volume_volatility_12m_factor': CompanyShareVolumeVolatility12MFactor,
+    'company_share_relative_volume_5d_factor': CompanyShareRelativeVolume5DFactor,
+    'company_share_relative_volume_1m_factor': CompanyShareRelativeVolume1MFactor,
+    'company_share_relative_volume_3m_factor': CompanyShareRelativeVolume3MFactor,
+    'company_share_relative_volume_6m_factor': CompanyShareRelativeVolume6MFactor,
+    'company_share_volume_price_trend_5d_factor': CompanyShareVolumePriceTrend5DFactor,
+    'company_share_volume_price_trend_1m_factor': CompanyShareVolumePriceTrend1MFactor,
+    'company_share_volume_price_trend_3m_factor': CompanyShareVolumePriceTrend3MFactor,
+    'company_share_volume_price_trend_6m_factor': CompanyShareVolumePriceTrend6MFactor,
+    'company_share_volume_price_trend_12m_factor': CompanyShareVolumePriceTrend12MFactor,
+    'company_share_avg_price_range_5d_factor': CompanyShareAvgPriceRange5DFactor,
+    'company_share_avg_price_range_1m_factor': CompanyShareAvgPriceRange1MFactor,
+    'company_share_avg_price_range_3m_factor': CompanyShareAvgPriceRange3MFactor,
     'company_share_avg_turnover_2m_factor': CompanyShareAvgTurnover2mFactor,
     'company_share_avg_turnover_3m_factor': CompanyShareAvgTurnover3mFactor,
     'company_share_avg_turnover_4m_factor': CompanyShareAvgTurnover4mFactor,
@@ -930,6 +998,70 @@ class FactorMapper:
             return CompanyShareRelativeReturnVsSpy6MFactor(**base_args)
         elif factor_type == 'company_share_avg_turnover_1m_factor':
             return CompanyShareAvgTurnover1mFactor(**base_args)
+        elif factor_type == 'company_share_turnover_5d_factor':
+            return CompanyShareTurnover5DFactor(**base_args)
+        elif factor_type == 'company_share_turnover_1m_factor':
+            return CompanyShareTurnover1MFactor(**base_args)
+        elif factor_type == 'company_share_turnover_3m_factor':
+            return CompanyShareTurnover3MFactor(**base_args)
+        elif factor_type == 'company_share_turnover_6m_factor':
+            return CompanyShareTurnover6MFactor(**base_args)
+        elif factor_type == 'company_share_turnover_12m_factor':
+            return CompanyShareTurnover12MFactor(**base_args)
+        elif factor_type == 'company_share_avg_dollar_volume_5d_factor':
+            return CompanyShareAvgDollarVolume5DFactor(**base_args)
+        elif factor_type == 'company_share_avg_dollar_volume_1m_factor':
+            return CompanyShareAvgDollarVolume1MFactor(**base_args)
+        elif factor_type == 'company_share_avg_dollar_volume_3m_factor':
+            return CompanyShareAvgDollarVolume3MFactor(**base_args)
+        elif factor_type == 'company_share_avg_dollar_volume_6m_factor':
+            return CompanyShareAvgDollarVolume6MFactor(**base_args)
+        elif factor_type == 'company_share_avg_dollar_volume_12m_factor':
+            return CompanyShareAvgDollarVolume12MFactor(**base_args)
+        elif factor_type == 'company_share_amihud_illiquidity_5d_factor':
+            return CompanyShareAmihudIlliquidity5DFactor(**base_args)
+        elif factor_type == 'company_share_amihud_illiquidity_1m_factor':
+            return CompanyShareAmihudIlliquidity1MFactor(**base_args)
+        elif factor_type == 'company_share_amihud_illiquidity_3m_factor':
+            return CompanyShareAmihudIlliquidity3MFactor(**base_args)
+        elif factor_type == 'company_share_amihud_illiquidity_6m_factor':
+            return CompanyShareAmihudIlliquidity6MFactor(**base_args)
+        elif factor_type == 'company_share_amihud_illiquidity_12m_factor':
+            return CompanyShareAmihudIlliquidity12MFactor(**base_args)
+        elif factor_type == 'company_share_volume_volatility_5d_factor':
+            return CompanyShareVolumeVolatility5DFactor(**base_args)
+        elif factor_type == 'company_share_volume_volatility_1m_factor':
+            return CompanyShareVolumeVolatility1MFactor(**base_args)
+        elif factor_type == 'company_share_volume_volatility_3m_factor':
+            return CompanyShareVolumeVolatility3MFactor(**base_args)
+        elif factor_type == 'company_share_volume_volatility_6m_factor':
+            return CompanyShareVolumeVolatility6MFactor(**base_args)
+        elif factor_type == 'company_share_volume_volatility_12m_factor':
+            return CompanyShareVolumeVolatility12MFactor(**base_args)
+        elif factor_type == 'company_share_relative_volume_5d_factor':
+            return CompanyShareRelativeVolume5DFactor(**base_args)
+        elif factor_type == 'company_share_relative_volume_1m_factor':
+            return CompanyShareRelativeVolume1MFactor(**base_args)
+        elif factor_type == 'company_share_relative_volume_3m_factor':
+            return CompanyShareRelativeVolume3MFactor(**base_args)
+        elif factor_type == 'company_share_relative_volume_6m_factor':
+            return CompanyShareRelativeVolume6MFactor(**base_args)
+        elif factor_type == 'company_share_volume_price_trend_5d_factor':
+            return CompanyShareVolumePriceTrend5DFactor(**base_args)
+        elif factor_type == 'company_share_volume_price_trend_1m_factor':
+            return CompanyShareVolumePriceTrend1MFactor(**base_args)
+        elif factor_type == 'company_share_volume_price_trend_3m_factor':
+            return CompanyShareVolumePriceTrend3MFactor(**base_args)
+        elif factor_type == 'company_share_volume_price_trend_6m_factor':
+            return CompanyShareVolumePriceTrend6MFactor(**base_args)
+        elif factor_type == 'company_share_volume_price_trend_12m_factor':
+            return CompanyShareVolumePriceTrend12MFactor(**base_args)
+        elif factor_type == 'company_share_avg_price_range_5d_factor':
+            return CompanyShareAvgPriceRange5DFactor(**base_args)
+        elif factor_type == 'company_share_avg_price_range_1m_factor':
+            return CompanyShareAvgPriceRange1MFactor(**base_args)
+        elif factor_type == 'company_share_avg_price_range_3m_factor':
+            return CompanyShareAvgPriceRange3MFactor(**base_args)
         elif factor_type == 'company_share_avg_turnover_2m_factor':
             return CompanyShareAvgTurnover2mFactor(**base_args)
         elif factor_type == 'company_share_avg_turnover_3m_factor':

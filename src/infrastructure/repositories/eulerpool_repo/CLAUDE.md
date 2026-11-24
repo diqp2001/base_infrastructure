@@ -58,6 +58,9 @@ eulerpool_repo/
   increase lowers operating cash. `netIncome` falls back to `ProfitLoss` (incl. noncontrolling interests) when the
   parent's `NetIncomeLoss` is missing (PNC's 10-Qs) - an approximation, removable in one line. Fields Eulerpool does
   not serve (totalDebt, ebitda, incomeBeforeTax, weighted shares, ...) are absent: factors reading them have no value.
+  Share count (2026-11-24): balance sheet `commonStockSharesOutstanding` <- `CommonStockSharesOutstanding` (unit
+  'shares', the count at the period end; the share-turnover factors' denominator). It is a count, not an amount
+  (`SHARE_COUNT_FIELDS`), and never sets the record's currency.
 - Facts used: 10-Q / 10-K, per (tag, period end) the earliest filed. FY facts must end on the fiscal year end (anchor:
   the latest 10-K period, +-10 days); Q facts must not (a 10-Q repeats the last year end's balances).
 - Durations: income statement 10-Q = the quarter, cash flow 10-Q = year to date. Quarterly series: IS Q4 = FY -

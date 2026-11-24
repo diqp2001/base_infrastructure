@@ -314,9 +314,14 @@ def walk_forward(model_factory: Callable[[], _Tabular], features: pd.DataFrame, 
     return pd.concat(out, ignore_index=True) if out else pd.DataFrame()
 
 
+STM_DECILE_CONFIG = "src.application.managers.project_managers.stm_monthly_decile_project.config"
+
+
 def stm_scores(data: MonthlyData, dates: pd.DatetimeIndex, log=None) -> pd.DataFrame:
     """STM model A of the decile project, retrained every month, scoring the members at each T."""
-    from src.application.managers.project_managers.stm_monthly_decile_project import config as decile_config
+    import importlib
+    # the decile project's config, by module path (services never import the managers layer statically)
+    decile_config = importlib.import_module(STM_DECILE_CONFIG)
     from src.application.services.data.entities.factor.spatio_temporal_momentum.stm_constituent_scorer import (
         STMConstituentScorer,
     )

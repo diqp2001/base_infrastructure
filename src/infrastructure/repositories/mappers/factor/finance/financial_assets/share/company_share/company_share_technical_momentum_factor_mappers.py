@@ -966,3 +966,433 @@ class CompanyShareWhalleyWilmottFloorDistanceFactorMapper(BaseFactorMapper):
     def get_factor_entity(self): return CompanyShareWhalleyWilmottFloorDistanceFactor
     def to_domain(self, orm_model): return _to_domain(CompanyShareWhalleyWilmottFloorDistanceFactor, orm_model)
     def to_orm(self, e): return _to_orm(CompanyShareWhalleyWilmottFloorDistanceFactorModel, 'company_share_whalley_wilmott_floor_distance_factor', e)
+
+
+# ── Liquidity and volume factors over several periods (2026-11-23) ──
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_liquidity_volume_factors import (  # noqa: E402
+    CompanyShareAvgDollarVolume5DFactor,
+    CompanyShareAvgDollarVolume1MFactor,
+    CompanyShareAvgDollarVolume3MFactor,
+    CompanyShareAvgDollarVolume6MFactor,
+    CompanyShareAvgDollarVolume12MFactor,
+    CompanyShareAmihudIlliquidity5DFactor,
+    CompanyShareAmihudIlliquidity1MFactor,
+    CompanyShareAmihudIlliquidity3MFactor,
+    CompanyShareAmihudIlliquidity6MFactor,
+    CompanyShareAmihudIlliquidity12MFactor,
+    CompanyShareVolumeVolatility5DFactor,
+    CompanyShareVolumeVolatility1MFactor,
+    CompanyShareVolumeVolatility3MFactor,
+    CompanyShareVolumeVolatility6MFactor,
+    CompanyShareVolumeVolatility12MFactor,
+    CompanyShareRelativeVolume5DFactor,
+    CompanyShareRelativeVolume1MFactor,
+    CompanyShareRelativeVolume3MFactor,
+    CompanyShareRelativeVolume6MFactor,
+    CompanyShareVolumePriceTrend5DFactor,
+    CompanyShareVolumePriceTrend1MFactor,
+    CompanyShareVolumePriceTrend3MFactor,
+    CompanyShareVolumePriceTrend6MFactor,
+    CompanyShareVolumePriceTrend12MFactor,
+    CompanyShareAvgPriceRange5DFactor,
+    CompanyShareAvgPriceRange1MFactor,
+    CompanyShareAvgPriceRange3MFactor,
+)
+from src.infrastructure.models.factor.company_share_technical_momentum_factor_models import (  # noqa: E402
+    CompanyShareAvgDollarVolume5DFactorModel,
+    CompanyShareAvgDollarVolume1MFactorModel,
+    CompanyShareAvgDollarVolume3MFactorModel,
+    CompanyShareAvgDollarVolume6MFactorModel,
+    CompanyShareAvgDollarVolume12MFactorModel,
+    CompanyShareAmihudIlliquidity5DFactorModel,
+    CompanyShareAmihudIlliquidity1MFactorModel,
+    CompanyShareAmihudIlliquidity3MFactorModel,
+    CompanyShareAmihudIlliquidity6MFactorModel,
+    CompanyShareAmihudIlliquidity12MFactorModel,
+    CompanyShareVolumeVolatility5DFactorModel,
+    CompanyShareVolumeVolatility1MFactorModel,
+    CompanyShareVolumeVolatility3MFactorModel,
+    CompanyShareVolumeVolatility6MFactorModel,
+    CompanyShareVolumeVolatility12MFactorModel,
+    CompanyShareRelativeVolume5DFactorModel,
+    CompanyShareRelativeVolume1MFactorModel,
+    CompanyShareRelativeVolume3MFactorModel,
+    CompanyShareRelativeVolume6MFactorModel,
+    CompanyShareVolumePriceTrend5DFactorModel,
+    CompanyShareVolumePriceTrend1MFactorModel,
+    CompanyShareVolumePriceTrend3MFactorModel,
+    CompanyShareVolumePriceTrend6MFactorModel,
+    CompanyShareVolumePriceTrend12MFactorModel,
+    CompanyShareAvgPriceRange5DFactorModel,
+    CompanyShareAvgPriceRange1MFactorModel,
+    CompanyShareAvgPriceRange3MFactorModel,
+)
+
+
+class CompanyShareAvgDollarVolume5DFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAvgDollarVolume5DFactorModel
+    def get_factor_model(self): return CompanyShareAvgDollarVolume5DFactorModel
+    def get_factor_entity(self): return CompanyShareAvgDollarVolume5DFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAvgDollarVolume5DFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAvgDollarVolume5DFactorModel, 'company_share_avg_dollar_volume_5d_factor', e)
+
+
+class CompanyShareAvgDollarVolume1MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAvgDollarVolume1MFactorModel
+    def get_factor_model(self): return CompanyShareAvgDollarVolume1MFactorModel
+    def get_factor_entity(self): return CompanyShareAvgDollarVolume1MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAvgDollarVolume1MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAvgDollarVolume1MFactorModel, 'company_share_avg_dollar_volume_1m_factor', e)
+
+
+class CompanyShareAvgDollarVolume3MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAvgDollarVolume3MFactorModel
+    def get_factor_model(self): return CompanyShareAvgDollarVolume3MFactorModel
+    def get_factor_entity(self): return CompanyShareAvgDollarVolume3MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAvgDollarVolume3MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAvgDollarVolume3MFactorModel, 'company_share_avg_dollar_volume_3m_factor', e)
+
+
+class CompanyShareAvgDollarVolume6MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAvgDollarVolume6MFactorModel
+    def get_factor_model(self): return CompanyShareAvgDollarVolume6MFactorModel
+    def get_factor_entity(self): return CompanyShareAvgDollarVolume6MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAvgDollarVolume6MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAvgDollarVolume6MFactorModel, 'company_share_avg_dollar_volume_6m_factor', e)
+
+
+class CompanyShareAvgDollarVolume12MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAvgDollarVolume12MFactorModel
+    def get_factor_model(self): return CompanyShareAvgDollarVolume12MFactorModel
+    def get_factor_entity(self): return CompanyShareAvgDollarVolume12MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAvgDollarVolume12MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAvgDollarVolume12MFactorModel, 'company_share_avg_dollar_volume_12m_factor', e)
+
+
+class CompanyShareAmihudIlliquidity5DFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAmihudIlliquidity5DFactorModel
+    def get_factor_model(self): return CompanyShareAmihudIlliquidity5DFactorModel
+    def get_factor_entity(self): return CompanyShareAmihudIlliquidity5DFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAmihudIlliquidity5DFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAmihudIlliquidity5DFactorModel, 'company_share_amihud_illiquidity_5d_factor', e)
+
+
+class CompanyShareAmihudIlliquidity1MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAmihudIlliquidity1MFactorModel
+    def get_factor_model(self): return CompanyShareAmihudIlliquidity1MFactorModel
+    def get_factor_entity(self): return CompanyShareAmihudIlliquidity1MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAmihudIlliquidity1MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAmihudIlliquidity1MFactorModel, 'company_share_amihud_illiquidity_1m_factor', e)
+
+
+class CompanyShareAmihudIlliquidity3MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAmihudIlliquidity3MFactorModel
+    def get_factor_model(self): return CompanyShareAmihudIlliquidity3MFactorModel
+    def get_factor_entity(self): return CompanyShareAmihudIlliquidity3MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAmihudIlliquidity3MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAmihudIlliquidity3MFactorModel, 'company_share_amihud_illiquidity_3m_factor', e)
+
+
+class CompanyShareAmihudIlliquidity6MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAmihudIlliquidity6MFactorModel
+    def get_factor_model(self): return CompanyShareAmihudIlliquidity6MFactorModel
+    def get_factor_entity(self): return CompanyShareAmihudIlliquidity6MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAmihudIlliquidity6MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAmihudIlliquidity6MFactorModel, 'company_share_amihud_illiquidity_6m_factor', e)
+
+
+class CompanyShareAmihudIlliquidity12MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAmihudIlliquidity12MFactorModel
+    def get_factor_model(self): return CompanyShareAmihudIlliquidity12MFactorModel
+    def get_factor_entity(self): return CompanyShareAmihudIlliquidity12MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAmihudIlliquidity12MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAmihudIlliquidity12MFactorModel, 'company_share_amihud_illiquidity_12m_factor', e)
+
+
+class CompanyShareVolumeVolatility5DFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareVolumeVolatility5DFactorModel
+    def get_factor_model(self): return CompanyShareVolumeVolatility5DFactorModel
+    def get_factor_entity(self): return CompanyShareVolumeVolatility5DFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareVolumeVolatility5DFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareVolumeVolatility5DFactorModel, 'company_share_volume_volatility_5d_factor', e)
+
+
+class CompanyShareVolumeVolatility1MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareVolumeVolatility1MFactorModel
+    def get_factor_model(self): return CompanyShareVolumeVolatility1MFactorModel
+    def get_factor_entity(self): return CompanyShareVolumeVolatility1MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareVolumeVolatility1MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareVolumeVolatility1MFactorModel, 'company_share_volume_volatility_1m_factor', e)
+
+
+class CompanyShareVolumeVolatility3MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareVolumeVolatility3MFactorModel
+    def get_factor_model(self): return CompanyShareVolumeVolatility3MFactorModel
+    def get_factor_entity(self): return CompanyShareVolumeVolatility3MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareVolumeVolatility3MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareVolumeVolatility3MFactorModel, 'company_share_volume_volatility_3m_factor', e)
+
+
+class CompanyShareVolumeVolatility6MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareVolumeVolatility6MFactorModel
+    def get_factor_model(self): return CompanyShareVolumeVolatility6MFactorModel
+    def get_factor_entity(self): return CompanyShareVolumeVolatility6MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareVolumeVolatility6MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareVolumeVolatility6MFactorModel, 'company_share_volume_volatility_6m_factor', e)
+
+
+class CompanyShareVolumeVolatility12MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareVolumeVolatility12MFactorModel
+    def get_factor_model(self): return CompanyShareVolumeVolatility12MFactorModel
+    def get_factor_entity(self): return CompanyShareVolumeVolatility12MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareVolumeVolatility12MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareVolumeVolatility12MFactorModel, 'company_share_volume_volatility_12m_factor', e)
+
+
+class CompanyShareRelativeVolume5DFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareRelativeVolume5DFactorModel
+    def get_factor_model(self): return CompanyShareRelativeVolume5DFactorModel
+    def get_factor_entity(self): return CompanyShareRelativeVolume5DFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareRelativeVolume5DFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareRelativeVolume5DFactorModel, 'company_share_relative_volume_5d_factor', e)
+
+
+class CompanyShareRelativeVolume1MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareRelativeVolume1MFactorModel
+    def get_factor_model(self): return CompanyShareRelativeVolume1MFactorModel
+    def get_factor_entity(self): return CompanyShareRelativeVolume1MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareRelativeVolume1MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareRelativeVolume1MFactorModel, 'company_share_relative_volume_1m_factor', e)
+
+
+class CompanyShareRelativeVolume3MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareRelativeVolume3MFactorModel
+    def get_factor_model(self): return CompanyShareRelativeVolume3MFactorModel
+    def get_factor_entity(self): return CompanyShareRelativeVolume3MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareRelativeVolume3MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareRelativeVolume3MFactorModel, 'company_share_relative_volume_3m_factor', e)
+
+
+class CompanyShareRelativeVolume6MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareRelativeVolume6MFactorModel
+    def get_factor_model(self): return CompanyShareRelativeVolume6MFactorModel
+    def get_factor_entity(self): return CompanyShareRelativeVolume6MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareRelativeVolume6MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareRelativeVolume6MFactorModel, 'company_share_relative_volume_6m_factor', e)
+
+
+class CompanyShareVolumePriceTrend5DFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareVolumePriceTrend5DFactorModel
+    def get_factor_model(self): return CompanyShareVolumePriceTrend5DFactorModel
+    def get_factor_entity(self): return CompanyShareVolumePriceTrend5DFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareVolumePriceTrend5DFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareVolumePriceTrend5DFactorModel, 'company_share_volume_price_trend_5d_factor', e)
+
+
+class CompanyShareVolumePriceTrend1MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareVolumePriceTrend1MFactorModel
+    def get_factor_model(self): return CompanyShareVolumePriceTrend1MFactorModel
+    def get_factor_entity(self): return CompanyShareVolumePriceTrend1MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareVolumePriceTrend1MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareVolumePriceTrend1MFactorModel, 'company_share_volume_price_trend_1m_factor', e)
+
+
+class CompanyShareVolumePriceTrend3MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareVolumePriceTrend3MFactorModel
+    def get_factor_model(self): return CompanyShareVolumePriceTrend3MFactorModel
+    def get_factor_entity(self): return CompanyShareVolumePriceTrend3MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareVolumePriceTrend3MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareVolumePriceTrend3MFactorModel, 'company_share_volume_price_trend_3m_factor', e)
+
+
+class CompanyShareVolumePriceTrend6MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareVolumePriceTrend6MFactorModel
+    def get_factor_model(self): return CompanyShareVolumePriceTrend6MFactorModel
+    def get_factor_entity(self): return CompanyShareVolumePriceTrend6MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareVolumePriceTrend6MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareVolumePriceTrend6MFactorModel, 'company_share_volume_price_trend_6m_factor', e)
+
+
+class CompanyShareVolumePriceTrend12MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareVolumePriceTrend12MFactorModel
+    def get_factor_model(self): return CompanyShareVolumePriceTrend12MFactorModel
+    def get_factor_entity(self): return CompanyShareVolumePriceTrend12MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareVolumePriceTrend12MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareVolumePriceTrend12MFactorModel, 'company_share_volume_price_trend_12m_factor', e)
+
+
+class CompanyShareAvgPriceRange5DFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAvgPriceRange5DFactorModel
+    def get_factor_model(self): return CompanyShareAvgPriceRange5DFactorModel
+    def get_factor_entity(self): return CompanyShareAvgPriceRange5DFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAvgPriceRange5DFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAvgPriceRange5DFactorModel, 'company_share_avg_price_range_5d_factor', e)
+
+
+class CompanyShareAvgPriceRange1MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAvgPriceRange1MFactorModel
+    def get_factor_model(self): return CompanyShareAvgPriceRange1MFactorModel
+    def get_factor_entity(self): return CompanyShareAvgPriceRange1MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAvgPriceRange1MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAvgPriceRange1MFactorModel, 'company_share_avg_price_range_1m_factor', e)
+
+
+class CompanyShareAvgPriceRange3MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareAvgPriceRange3MFactorModel
+    def get_factor_model(self): return CompanyShareAvgPriceRange3MFactorModel
+    def get_factor_entity(self): return CompanyShareAvgPriceRange3MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareAvgPriceRange3MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareAvgPriceRange3MFactorModel, 'company_share_avg_price_range_3m_factor', e)
+
+
+# ── Share turnover over several periods (2026-11-24) ──
+from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_liquidity_volume_factors import (  # noqa: E402
+    CompanyShareTurnover5DFactor,
+    CompanyShareTurnover1MFactor,
+    CompanyShareTurnover3MFactor,
+    CompanyShareTurnover6MFactor,
+    CompanyShareTurnover12MFactor,
+)
+from src.infrastructure.models.factor.company_share_technical_momentum_factor_models import (  # noqa: E402
+    CompanyShareTurnover5DFactorModel,
+    CompanyShareTurnover1MFactorModel,
+    CompanyShareTurnover3MFactorModel,
+    CompanyShareTurnover6MFactorModel,
+    CompanyShareTurnover12MFactorModel,
+)
+
+
+class CompanyShareTurnover5DFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareTurnover5DFactorModel
+    def get_factor_model(self): return CompanyShareTurnover5DFactorModel
+    def get_factor_entity(self): return CompanyShareTurnover5DFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareTurnover5DFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareTurnover5DFactorModel, 'company_share_turnover_5d_factor', e)
+
+
+class CompanyShareTurnover1MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareTurnover1MFactorModel
+    def get_factor_model(self): return CompanyShareTurnover1MFactorModel
+    def get_factor_entity(self): return CompanyShareTurnover1MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareTurnover1MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareTurnover1MFactorModel, 'company_share_turnover_1m_factor', e)
+
+
+class CompanyShareTurnover3MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareTurnover3MFactorModel
+    def get_factor_model(self): return CompanyShareTurnover3MFactorModel
+    def get_factor_entity(self): return CompanyShareTurnover3MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareTurnover3MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareTurnover3MFactorModel, 'company_share_turnover_3m_factor', e)
+
+
+class CompanyShareTurnover6MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareTurnover6MFactorModel
+    def get_factor_model(self): return CompanyShareTurnover6MFactorModel
+    def get_factor_entity(self): return CompanyShareTurnover6MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareTurnover6MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareTurnover6MFactorModel, 'company_share_turnover_6m_factor', e)
+
+
+class CompanyShareTurnover12MFactorMapper(BaseFactorMapper):
+    @property
+    def discriminator(self): return 'CompanyShare'
+    @property
+    def model_class(self): return CompanyShareTurnover12MFactorModel
+    def get_factor_model(self): return CompanyShareTurnover12MFactorModel
+    def get_factor_entity(self): return CompanyShareTurnover12MFactor
+    def to_domain(self, orm_model): return _to_domain(CompanyShareTurnover12MFactor, orm_model)
+    def to_orm(self, e): return _to_orm(CompanyShareTurnover12MFactorModel, 'company_share_turnover_12m_factor', e)

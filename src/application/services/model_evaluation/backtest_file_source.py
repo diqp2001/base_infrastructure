@@ -53,7 +53,8 @@ class ClassifierBacktestFileSource(ClassifierObservationSourcePort):
                     continue
                 out.append(ClassifierModelRef(
                     key=f"{self.kind}:{m['stamp']}:{name}", kind=self.kind,
-                    name=f"{info['name']} · monthly backtest {m['stamp']} ({window}, DJIA PIT)",
+                    name=(f"{info['name']} · monthly backtest {m['stamp']} "
+                          f"({window}, {m.get('universe_label', 'DJIA PIT')})"),
                     classes=tuple(int(k) for k in info["classes"]), true_class_definition=info["definition"],
                     label_horizon="1 month (next month end)", output=info.get("output", "probabilities")))
         return out
@@ -87,8 +88,10 @@ class ClassifierBacktestFileSource(ClassifierObservationSourcePort):
             notes.append("the backtest's forward-return horizon is fixed at one month (the requested horizon is "
                          "ignored)")
         if universe_id is not None:
-            notes.append("the backtest's universe (DJIA point-in-time members) is used; the universe filter is "
-                         "ignored")
+            stamp = model.key.split(":")[1]
+            label = next((m.get("universe_label", "DJIA PIT") for m in self._manifests() if m["stamp"] == stamp),
+                         "DJIA PIT")
+            notes.append(f"the backtest's universe ({label} members) is used; the universe filter is ignored")
         rows = (f["date"] >= pd.Timestamp(start)) & (f["date"] <= pd.Timestamp(end) + pd.Timedelta(days=1))
         if run_id is not None:
             rows &= f["run_id"] == int(run_id)

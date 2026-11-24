@@ -33,7 +33,8 @@ from src.domain.ports.factor.financial_statement_source_port import FinancialSta
 logger = logging.getLogger(__name__)
 
 FREQUENCY_LABEL = {QUARTERLY: "quarterly", ANNUAL: "annual"}
-SHARE_COUNT_FIELDS = frozenset({"weightedAverageShsOut", "weightedAverageShsOutDil"})   # not amounts
+SHARE_COUNT_FIELDS = frozenset({"weightedAverageShsOut", "weightedAverageShsOutDil",
+                                "commonStockSharesOutstanding"})   # not amounts
 
 
 class StatementFactorValueRepository(FactorValueProviderPort):

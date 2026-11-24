@@ -40,6 +40,7 @@ from src.application.services.dispersion.dispersion_portfolio_construction_servi
 from src.application.services.dispersion.dispersion_target_portfolio import (
     construct_dispersion_trade,
     dispersion_target_portfolio,
+    occ_symbol,
 )
 from src.application.services.dispersion.index_membership import IndexMembership
 from src.application.services.dispersion.model_selection import ModelFilterConfig
@@ -55,11 +56,6 @@ from src.domain.entities.finance.portfolio.target_portfolio import TargetPortfol
 
 ORIGINAL, MODEL_FILTERED = "original", "model_filtered"
 CALL = "C"
-
-
-def occ_symbol(underlying: str, expiry: date, strike: float, right: str = CALL) -> str:
-    """OCC-style option symbol: root padded to 6, YYMMDD, C / P, strike x 1000 on 8 digits."""
-    return f"{underlying:<6}{expiry:%y%m%d}{right}{int(round(strike * 1000)):08d}"
 
 
 @dataclass

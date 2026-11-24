@@ -13,7 +13,7 @@ A source that does not answer raises MarketDataUnavailable; an unknown symbol re
 from __future__ import annotations
 
 from datetime import date, datetime, time, timezone
-from typing import Dict
+from typing import Dict, Optional
 
 from src.domain.ports.finance.dispersion.option_data import Underlying
 from src.domain.ports.finance.dispersion.option_market_data_port import MarketDataUnavailable
@@ -69,3 +69,77 @@ class EulerpoolPriceHistory(PriceHistoryPort):
         """A plain US share for the port (Eulerpool needs the symbol only)."""
         return Underlying(symbol=symbol, con_id=0, sec_type="STK", currency="USD")
 
+
+
+BAR_FIELDS = (("o", "open"), ("h", "high"), ("l", "low"), ("c", "close"), ("v", "volume"))
+
+
+def bars_from_ohlcv(payload) -> Dict[date, Dict[str, float]]:
+    """{UTC date of the bar: {open, high, low, close, volume}} of an OHLCV response (added 2026-11-23); bars without a
+    positive close are left out, a missing field is left out of its bar."""
+    if not isinstance(payload, dict):
+        return {}
+    stamps = payload.get("t") or []
+    columns = {name: payload.get(key) or [] for key, name in BAR_FIELDS}
+    out: Dict[date, Dict[str, float]] = {}
+    for i, t in enumerate(stamps):
+        if t is None:
+            continue
+        bar = {}
+        for name, values in columns.items():
+            try:
+                v = float(values[i])
+            except (IndexError, TypeError, ValueError):
+                continue
+            bar[name] = v
+        if bar.get("close", 0) > 0:
+            out[datetime.fromtimestamp(int(t), tz=timezone.utc).date()] = bar
+    return out
+
+
+def daily_bars(client: EulerpoolClient, symbol: str, start: date, end: date) -> Dict[date, Dict[str, float]]:
+    """Daily OHLCV bars of a US share (split-adjusted, not dividend-adjusted); {} for an unknown symbol."""
+    path = f"charting/ohlcv/{identifier_path(symbol)}"
+    try:
+        payload = client.get(path, resolution="D", **{"from": _unix(start), "to": _unix(end, True)})
+    except EulerpoolNotFound:
+        return {}
+    except EulerpoolError as e:
+        raise MarketDataUnavailable(f"Eulerpool daily bars {symbol}: {e}") from e
+    return {d: b for d, b in bars_from_ohlcv(payload).items() if start <= d <= end}
+
+
+class CachedDailyBars:
+    """File cache of daily_bars: <folder>/<SYMBOL>.json, one request per symbol (re-fetched only when the cached
+    window does not cover the one asked)."""
+
+    def __init__(self, client: Optional[EulerpoolClient], folder: str):
+        self.client = client
+        self.folder = folder
+
+    def path(self, symbol: str) -> str:
+        import os
+        return os.path.join(self.folder, f"{symbol.replace('/', '_').replace(' ', '_')}.json")
+
+    def cached(self, symbol: str) -> Optional[dict]:
+        import json
+        try:
+            with open(self.path(symbol), encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return None
+
+    def bars(self, symbol: str, start: date, end: date) -> Dict[date, Dict[str, float]]:
+        import json
+        import os
+        hit = self.cached(symbol)
+        if hit is not None and hit["start"] <= start.isoformat() and hit["fetched_for"] >= end.isoformat():
+            return {date.fromisoformat(d): b for d, b in hit["bars"].items() if start.isoformat() <= d <= end.isoformat()}
+        if self.client is None:
+            return {}
+        bars = daily_bars(self.client, symbol, start, end)
+        os.makedirs(self.folder, exist_ok=True)
+        with open(self.path(symbol), "w", encoding="utf-8") as f:
+            json.dump({"symbol": symbol, "start": start.isoformat(), "fetched_for": end.isoformat(),
+                       "bars": {d.isoformat(): b for d, b in sorted(bars.items())}}, f)
+        return bars

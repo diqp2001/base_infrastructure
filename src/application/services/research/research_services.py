@@ -34,10 +34,8 @@ class ResearchServices:
 
     @property
     def model_evaluation(self):
-        """ClassifierEvaluationService over the stored classifier models (read-only)."""
-        if self._model_evaluation is None:
-            from src.application.services.model_evaluation import build_classifier_evaluation_service
-            self._model_evaluation = build_classifier_evaluation_service(self.factory, self.data)
+        """The ClassifierEvaluationService set by its caller (the model evaluation page builds it with
+        build_classifier_evaluation_service: model_evaluation depends on research, never the reverse), or None."""
         return self._model_evaluation
 
     def save_mimicking_portfolio(self, name: str, long_short, frequency: str, description: str):

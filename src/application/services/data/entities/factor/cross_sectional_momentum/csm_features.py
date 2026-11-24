@@ -45,7 +45,8 @@ _FACTOR_MODULES = ("company_share_return_factors", "company_share_ma_factors", "
                    "company_share_risk_factors", "company_share_drawdown_factors",
                    "company_share_composite_momentum_factors", "company_share_liquidity_factors",
                    "company_share_avg_turnover_6m_factor", "company_share_monthly_price_range_factor",
-                   "company_share_relative_performance_factors", "company_share_delta_band_factors")
+                   "company_share_relative_performance_factors", "company_share_delta_band_factors",
+                   "company_share_liquidity_volume_factors")
 ENTITY_FACTOR_TYPES = {None: "company_share_factor", "CompanyShare": "company_share_factor", "Index": "index_factor"}
 BAR_FIELDS = ("close", "volume", "high", "low")
 _PACKAGE = "src.domain.entities.factor.finance.financial_assets.share_factor.company_share."
@@ -65,12 +66,18 @@ class CSMDataset:
 
 
 def candidate_factor_classes() -> Dict[str, type]:
-    """feature name -> domain factor class (CSMFeatureDefinition.FEATURE_MAP)."""
+    """feature name -> domain factor class (CSMFeatureDefinition.FEATURE_MAP, plus the opt-in liquidity / volume
+    candidates, named by their factor's default name)."""
     classes = {}
     for module in _FACTOR_MODULES:
         mod = importlib.import_module(_PACKAGE + module)
         classes.update(dict(inspect.getmembers(mod, inspect.isclass)))
-    return {feature: classes[cls_name] for cls_name, feature in CSMFeatureDefinition.FEATURE_MAP}
+    out = {feature: classes[cls_name] for cls_name, feature in CSMFeatureDefinition.FEATURE_MAP}
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_liquidity_volume_factors import (  # noqa: E501
+        LIQUIDITY_VOLUME_FACTOR_CLASSES,
+    )
+    out.update({cls.DEFAULT_NAME: cls for cls in LIQUIDITY_VOLUME_FACTOR_CLASSES})
+    return out
 
 
 momentum_factor_classes = candidate_factor_classes          # former name

@@ -39,16 +39,24 @@ def _heatmap(values: np.ndarray, row_labels: List[str], col_labels: List[str], t
     return fig
 
 
-def fig_confusion(result, normalised: bool = False):
-    labels = [class_label(k, result.classes) for k in result.classes]
+BINARY_LABELS = ["below median", "above median"]
+
+
+def view_labels(view: str, result) -> List[str]:
+    return BINARY_LABELS if view == "binary" else [class_label(k, result.classes) for k in result.classes]
+
+
+def fig_confusion(result, normalised: bool = False, labels: Optional[List[str]] = None, title: str = "True vs "
+                  "predicted class"):
+    labels = labels or [class_label(k, result.classes) for k in result.classes]
     if normalised:
         values = np.array([[np.nan if v is None else v for v in row] for row in result.row_normalised()], dtype=float)
         return _heatmap(values, [f"true {x}" for x in labels], [f"pred {x}" for x in labels],
-                        "True vs predicted class (share of each true class)", "predicted class", "true class",
+                        f"{title} (share of each true class)", "predicted class", "true class",
                         "Blues", 0.0, 1.0, lambda v: f"{v:.0%}")
     values = np.array(result.confusion_matrix, dtype=float)
     return _heatmap(values, [f"true {x}" for x in labels], [f"pred {x}" for x in labels],
-                    "True vs predicted class (counts)", "predicted class", "true class", "Blues", 0.0,
+                    f"{title} (counts)", "predicted class", "true class", "Blues", 0.0,
                     max(float(values.max()), 1.0), lambda v: f"{int(v)}")
 
 
@@ -74,6 +82,12 @@ def fig_cumulative(analysis, name: str):
 def figures(evaluation, target_class: Optional[int]) -> Dict[str, Optional[str]]:
     out = {"confusion_counts": rr.png(fig_confusion(evaluation.classification)),
            "confusion_share": rr.png(fig_confusion(evaluation.classification, normalised=True))}
+    titles = {"binary": "Above / below the median: true vs predicted",
+              "quintile": "Return quintile: true vs predicted"}
+    for view, result in (getattr(evaluation, "cross_sectional", None) or {}).items():
+        labels = view_labels(view, result)
+        out[f"{view}_share"] = rr.png(fig_confusion(result, True, labels, titles[view]))
+        out[f"{view}_counts"] = rr.png(fig_confusion(result, False, labels, titles[view]))
     analysis = evaluation.probability_quintiles.get(target_class) if target_class is not None else None
     if analysis is not None:
         f = fig_cumulative(analysis, evaluation.output_label(target_class))
@@ -90,8 +104,8 @@ def per_class_table(result) -> pd.DataFrame:
     return pd.DataFrame(rows).T
 
 
-def confusion_table(result, normalised: bool = False) -> pd.DataFrame:
-    labels = [class_label(k, result.classes) for k in result.classes]
+def confusion_table(result, normalised: bool = False, labels: Optional[List[str]] = None) -> pd.DataFrame:
+    labels = labels or [class_label(k, result.classes) for k in result.classes]
     data = result.row_normalised() if normalised else result.confusion_matrix
     return pd.DataFrame([[np.nan if v is None else v for v in row] for row in data],
                         index=[f"true {x}" for x in labels], columns=[f"pred {x}" for x in labels])

@@ -47,14 +47,19 @@ def construct_dispersion_trade(signals: StrategySignals, etf: Leg, constituents:
     return constructor.construct(opened, expiry, etf, constituents, selection)
 
 
+def occ_symbol(underlying: str, expiry: date, strike: float, right: str = "C") -> str:
+    """OCC-style option symbol: root padded to 6, YYMMDD, C / P, strike x 1000 on 8 digits."""
+    return f"{underlying:<6}{expiry:%y%m%d}{right}{int(round(strike * 1000)):08d}"
+
+
 def dispersion_target_portfolio(trade: ConstructedTrade, as_of: Optional[datetime] = None,
                                 strategy: str = MODEL_FILTERED, strategy_name: str = "etf_call_dispersion",
                                 option_symbol: Optional[Callable[[str, date, float], str]] = None
                                 ) -> TargetPortfolio:
     """Steps 6-8: the trade's legs (strategy 'original' = full basket, 'model_filtered' = selected) as a
     TargetPortfolio of option contracts. ``option_symbol`` names a leg's contract (default: the cycle's OCC symbol)."""
-    if option_symbol is None:                     # imported here: the dispersion trading cycle imports this module
-        from src.application.services.dispersion.dispersion_trading_cycle import occ_symbol as option_symbol
+    if option_symbol is None:
+        option_symbol = occ_symbol
     if strategy not in (ORIGINAL, MODEL_FILTERED):
         raise ValueError(f"strategy must be '{ORIGINAL}' or '{MODEL_FILTERED}'")
     legs = trade.original if strategy == ORIGINAL else trade.filtered

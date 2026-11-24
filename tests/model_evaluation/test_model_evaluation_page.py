@@ -35,7 +35,9 @@ def test_the_page_lists_models_and_evaluates_a_five_class_model(client):
     for section in ("1. Classification", "Balanced accuracy", "Macro F1", "Log loss", "Confusion matrix",
                     "2. Probability quintiles", "3. Cumulative returns", "4. Correlation", "monotonicity"):
         assert section in html, section
-    assert html.count("data:image/png;base64,") == 4                 # confusion x2, cumulative, correlation
+    # confusion x2, binary x2, quintile x2, cumulative, correlation
+    assert html.count("data:image/png;base64,") == 8
+    assert "1b. Binary and quintile confusion matrices" in html and "expected class" in html
     assert "P(Q5) quintiles" in html
     html = client.get(Q5 + "&prob_class=1").get_data(as_text=True)
     assert "P(Q1) quintiles" in html
@@ -56,5 +58,9 @@ def test_csv_exports_and_errors(client):
     conf = client.get(Q5.replace("model-evaluation?", "model-evaluation/csv?") + "&part=confusion")
     assert conf.get_data(as_text=True).splitlines()[0] == ",pred Q1,pred Q2,pred Q3,pred Q4,pred Q5"
     assert client.get(Q5.replace("model-evaluation?", "model-evaluation/csv?") + "&part=nope").status_code == 400
+    binary = client.get(Q5.replace("model-evaluation?", "model-evaluation/csv?") + "&part=binary")
+    assert binary.get_data(as_text=True).splitlines()[0] == ",pred below median,pred above median"
+    quint = client.get(Q5.replace("model-evaluation?", "model-evaluation/csv?") + "&part=quintile")
+    assert quint.get_data(as_text=True).splitlines()[0] == ",pred Q1,pred Q2,pred Q3,pred Q4,pred Q5"
     html = client.get(Q5.replace("lgbm_quintile:3", "lgbm_quintile:999")).get_data(as_text=True)
     assert "unknown classifier model" in html

@@ -29,6 +29,11 @@ CF_TAGS = {"operatingCashFlow": "NetCashProvidedByUsedInOperatingActivities",
 PER_SHARE = {"eps", "epsDiluted"}
 
 
+def shares_outstanding(i: int) -> float:
+    """CommonStockSharesOutstanding at quarter end i (unit 'shares': a count, not an amount); buybacks shrink it."""
+    return 1_000_000_000.0 - 5_000_000.0 * i
+
+
 def original_filed(i: int) -> date:
     """When the period's own filing came out: 10-Q 35 days after the quarter, 10-K 60 days after the year."""
     return QUARTER_ENDS[i] + timedelta(days=60 if i % 4 == 3 else 35)
@@ -84,6 +89,8 @@ def statement_rows(statement, fiscal_period=None):
             else:
                 values = {t: (balance(i)[f], "USD") for f, t in BS_TAGS.items()}
         fy = end.year if filed(i) == original_filed(i) else end.year + 1
+        if statement == "balance-sheet":
+            values["CommonStockSharesOutstanding"] = (shares_outstanding(i), "shares")
         for tag, (value, unit) in values.items():
             out.append(_row(tag, end, value, fy, fp, form, filed(i), unit))
         if q == 2 and statement == "income-statement":

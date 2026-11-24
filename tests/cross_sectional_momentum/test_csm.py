@@ -42,9 +42,9 @@ def _bars(n_days=150, start="2024-10-01", tickers=("A0", "A1", "A2"), seed=3):
 
 
 def test_features_only_use_past_bars_and_the_label_needs_the_future():
-    bars = _bars(n_days=170, tickers=[f"A{i}" for i in range(6)])
+    bars = _bars(n_days=300, tickers=[f"A{i}" for i in range(6)])          # > the 253 bars of the 12-month windows
     cfg_f, cfg_l = CSMFeatureConfig(), CSMLabelConfig(horizon=1)
-    d = bars["close"].index[150]
+    d = bars["close"].index[280]
     base = build_dataset(bars, cfg_f, cfg_l).rows_on(d)
     changed = {f: p.copy() for f, p in bars.items()}
     for f in changed:
@@ -74,6 +74,18 @@ def test_candidates_are_momentum_plus_liquidity_factors_and_match_the_signal_fac
     )
     names = CSMFeatureConfig().feature_names()
     assert len(names) == 48 and names[:24] == LGBMMomentumFeatureDefinition.FEATURE_NAMES
+    from src.domain.entities.factor.finance.financial_assets.share_factor.company_share.company_share_liquidity_volume_factors import (  # noqa: E501
+        LIQUIDITY_VOLUME_FACTOR_CLASSES,
+    )
+    with_lv = CSMFeatureConfig(liquidity_volume=True)                        # the opt-in group (2026-11-23)
+    assert with_lv.feature_names()[48:] == [cls().name for cls in LIQUIDITY_VOLUME_FACTOR_CLASSES]
+    assert with_lv.warmup_rows() == 254 and CSMFeatureConfig().warmup_rows() == 128      # 253 closes for 12m
+    from src.application.services.data.entities.factor.cross_sectional_momentum.csm_configuration import (
+        CSMConfiguration,
+    )
+    default = CSMConfiguration()                                             # the default hash is unchanged
+    assert default.model_hash() == CSMConfiguration(features=CSMFeatureConfig(liquidity_volume=False)).model_hash()
+    assert CSMConfiguration(features=with_lv).model_hash() != default.model_hash()
     assert {"avg_turnover_1m", "avg_turnover_2m", "avg_turnover_3m", "avg_turnover_4m", "avg_turnover_5m",
             "avg_turnover_6m", "share_turnover", "vpt_16w_20d_lag", "monthly_price_range", "max_daily_return_6m",
             "min_return_120d", "rel_return_spy_1d", "rel_return_spy_5d", "rel_return_spy_20d", "rel_return_spy_3m",
@@ -85,6 +97,8 @@ def test_candidates_are_momentum_plus_liquidity_factors_and_match_the_signal_fac
     assert sorted(deps) == sorted(cls for cls, _ in CSMFeatureDefinition.FEATURE_MAP)   # same candidates
     assert len(LGBMMomentumFeatureDefinition.FEATURE_MAP) == 24              # quintile-rank factor unchanged
     assert CSMFeatureConfig().warmup_rows() == max_lookback() + 1
+    with_group = CSMFeatureConfig(liquidity_volume=True)
+    assert with_group.warmup_rows() == max_lookback(with_group) + 1
     from src.application.services.data.entities.factor.cross_sectional_momentum.csm_features import benchmark_symbols
     assert benchmark_symbols() == ["IRX", "SPY"]
 

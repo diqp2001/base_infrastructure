@@ -64,6 +64,28 @@
     {% if ev.per_run|length > 1 %}<details class="mt-2"><summary>Per run</summary>{{ table(ev.per_run, 4, 'run')|safe }}</details>{% endif %}
 </div></div>
 
+{% if ev.cross_sectional %}
+<div class="card mb-3"><div class="card-header">1b. Binary and quintile confusion matrices — the same definitions for every model</div><div class="card-body small">
+    <p class="muted mb-2">Per date, from the model's ranking of the stocks ({{ ev.ranking_label() }}, known at the date) and the realised
+        forward return: <b>binary</b> = predicted top half vs a return above the date's median; <b>quintile</b> = the ranking's
+        quintile vs the return's quintile (Q1 lowest .. Q5 highest). Comparable across binary, five-class and score models.
+        <a href="#" onclick="showViews('share');return false">row %</a> · <a href="#" onclick="showViews('counts');return false">counts</a></p>
+    <div class="row g-3">
+    {% for view, title, chance in [('binary', 'Binary: above / below the median', 0.5), ('quintile', 'Quintiles', 0.2)] %}
+        {% set r = ev.cross_sectional[view] %}
+        <div class="col-md-6">
+            <h6>{{ title }} <span class="muted">· accuracy {{ '%.3f'|format(r.accuracy) if r.accuracy is not none else '—' }}
+                (chance {{ chance }}) · balanced {{ '%.3f'|format(r.balanced_accuracy) if r.balanced_accuracy is not none else '—' }}
+                · macro F1 {{ '%.3f'|format(r.macro_f1) if r.macro_f1 is not none else '—' }} · n {{ r.n_observations }}</span>
+                · <a href="{{ csv }}&part={{ view }}">CSV</a></h6>
+            <img class="figure view-share" src="data:image/png;base64,{{ figures[view ~ '_share'] }}" alt="{{ view }} share">
+            <img class="figure view-counts" style="display:none" src="data:image/png;base64,{{ figures[view ~ '_counts'] }}" alt="{{ view }} counts">
+        </div>
+    {% endfor %}
+    </div>
+</div></div>
+{% endif %}
+
 <div class="card mb-3"><div class="card-header">2. Probability quintiles — does each class probability rank the realised returns?</div><div class="card-body small">
     <p class="muted mb-1">Per date, stocks ranked by P(class k) into Q1 (lowest probability) .. Q5 (highest). If P(best class) is useful,
         mean returns should rise from Q1 to Q5 (monotonicity close to +1); P(worst class) the opposite. Nothing here assumes it.</p>
@@ -97,6 +119,10 @@
 function showConf(which) {
     document.getElementById('conf-share').style.display = which === 'share' ? '' : 'none';
     document.getElementById('conf-counts').style.display = which === 'counts' ? '' : 'none';
+}
+function showViews(which) {
+    document.querySelectorAll('.view-share').forEach(e => e.style.display = which === 'share' ? '' : 'none');
+    document.querySelectorAll('.view-counts').forEach(e => e.style.display = which === 'counts' ? '' : 'none');
 }
 function loadRuns() {
     const key = document.getElementById('model').value;

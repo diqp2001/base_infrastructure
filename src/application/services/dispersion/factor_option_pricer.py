@@ -44,7 +44,7 @@ class FactorOptionPricer:
                  import_quotes: Optional[Callable[[str, bool, date, date], None]] = None,
                  occ_symbol: Optional[Callable[[str, date, float], str]] = None,
                  log: Optional[Callable[[str], None]] = None):
-        from src.application.services.dispersion.dispersion_trading_cycle import occ_symbol as _occ
+        from src.application.services.dispersion.dispersion_target_portfolio import occ_symbol as _occ
         self.factory = factory
         self.service = resolution_service
         self.register_option = register_option

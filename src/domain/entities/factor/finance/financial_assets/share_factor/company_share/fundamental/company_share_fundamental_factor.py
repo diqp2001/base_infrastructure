@@ -76,6 +76,7 @@ STATEMENT_FIELDS: Dict[str, Tuple[str, ...]] = {
         "accumulatedOtherComprehensiveIncomeLoss", "otherTotalStockholdersEquity", "totalStockholdersEquity",
         "totalEquity", "minorityInterest", "totalLiabilitiesAndTotalEquity",
         "totalInvestments", "totalDebt", "netDebt",
+        "commonStockSharesOutstanding",          # a share count, not an amount (Eulerpool; 2026-11-24)
     ),
     CASH_FLOW: (
         "netIncome", "depreciationAndAmortization", "deferredIncomeTax", "stockBasedCompensation",
